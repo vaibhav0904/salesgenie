@@ -1,0 +1,862 @@
+{
+  "name": "VaibhavCapstone-08-MCPOnboarding",
+  "nodes": [
+    {
+      "id": "mcp",
+      "name": "MCP Server Trigger",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -520
+      ],
+      "parameters": {
+        "path": "vaibhavcapstone-onboarding",
+        "authentication": "bearerAuth"
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "7BpkzsCnKyO5mJPB",
+          "name": "Capstone-MCP-Bearer"
+        }
+      },
+      "notes": "Natural-language onboarding surface. Any MCP client (Claude Desktop/Code) connects to /mcp/vaibhavcapstone-onboarding with the bearer token and can set up a whole tenant in plain English. Tools are thin: each posts to a local webhook that owns validation + SQL.",
+      "webhookId": "3858cd75-a19b-401d-a641-a9d313f5cb89"
+    },
+    {
+      "id": "t0",
+      "name": "create_business",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -520,
+        -700
+      ],
+      "parameters": {
+        "toolDescription": "Register a NEW business (tenant) on the SalesGenie platform. Send JSON body: {\"name\": string (required), \"industry\": string, \"tone\": string describing the writing voice for customer emails, \"currency\": 3-letter code, \"timezone\": IANA zone, \"city\": string}. Returns the generated business_id, the intake webhook URL, and the next setup steps. Call this first when someone wants to onboard their company. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-create-business",
+        "sendBody": true,
+        "specifyBody": "model",
+        "options": {}
+      }
+    },
+    {
+      "id": "t1",
+      "name": "update_business_config",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -330,
+        -700
+      ],
+      "parameters": {
+        "toolDescription": "Update configuration for an existing business (merges into existing config; only send keys you want to change). JSON body: {\"business_id\": string (required), \"config\": object e.g. {\"tone\":\"...\",\"currency\":\"...\",\"min_confidence\":0.6,\"intake_email\":\"inbox@example.com\",\"scoring\":{...}}}. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-update-config",
+        "sendBody": true,
+        "specifyBody": "model",
+        "options": {}
+      }
+    },
+    {
+      "id": "t2",
+      "name": "set_reviewer",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -140,
+        -700
+      ],
+      "parameters": {
+        "toolDescription": "Set the human reviewer who approves outbound customer emails for a business, and the sender identity used to send them. JSON body: {\"business_id\": string (required), \"reviewer_email\": string (required), \"sender_identity\": string (optional, defaults to reviewer_email)}. Unlocks the draft-approval and send stages. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-set-reviewer",
+        "sendBody": true,
+        "specifyBody": "model",
+        "options": {}
+      }
+    },
+    {
+      "id": "t3",
+      "name": "upload_catalog",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        50,
+        -700
+      ],
+      "parameters": {
+        "toolDescription": "Add or update products in a business catalog. Recommendations can only use products from here. JSON body: {\"business_id\": string (required), \"items\": [{\"sku\": string optional, \"name\": string required, \"category\": string required lowercase, \"price\": number required, \"currency\": string, \"stock_qty\": integer, \"attributes\": object}]} OR {\"business_id\": ..., \"csv\": \"sku,name,category,price,currency,stock_qty\\n...\"}. Invalid rows are reported per-row; valid rows still load. Unlocks recommendations and reprocesses any leads parked waiting for a catalog. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-upload-catalog",
+        "sendBody": true,
+        "specifyBody": "model",
+        "options": {}
+      }
+    },
+    {
+      "id": "t4",
+      "name": "get_setup_status",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        -700
+      ],
+      "parameters": {
+        "toolDescription": "Check exactly what is configured for a business and what is still missing, which pipeline stages are unlocked, how many leads are parked waiting on setup, and the concrete next steps. JSON body: {\"business_id\": string (required)}. Use this whenever someone asks \"what is left to set up?\". PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-setup-status",
+        "sendBody": true,
+        "specifyBody": "model",
+        "options": {}
+      }
+    },
+    {
+      "id": "t5",
+      "name": "get_intake_endpoint",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        430,
+        -700
+      ],
+      "parameters": {
+        "toolDescription": "Get the webhook URL and example payload for sending customer enquiries into a business pipeline. JSON body: {\"business_id\": string (required)}. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-intake-endpoint",
+        "sendBody": true,
+        "specifyBody": "model",
+        "options": {}
+      }
+    },
+    {
+      "id": "w1",
+      "name": "WH create_business",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -280
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-create-business",
+        "responseMode": "lastNode"
+      },
+      "webhookId": "c24b45af-abd3-4705-8680-046815f585c5"
+    },
+    {
+      "id": "c1",
+      "name": "Normalize Business",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -280
+      ],
+      "parameters": {
+        "jsCode": "const b = ($input.first().json.body) || {};\nconst errs = [];\nif (!b.name || !String(b.name).trim()) errs.push('name is required');\nconst slug = String(b.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 14) || 'biz';\nreturn [{ json: {\n  ok: errs.length === 0, errors: errs,\n  business_id: b.business_id || ('biz_' + slug),\n  name: String(b.name || '').trim(),\n  industry: b.industry || null,\n  config: {\n    tone: b.tone || 'friendly, professional, helpful',\n    currency: b.currency || 'INR',\n    timezone: b.timezone || 'Asia/Kolkata',\n    city: b.city || null\n  } } }];"
+      }
+    },
+    {
+      "id": "p1",
+      "name": "Insert Business",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        480,
+        -280
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text bid, $2::text nm, $3::text ind, $4::jsonb cfg),\nins AS (INSERT INTO vaibhavcapstone_businesses (business_id, name, industry, config)\n  SELECT bid, nm, ind, cfg FROM p\n  ON CONFLICT (business_id) DO UPDATE SET name = EXCLUDED.name, industry = EXCLUDED.industry,\n    config = vaibhavcapstone_businesses.config || EXCLUDED.config, updated_at = now()\n  RETURNING business_id, name, industry, config),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, agent, action, actor, detail)\n  SELECT business_id, 'mcp-onboarding', 'BUSINESS_CREATED', $5, jsonb_build_object('name', name) FROM ins\n  RETURNING event_id)\nSELECT i.business_id, i.name, i.industry, i.config,\n  'http://localhost:5678/webhook/vaibhavcapstone-intake' AS intake_url,\n  (SELECT jsonb_agg(x) FROM (VALUES ('catalog: use upload_catalog'), ('reviewer: use set_reviewer')) v(x)) AS next_steps\nFROM ins i;",
+        "options": {
+          "queryReplacement": "={{ [$json.business_id, $json.name, $json.industry, JSON.stringify($json.config), 'mcp'] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "business_id auto-slugged from the name; config seeded with tone/currency/timezone defaults. Upsert = idempotent onboarding."
+    },
+    {
+      "id": "w2",
+      "name": "WH update_config",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -140
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-update-config",
+        "responseMode": "lastNode"
+      },
+      "webhookId": "8e92dc42-77d0-4160-a7ea-639d79e42ffd"
+    },
+    {
+      "id": "p2",
+      "name": "Merge Config",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        -140
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text bid, $2::jsonb patch),\nu AS (UPDATE vaibhavcapstone_businesses b SET config = b.config || p.patch, updated_at = now()\n  FROM p WHERE b.business_id = p.bid RETURNING b.business_id, b.config),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, agent, action, actor, detail)\n  SELECT business_id, 'mcp-onboarding', 'CONFIG_UPDATED', $3, (SELECT patch FROM p) FROM u RETURNING event_id)\nSELECT * FROM u;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.business_id, JSON.stringify($json.body.config || {}), 'mcp'] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "w3",
+      "name": "WH set_reviewer",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-set-reviewer",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "d51a9fc0-4a97-4f9b-848e-56356d321e8c"
+    },
+    {
+      "id": "p3",
+      "name": "Set Reviewer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text bid, $2::text rev, $3::text snd),\nu AS (UPDATE vaibhavcapstone_businesses b\n  SET config = b.config || jsonb_strip_nulls(jsonb_build_object(\n        'reviewer_email', p.rev, 'sender_identity', COALESCE(p.snd, p.rev),\n        'customer_email_redirect', COALESCE(b.config->>'customer_email_redirect', p.rev))),\n      updated_at = now()\n  FROM p WHERE b.business_id = p.bid RETURNING b.business_id, b.config),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, agent, action, actor, detail)\n  SELECT business_id, 'mcp-onboarding', 'REVIEWER_SET', $4,\n    jsonb_build_object('reviewer_email', config->>'reviewer_email') FROM u RETURNING event_id)\nSELECT business_id, config->>'reviewer_email' AS reviewer_email,\n  config->>'sender_identity' AS sender_identity FROM u;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.business_id, $json.body.reviewer_email, $json.body.sender_identity || null, 'mcp'] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "Also seeds customer_email_redirect for demo safety (approved replies go to the reviewer inbox unless overridden)."
+    },
+    {
+      "id": "w4",
+      "name": "WH upload_catalog",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        160
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-upload-catalog",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "2450bfdd-b22f-447e-90f6-edf0983445ac"
+    },
+    {
+      "id": "c4",
+      "name": "Parse + Validate Catalog",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        160
+      ],
+      "parameters": {
+        "jsCode": "const b = ($input.first().json.body) || {};\nconst bid = b.business_id;\nlet rows = [];\nconst errors = [];\nconst num = (v) => { const n = Number(String(v == null ? '' : v).replace(/[^0-9.\\-]/g, '')); return isFinite(n) ? n : null; };\nconst mkSku = (name, i) => (String(name || 'item').toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 3) || 'ITM') + '-' + String(i + 1).padStart(3, '0');\nif (Array.isArray(b.items)) {\n  rows = b.items.map((it, i) => ({ raw: it, sku: it.sku || mkSku(it.name, i), name: it.name,\n    category: it.category, price: num(it.price), currency: it.currency || 'INR',\n    stock_qty: it.stock_qty == null ? 0 : Math.max(0, Math.round(num(it.stock_qty) || 0)),\n    attributes: it.attributes && typeof it.attributes === 'object' ? it.attributes : {} }));\n} else if (typeof b.csv === 'string' && b.csv.trim()) {\n  const lines = b.csv.trim().split(/\\r?\\n/);\n  const head = lines[0].split(',').map(h => h.trim().toLowerCase());\n  lines.slice(1).forEach((ln, i) => {\n    const cells = ln.split(',');\n    const o = {}; head.forEach((h, k) => o[h] = (cells[k] || '').trim());\n    rows.push({ raw: o, sku: o.sku || mkSku(o.name, i), name: o.name, category: o.category,\n      price: num(o.price), currency: o.currency || 'INR',\n      stock_qty: o.stock_qty === '' || o.stock_qty == null ? 0 : Math.max(0, Math.round(num(o.stock_qty) || 0)),\n      attributes: {} });\n  });\n} else { errors.push('provide items[] or csv'); }\nconst valid = [], rejected = [];\nfor (const r of rows) {\n  const why = [];\n  if (!r.name) why.push('missing name');\n  if (!r.category) why.push('missing category');\n  if (r.price == null || r.price < 0) why.push('missing/invalid price');\n  if (why.length) rejected.push({ row: r.raw, reasons: why }); else valid.push(r);\n}\nreturn [{ json: { ok: !!bid && valid.length > 0, business_id: bid, errors,\n  valid, rejected, valid_count: valid.length, rejected_count: rejected.length } }];"
+      }
+    },
+    {
+      "id": "p4",
+      "name": "Upsert Products",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        480,
+        160
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text bid, $2::jsonb items),\nrows AS (SELECT p.bid, i->>'sku' sku, i->>'name' nm, i->>'category' cat,\n  (i->>'price')::numeric price, i->>'currency' cur, (i->>'stock_qty')::int stock,\n  COALESCE(i->'attributes', '{}'::jsonb) attrs\n  FROM p CROSS JOIN LATERAL jsonb_array_elements(p.items) i),\nins AS (INSERT INTO vaibhavcapstone_products (business_id, sku, name, category, price, currency, stock_qty, attributes)\n  SELECT bid, sku, nm, cat, price, cur, stock, attrs FROM rows\n  ON CONFLICT (business_id, sku) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category,\n    price = EXCLUDED.price, currency = EXCLUDED.currency, stock_qty = EXCLUDED.stock_qty,\n    attributes = EXCLUDED.attributes, updated_at = now()\n  RETURNING sku),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, agent, action, actor, detail)\n  SELECT (SELECT bid FROM p), 'mcp-onboarding', 'CATALOG_UPLOADED', $3,\n    jsonb_build_object('count', (SELECT count(*) FROM ins)) RETURNING event_id)\nSELECT (SELECT count(*) FROM ins) AS upserted,\n  (SELECT count(*) FROM vaibhavcapstone_products WHERE business_id = (SELECT bid FROM p)) AS catalog_size;",
+        "options": {
+          "queryReplacement": "={{ [$json.business_id, JSON.stringify($json.valid), 'mcp'] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "Accepts items[] or CSV; per-row rejects are reported back while valid rows still load."
+    },
+    {
+      "id": "c4b",
+      "name": "Catalog Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        160
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst p = $('Parse + Validate Catalog').first().json;\nreturn [{ json: { ok: true, business_id: p.business_id, upserted: r.upserted, catalog_size: r.catalog_size,\n  rejected_rows: p.rejected, note: p.rejected_count ? (p.rejected_count + ' row(s) rejected - see rejected_rows') : 'all rows loaded' } }];"
+      }
+    },
+    {
+      "id": "w5",
+      "name": "WH setup_status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        340
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-setup-status",
+        "responseMode": "lastNode"
+      },
+      "webhookId": "9177dd6a-a97b-4973-a0fc-1324c91f58ac"
+    },
+    {
+      "id": "p5",
+      "name": "Compute Setup Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        340
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "SELECT b.business_id, b.name,\n  jsonb_build_object(\n    'profile', jsonb_build_object('configured', s.profile_ok, 'detail', 'name, tone, currency'),\n    'intake_channel', jsonb_build_object('configured', s.intake_ok, 'detail', 'webhook issued at business creation'),\n    'catalog', jsonb_build_object('configured', s.catalog_ok, 'detail',\n       (SELECT count(*) FROM vaibhavcapstone_products p WHERE p.business_id = b.business_id) || ' products'),\n    'reviewer', jsonb_build_object('configured', s.reviewer_ok, 'detail', COALESCE(b.config->>'reviewer_email', 'not set')),\n    'sender_identity', jsonb_build_object('configured', s.sender_ok, 'detail', COALESCE(b.config->>'sender_identity', 'not set'))\n  ) AS components,\n  jsonb_build_object(\n    'intake', s.intake_ok, 'classify_extract', true, 'qualify', true,\n    'recommend', s.catalog_ok, 'draft_and_approve', s.reviewer_ok, 'send', s.sender_ok\n  ) AS pipeline_stages,\n  s.parked_leads,\n  (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM (\n     SELECT 'Add products with upload_catalog (business_id, items[] or csv) to unlock recommendations' x WHERE NOT s.catalog_ok\n     UNION ALL SELECT 'Set a reviewer with set_reviewer (business_id, reviewer_email) to unlock approvals and sending' WHERE NOT s.reviewer_ok\n     UNION ALL SELECT 'Setup complete - send a test enquiry with send_test_lead' WHERE s.catalog_ok AND s.reviewer_ok\n  ) t) AS next_steps,\n  (s.profile_ok AND s.intake_ok AND s.catalog_ok AND s.reviewer_ok AND s.sender_ok) AS ready\nFROM vaibhavcapstone_businesses b JOIN vaibhavcapstone_setup_state s USING (business_id)\nWHERE b.business_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.business_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "Setup state is COMPUTED live from data (catalog = product count > 0), never a stored flag."
+    },
+    {
+      "id": "w6",
+      "name": "WH intake_endpoint",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        480
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-intake-endpoint",
+        "responseMode": "lastNode"
+      },
+      "webhookId": "87f3cac5-4db4-4295-8b71-58756c95a136"
+    },
+    {
+      "id": "p6",
+      "name": "Get Intake Endpoint",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        480
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "SELECT business_id, 'http://localhost:5678/webhook/vaibhavcapstone-intake' AS intake_url, 'POST' AS method,\n  jsonb_build_object('business_id', business_id, 'channel', 'webhook',\n    'from_email', 'customer@example.com', 'from_name', 'Customer Name',\n    'subject', 'Product enquiry', 'body', 'Full text of the customer enquiry',\n    'received_at', '2026-07-26T10:00:00+05:30') AS example_payload,\n  'Email adapters (Gmail/IMAP) map their source into this same payload; set config.intake_email to route a mailbox to this business.' AS note\nFROM vaibhavcapstone_businesses WHERE business_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.business_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "rb1",
+      "name": "Resume Input (catalog)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        160
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { business_id: $('Parse + Validate Catalog').first().json.business_id } }];"
+      }
+    },
+    {
+      "id": "rw1",
+      "name": "Resume Parked (catalog)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1180,
+        160
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "wrGgSDQrj6djOd8C",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "notes": "Completing setup automatically un-parks leads that were waiting on it."
+    },
+    {
+      "id": "rb2",
+      "name": "Resume Input (reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { business_id: $('Set Reviewer').first().json.business_id } }];"
+      }
+    },
+    {
+      "id": "rw2",
+      "name": "Resume Parked (reviewer)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        700,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "wrGgSDQrj6djOd8C",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "notes": "Completing setup automatically un-parks leads that were waiting on it."
+    },
+    {
+      "id": "rc",
+      "name": "Respond Catalog",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        960,
+        60
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "notes": "Respond to the MCP tool with the real result, then continue into the resume side-effect."
+    },
+    {
+      "id": "rr",
+      "name": "Respond Reviewer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        -100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "notes": "Respond to the MCP tool with the real result, then continue into the resume side-effect."
+    },
+    {
+      "parameters": {
+        "content": "## The front office — running the platform by chatting\n\nThis is how a business joins and configures itself: by talking to an AI assistant in ordinary language. No forms, no admin screens, no developer.\n\n*\"Set up my shop — Page & Bind Books, a bookshop, warm and friendly tone.\"* That sentence is the entire onboarding.",
+        "height": 185,
+        "width": 2020,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -920
+      ],
+      "id": "sticky-395Bso-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### The abilities the assistant is allowed to use\n\nEach of these is one thing a business can ask for in conversation: create my business · change my settings · name who approves replies · upload my catalogue · tell me what's still missing · tell me where enquiries should be sent.\n\nThe assistant reads these descriptions, works out which one the person meant, and fills in the details from what they said. **None of this is a screen anyone has to learn** — it's six abilities exposed as plain language.",
+        "height": 320,
+        "width": 1220,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -790
+      ],
+      "id": "sticky-395Bso-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### One lane per ability\n\nEach ability is a short self-contained line: take the request, check it, write it down, answer.\n\n**Create the business** — invent an identifier from the name, apply sensible defaults for tone, currency and timezone, record it.\n**Change settings** — merge new values into what's already there rather than replacing wholesale, so changing your tone of voice doesn't wipe your currency.\n**Name the reviewer** — the person who will approve every reply before it goes out.\n**Upload the catalogue** — read the rows, check each has a name and a sensible price, invent product codes for any that lack them, and report exactly which rows were rejected and why. A bad row is never silently skipped.\n\n**Two of these lanes end by waking up parked enquiries.** Naming a reviewer or uploading a catalogue is usually the very thing some enquiry has been waiting on — so finishing setup is what un-sticks them, immediately and without anyone asking.",
+        "height": 650,
+        "width": 1520,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        -390
+      ],
+      "id": "sticky-395Bso-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Questions, not changes\n\n**What's still missing?** Answered in plain terms — no catalogue yet, no reviewer yet — so the business knows what to do next.\n\n**Where do enquiries go?** Hands back the address of this business's own front door.\n\nThese two only ever read. They change nothing.",
+        "height": 330,
+        "width": 820,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        290
+      ],
+      "id": "sticky-395Bso-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Why this is the interesting part\n\nThe assignment asked for a sales assistant for one furniture company.\n\nBecause everything tenant-specific lives in a settings record rather than inside the workflows, a business that has never existed can **talk itself into being** — and inherit this entire pipeline, unchanged.\n\nA second business was created live, in a chat, during the demo. Zero code was written for it.",
+        "height": 290,
+        "width": 1020,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        660
+      ],
+      "id": "sticky-395Bso-4",
+      "name": "Sticky Note4"
+    }
+  ],
+  "connections": {
+    "WH create_business": {
+      "main": [
+        [
+          {
+            "node": "Normalize Business",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Business": {
+      "main": [
+        [
+          {
+            "node": "Insert Business",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH update_config": {
+      "main": [
+        [
+          {
+            "node": "Merge Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH set_reviewer": {
+      "main": [
+        [
+          {
+            "node": "Set Reviewer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH upload_catalog": {
+      "main": [
+        [
+          {
+            "node": "Parse + Validate Catalog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Validate Catalog": {
+      "main": [
+        [
+          {
+            "node": "Upsert Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Products": {
+      "main": [
+        [
+          {
+            "node": "Catalog Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH setup_status": {
+      "main": [
+        [
+          {
+            "node": "Compute Setup Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH intake_endpoint": {
+      "main": [
+        [
+          {
+            "node": "Get Intake Endpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_business": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_business_config": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_reviewer": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload_catalog": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_setup_status": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_intake_endpoint": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catalog Result": {
+      "main": [
+        [
+          {
+            "node": "Respond Catalog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume Input (catalog)": {
+      "main": [
+        [
+          {
+            "node": "Resume Parked (catalog)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Reviewer": {
+      "main": [
+        [
+          {
+            "node": "Respond Reviewer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume Input (reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Resume Parked (reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Catalog": {
+      "main": [
+        [
+          {
+            "node": "Resume Input (catalog)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond Reviewer": {
+      "main": [
+        [
+          {
+            "node": "Resume Input (reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI",
+    "saveDataErrorExecution": "all"
+  },
+  "meta": {}
+}

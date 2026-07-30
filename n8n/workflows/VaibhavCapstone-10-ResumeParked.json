@@ -1,0 +1,303 @@
+{
+  "name": "VaibhavCapstone-10-ResumeParked",
+  "nodes": [
+    {
+      "id": "trg",
+      "name": "When Called By Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "notes": "Called after any setup-completing MCP tool. Resumes only the leads whose blocking gate is now satisfied."
+    },
+    {
+      "id": "sql",
+      "name": "Unpark Ready Leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH cand AS (SELECT lead_id, business_id, trace_id, status_detail->>'resume_from' AS resume_from\n  FROM vaibhavcapstone_leads WHERE business_id = $1 AND status = 'AWAITING_SETUP'),\nready AS (SELECT c.* FROM cand c JOIN vaibhavcapstone_setup_state s ON s.business_id = $1\n  WHERE (c.resume_from = 'recommend' AND s.catalog_ok) OR (c.resume_from = 'draft' AND s.reviewer_ok)),\nu AS (UPDATE vaibhavcapstone_leads l\n  SET status = CASE WHEN r.resume_from = 'recommend' THEN 'QUALIFIED' ELSE 'RECOMMENDED' END,\n      status_detail = '{}'::jsonb, updated_at = now()\n  FROM ready r WHERE l.lead_id = r.lead_id RETURNING l.lead_id, l.business_id, l.trace_id, r.resume_from),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, trace_id, 'resume', 'LEAD_RESUMED_AFTER_SETUP', 'system',\n    jsonb_build_object('resume_from', resume_from) FROM u RETURNING event_id)\nSELECT lead_id, business_id, trace_id, resume_from FROM u;",
+        "options": {
+          "queryReplacement": "={{ [$json.business_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "sib",
+      "name": "One At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "env",
+      "name": "Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nif (!j.lead_id) return [];\nreturn [{ json: { envelope_version: '1.0', business_id: j.business_id, lead_id: j.lead_id, trace_id: j.trace_id, agent: 'resume', status: 'ok', payload: { resume_from: j.resume_from } } }];"
+      }
+    },
+    {
+      "id": "ifstage",
+      "name": "Resume From Recommend?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifstagec",
+              "leftValue": "={{ $('One At A Time').first().json.resume_from }}",
+              "rightValue": "recommend",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c5",
+      "name": "Call Recommender",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        20
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "w5EsrbELebUE2ibV",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "c6",
+      "name": "Call DraftHITL",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "6SDxlPJ5fU1PSwLB",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## The wake-up call\n\nSome enquiries arrive before their business is ready — no catalogue uploaded yet, or nobody named to approve replies. Rather than fail those enquiries, the system parks them.\n\nThis is what wakes them up again, the moment the missing piece finally appears.",
+        "height": 180,
+        "width": 1520,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -330
+      ],
+      "id": "sticky-wrGgSD-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Find the ones that can now continue\n\n**Called whenever a business finishes a setup step** — a catalogue uploaded, a reviewer named.\n\n**Ask which parked enquiries are now unblocked, and un-park them in the same breath.** Doing both in one question is deliberate: it means the same enquiry can't be picked up twice by two runs happening at once.",
+        "height": 500,
+        "width": 700,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -130
+      ],
+      "id": "sticky-wrGgSD-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Restart each one where it left off\n\n**One at a time**, so a slow enquiry never holds up the others.\n\n**Each goes back to the right place.** An enquiry that stalled for want of a catalogue restarts at product matching. One that stalled for want of a reviewer restarts at drafting.\n\nNeither starts over — the reading, the facts and the score already worked out are all kept.",
+        "height": 500,
+        "width": 720,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -130
+      ],
+      "id": "sticky-wrGgSD-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Waiting isn't an error\n\nA half-configured business is a normal stage of being a new customer, not a fault.\n\nSo an enquiry that arrives too early is parked with an explanation rather than failed — and it resumes by itself. Nobody has to notice, remember, or press anything.",
+        "height": 240,
+        "width": 700,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        410
+      ],
+      "id": "sticky-wrGgSD-3",
+      "name": "Sticky Note3"
+    }
+  ],
+  "connections": {
+    "When Called By Agent": {
+      "main": [
+        [
+          {
+            "node": "Unpark Ready Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unpark Ready Leads": {
+      "main": [
+        [
+          {
+            "node": "One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One At A Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envelope": {
+      "main": [
+        [
+          {
+            "node": "Resume From Recommend?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume From Recommend?": {
+      "main": [
+        [
+          {
+            "node": "Call Recommender",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call DraftHITL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Recommender": {
+      "main": [
+        [
+          {
+            "node": "One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call DraftHITL": {
+      "main": [
+        [
+          {
+            "node": "One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI"
+  },
+  "meta": {}
+}

@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-02",
+  "from_email": "rahul.sharma87@example.com",
+  "from_name": "Rahul Sharma",
+  "subject": "Looking for a leather sofa - budget 90k",
+  "body": "Hi,\n\nI'm moving into a new flat in Indiranagar, Bangalore next month and want a premium leather sofa for the living room. Three-seater, something classic looking. My budget is up to Rs. 90,000.\n\nDo you deliver in Bangalore and what are the options?\n\nThanks,\nRahul",
+  "received_at": "2026-07-20T18:42:00+05:30"
+}

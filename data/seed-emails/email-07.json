@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-07",
+  "from_email": "arjun@greenspaces.example",
+  "from_name": "Arjun Menon",
+  "subject": "Garden gazebos and pergolas?",
+  "body": "Hi,\n\nWe're landscaping a rooftop terrace for a client and need a wooden gazebo and possibly two pergolas. Do you make outdoor structures like these? Budget is flexible for the right quality.\n\nArjun Menon\nGreen Spaces Landscaping",
+  "received_at": "2026-07-23T16:55:00+05:30"
+}

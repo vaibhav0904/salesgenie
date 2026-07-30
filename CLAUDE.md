@@ -1,0 +1,48 @@
+# SalesGenie v2
+
+Headless, multi-tenant agentic sales platform (capstone): businesses onboard in natural language over MCP and get lead qualification, grounded recommendations, weekly visual insights. Oak & Ember is tenant #1.
+
+## Tech stack
+n8n (Docker, authored via REST API) · Postgres (same compose) · Gemini 2.5 Flash (pipeline; gpt-4o-mini fallback) · OpenAI gpt-4o (judge) · Langfuse self-hosted :3100 (LLM traces) · QuickChart · Gmail. All free-tier, local.
+
+## Where things live
+- `docs/architecture.md` — the connected picture; `docs/contracts.md` — Envelope, payloads, state machines; `docs/traceability.md` — LLM observability
+- `docs/adr/` — decisions; `docs/domain.md` — vocabulary; `docs/assumptions.md` + `docs/metrics.md` — limits & KPIs
+- `stories/backlog|in-progress|done/` — ALL work as cards; `stories/README.md` — lifecycle; `evals/` — dataset, cases, dated results
+- `db/` — migrations/seeds; `data/` — seed emails + catalogs; `n8n/workflows/` — exports + import guide; `docker/` — compose
+
+## Commands
+- `/story` `/implement` `/review` `/eval <case>` `/bug <desc>` — see `.claude/commands/`
+- Evals: `node evals/run-evals.js` · Replay: POST a seed email to `/webhook/vaibhavcapstone-intake`
+- Insights: `POST /webhook/vaibhavcapstone-insights-run` · `GET /webhook/vaibhavcapstone-insights-latest?business_id=…`
+- Deploy a workflow edit: PUT via API, then deactivate→activate · A2A demo: `node scripts/buyer-agent-demo.js [business_id]`
+
+## Conventions
+- Workflows `VaibhavCapstone-<NN>-<Name>`; tables `vaibhavcapstone_<name>`; every row keyed by `business_id`.
+- Agents exchange the Envelope (contracts.md §1), validated on entry; `trace_id` flows everywhere; every step writes an Event.
+- Tenant behavior comes ONLY from `businesses` config — never branch on a business_id.
+- Stories: end-user perspective first; bugs filed as cards immediately; eval-gated stories need a result file.
+- Secrets only in `.env` (template `.env.example`) — never in code, workflows, or exports; `.mcp.json` loads it via dotenv-cli.
+
+## Gotchas
+- Old v1 artifacts: reference only. n8n can't hold state between executions — if it matters, it's a Postgres row.
+- Email clients don't run JS: email charts are QuickChart PNG `<img>`s.
+- Missing tenant config is a PRODUCT state (AWAITING_SETUP), not an error.
+- n8n 2.x API: PUT edits the DRAFT only and rejects off-schema settings (`binaryMode`) — whitelist; Code-node errors survive only in `stack`; waiting executions are invisible.
+- Exports drift: UI edits strip defaults and move nodes — re-export before zipping.
+- Gmail IMAP SUBJECT search is loose — outbound mail can self-ingest; WF-02's self-sender guard (BUG-001).
+- No `jq`; validate JSON via `node -e`.
+- JS `String.replace`: `$'`/`$&` in replacements expand — pass a replacer function.
+- `:param` webhook paths get UUID-prefixed — use static paths + query params. Code nodes can't read env vars — use `platform_config` or credentials.
+- `sendAndWait` pauses BEFORE parallel branches — side-effect nodes must sit inline before it.
+- n8n's Gemini NODE strips `usageMetadata` — call sites use direct HTTP `generateContent` (exact tokens; thinking tokens made estimates 36× low).
+- In `splitInBatches` loops, `$('X').first()` repeats iteration 1 — use `.item`.
+
+## Hard rules
+- No customer-facing send without human approval; send node reachable only from APPROVED.
+- Recommendations only from SQL-verified, in-stock tenant SKUs; no verifiable option → say so.
+- No build work without a story card. One story in progress at a time.
+- No PII in prompts beyond the fields a step needs; none in chart URLs. Never tune eval labels to match output.
+
+## Self-improvement
+Living file — update in the same story when conventions/gotchas/commands change; keep under 500 words.

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="300" fill="#FAF9F7"/>
+  <defs><marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">One enquiry, nineteen seconds — then everything stops, on purpose</text>
+  <!-- timeline base -->
+  <line x1="60" y1="150" x2="640" y2="150" stroke="#C9C5BD" stroke-width="3"/>
+  <!-- steps -->
+  <g text-anchor="middle" font-size="13">
+    <circle cx="80" cy="150" r="9" fill="#B4551D"/>
+    <text x="80" y="120" fill="#20242B" font-weight="700">0s</text><text x="80" y="185" fill="#20242B">email</text><text x="80" y="202" fill="#20242B">arrives</text>
+    <circle cx="200" cy="150" r="9" fill="#B4551D"/>
+    <text x="200" y="120" fill="#20242B" font-weight="700">~4s</text><text x="200" y="185" fill="#20242B">facts pulled out</text><text x="200" y="202" fill="#6E6A63">(blank beats a guess)</text>
+    <circle cx="330" cy="150" r="9" fill="#B4551D"/>
+    <text x="330" y="120" fill="#20242B" font-weight="700">~9s</text><text x="330" y="185" fill="#20242B">scored HOT</text><text x="330" y="202" fill="#6E6A63">(open arithmetic)</text>
+    <circle cx="470" cy="150" r="9" fill="#B4551D"/>
+    <text x="470" y="120" fill="#20242B" font-weight="700">~14s</text><text x="470" y="185" fill="#20242B">matched to</text><text x="470" y="202" fill="#20242B">real stock only</text>
+    <circle cx="600" cy="150" r="9" fill="#B4551D"/>
+    <text x="600" y="120" fill="#20242B" font-weight="700">~19s</text><text x="600" y="185" fill="#20242B">reply drafted</text><text x="600" y="202" fill="#6E6A63">(in your voice)</text>
+  </g>
+  <!-- the gate -->
+  <rect x="672" y="105" width="130" height="90" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="3"/>
+  <text x="737" y="136" text-anchor="middle" fill="#B4551D" font-size="26" font-weight="800">STOP</text>
+  <text x="737" y="160" text-anchor="middle" fill="#20242B" font-size="13">a human reads it</text>
+  <text x="737" y="180" text-anchor="middle" fill="#20242B" font-size="13">and clicks Approve</text>
+  <line x1="640" y1="150" x2="668" y2="150" stroke="#6E6A63" stroke-width="2" marker-end="url(#a)"/>
+  <!-- send -->
+  <rect x="836" y="118" width="100" height="64" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2"/>
+  <text x="886" y="145" text-anchor="middle" fill="#2E7D53" font-size="15" font-weight="700">SENT</text>
+  <text x="886" y="167" text-anchor="middle" fill="#20242B" font-size="12">only from here</text>
+  <line x1="804" y1="150" x2="832" y2="150" stroke="#6E6A63" stroke-width="2" marker-end="url(#a)"/>
+  <text x="480" y="262" text-anchor="middle" fill="#6E6A63" font-size="14">The wait can be minutes or days — the draft sits safely in the ledger. There is no path around the gate.</text>
+</svg>

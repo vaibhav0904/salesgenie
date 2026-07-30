@@ -1,0 +1,272 @@
+{
+  "name": "VaibhavCapstone-11-NeedsReviewNotify",
+  "nodes": [
+    {
+      "id": "cron",
+      "name": "Every 10 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -80
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "notes": "Sweeper, not an inline step: keeps the lead pipeline fast and survives restarts. Any lead that stops at NEEDS_REVIEW is surfaced within 10 minutes."
+    },
+    {
+      "id": "wh",
+      "name": "Run Now (manual/demo)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        80
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-needs-review-sweep",
+        "responseMode": "onReceived"
+      },
+      "webhookId": "b889ca3a-6228-48c0-88f5-1408f9792d85"
+    },
+    {
+      "id": "claim",
+      "name": "Claim Un-notified NEEDS_REVIEW",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH claim AS (\n  UPDATE vaibhavcapstone_leads l\n  SET status_detail = l.status_detail || jsonb_build_object('review_notified_at', now())\n  WHERE l.status = 'NEEDS_REVIEW'\n    AND NOT (l.status_detail ? 'review_notified_at')\n    AND EXISTS (SELECT 1 FROM vaibhavcapstone_businesses b\n                WHERE b.business_id = l.business_id AND b.config ? 'reviewer_email')\n  RETURNING l.lead_id, l.business_id, l.trace_id, l.from_email, l.subject, l.body, l.status_detail)\nSELECT c.*, b.name AS business_name, b.config->>'reviewer_email' AS reviewer_email,\n  b.config->>'sender_identity' AS sender_identity,\n  e.classification, e.contact_name, e.budget_value, e.product_interest,\n  (e.raw_llm_output->>'confidence') AS confidence,\n  r.no_grounded_reason,\n  (SELECT d.body FROM vaibhavcapstone_drafts d WHERE d.lead_id = c.lead_id AND d.draft_type = 'INTERNAL'\n   ORDER BY d.created_at DESC LIMIT 1) AS internal_note\nFROM claim c\nJOIN vaibhavcapstone_businesses b ON b.business_id = c.business_id\nLEFT JOIN vaibhavcapstone_extractions e ON e.lead_id = c.lead_id\nLEFT JOIN vaibhavcapstone_recommendations r ON r.lead_id = c.lead_id;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "Claim-then-notify: the same UPDATE that selects the lead also stamps review_notified_at, so no lead is ever emailed twice (and tenants without a reviewer are skipped, not failed)."
+    },
+    {
+      "id": "has",
+      "name": "Any To Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "h1",
+              "leftValue": "={{ $json.lead_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "mail",
+      "name": "Notify Reviewer",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        -60
+      ],
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "={{ $json.sender_identity || $json.reviewer_email }}",
+        "toEmail": "={{ $json.reviewer_email }}",
+        "subject": "={{ '[Needs your attention] ' + ($json.contact_name || $json.from_email) + ' - ' + ($json.subject || 'enquiry') }}",
+        "emailFormat": "html",
+        "html": "={{ (() => { const j = $json; const why = j.no_grounded_reason ? ('No grounded product match: ' + j.no_grounded_reason) : (j.confidence != null ? ('Low extraction confidence (' + j.confidence + ') - the enquiry was too vague or garbled to act on automatically') : 'The assistant could not complete this lead automatically'); return '<h3>A lead needs a human</h3>' + '<p><b>Why:</b> ' + why + '</p>' + '<p><b>From:</b> ' + (j.contact_name || 'unknown') + ' &lt;' + (j.from_email || '') + '&gt;<br><b>Subject:</b> ' + (j.subject || '(none)') + '<br><b>Lead:</b> ' + j.lead_id + '</p>' + '<p><b>Original enquiry</b></p><pre style=\"background:#f6f6f6;padding:12px;border-radius:6px;white-space:pre-wrap\">' + (j.body || '') + '</pre>' + (j.internal_note ? ('<p><b>Assistant note:</b> ' + j.internal_note + '</p>') : '') + '<p>Nothing has been sent to this customer. Reply to them directly, or fix the underlying gap (stock, catalog) and re-run the lead.</p>'; })() }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "9Chmlw4pL9nqibCH",
+          "name": "Capstone-SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "notes": "Triage email, NOT a customer email: it carries the original enquiry and why the assistant stopped. Nothing is ever sent to the customer from this path.",
+      "webhookId": "6cbf9cb8-ae42-4f10-9a72-9915bc57d6d5"
+    },
+    {
+      "id": "log",
+      "name": "Log Review Requested",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        960,
+        -60
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\nVALUES ($1, $2, $3, 'needs-review', 'REVIEW_REQUESTED', 'system', jsonb_build_object('reason', $4))\nRETURNING event_id;",
+        "options": {
+          "queryReplacement": "={{ (() => { const c = $(\"Claim Un-notified NEEDS_REVIEW\").item.json; return [c.business_id, c.lead_id, c.trace_id, c.no_grounded_reason || \"low_confidence_or_no_match\"]; })() }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "content": "## The nudger\n\nWhen the system isn't confident enough to act on an enquiry by itself, it says so and stops.\n\nThis step makes sure a person actually *hears* about it — because an enquiry quietly waiting for attention that nobody knows about is just a lost enquiry.",
+        "height": 165,
+        "width": 1320,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -310
+      ],
+      "id": "sticky-uLxUlj-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Find what's waiting for a person\n\n**Every ten minutes**, or on demand for a demo.\n\n**Claim anything needing review that hasn't been reported yet.** \"Claim\" is the important word: the enquiries are marked as reported in the very same question that fetches them.\n\nThat's what stops the next run, ten minutes later, emailing somebody all over again about the same enquiries.",
+        "height": 450,
+        "width": 700,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -190
+      ],
+      "id": "sticky-uLxUlj-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Tell someone\n\n**Email this business's reviewer** with what needs a look.\n\n**Then record that they were told** — so the trail shows not just that an enquiry needed attention, but that a person was actually asked to give it.",
+        "height": 450,
+        "width": 580,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -190
+      ],
+      "id": "sticky-uLxUlj-2",
+      "name": "Sticky Note2"
+    }
+  ],
+  "connections": {
+    "Every 10 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Claim Un-notified NEEDS_REVIEW",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Now (manual/demo)": {
+      "main": [
+        [
+          {
+            "node": "Claim Un-notified NEEDS_REVIEW",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Un-notified NEEDS_REVIEW": {
+      "main": [
+        [
+          {
+            "node": "Any To Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any To Notify?": {
+      "main": [
+        [
+          {
+            "node": "Notify Reviewer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Notify Reviewer": {
+      "main": [
+        [
+          {
+            "node": "Log Review Requested",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI",
+    "saveDataErrorExecution": "all"
+  },
+  "meta": {}
+}

@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-08",
+  "from_email": "sales@timberimpex.example",
+  "from_name": "Timber Impex Pvt Ltd",
+  "subject": "Partnership proposal - premium teak wood supply",
+  "body": "Dear Procurement Team,\n\nGreetings from Timber Impex! We are a leading importer of Burmese teak and African mahogany, supplying furniture manufacturers across India at highly competitive rates.\n\nWe would love to become your raw material partner. Please find our rate card attached and let us know a good time for a call.\n\nWarm regards,\nSales Team, Timber Impex Pvt Ltd",
+  "received_at": "2026-07-24T10:03:00+05:30"
+}

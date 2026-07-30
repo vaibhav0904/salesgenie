@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-09",
+  "from_email": "winner-claims@lucky-draw-intl.example",
+  "from_name": "International Lucky Draw",
+  "subject": "CONGRATULATIONS!! You WON Rs 50,00,000",
+  "body": "DEAR LUCKY WINNER,\n\nYour email ID has been selected in our INTERNATIONAL LUCKY DRAW. You have WON Rs 50,00,000 (FIFTY LAKH). To claim, send your bank account number, IFSC code and a processing fee of Rs 4,999 to the account below IMMEDIATELY. Offer expires in 24 HOURS!!!\n\nDr. James Okafor\nClaims Department",
+  "received_at": "2026-07-24T22:47:00+05:30"
+}

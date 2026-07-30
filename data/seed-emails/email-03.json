@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-03",
+  "from_email": "ananya.iyer@example.com",
+  "from_name": "Ananya Iyer",
+  "subject": "Dining table options?",
+  "body": "Hello,\n\nWe're exploring dining sets for our home - ideally a 6-seater, wooden, at a reasonable price. Not in a rush, just comparing options for now. Could you send me what you have?\n\nAnanya",
+  "received_at": "2026-07-21T11:05:00+05:30"
+}

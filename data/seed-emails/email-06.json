@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-06",
+  "from_email": "kavita.nair@example.com",
+  "from_name": "Kavita Nair",
+  "subject": "Rosewood King Bed - availability",
+  "body": "Hello,\n\nI saw the Rosewood King Bed at your Kochi showroom last month and loved it. I'd like to order it now - my budget is about Rs. 75,000. Is it available for delivery to Kochi within 2-3 weeks?\n\nBest,\nKavita Nair",
+  "received_at": "2026-07-23T14:20:00+05:30"
+}

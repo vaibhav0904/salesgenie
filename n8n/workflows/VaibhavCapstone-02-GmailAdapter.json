@@ -1,0 +1,278 @@
+{
+  "name": "VaibhavCapstone-02-GmailAdapter",
+  "nodes": [
+    {
+      "id": "imap1",
+      "name": "Email Trigger (IMAP)",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "read",
+        "format": "simple",
+        "options": {
+          "customEmailConfig": "[[\"UNSEEN\"],[\"SUBJECT\",\"[enquiry]\"]]",
+          "trackLastMessageId": true
+        }
+      },
+      "credentials": {
+        "imap": {
+          "id": "NsDMiH1o6QVEFbDS",
+          "name": "Capstone-IMA"
+        }
+      },
+      "notes": "DEMO SCOPING: shared personal inbox, so only unread mail with [enquiry] in the subject is fetched (personal mail untouched). Production: dedicated mailbox per tenant, no tag needed. Adapter contains ZERO pipeline logic - it only maps email -> canonical intake payload."
+    },
+    {
+      "id": "code1",
+      "name": "Extract Email Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst meta = j.metadata || {};\nconst fromRaw = String(j.from || meta.from || '');\nconst m = fromRaw.match(/<([^>]+)>/);\nconst from_email = (m ? m[1] : fromRaw).trim().toLowerCase();\nconst from_name = (m ? fromRaw.replace(/<[^>]+>/, '') : '').replace(/[\"']/g, '').trim() || null;\nlet body = j.textPlain || '';\nif (!body && j.textHtml) body = String(j.textHtml).replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n// strip the demo routing tag from the subject so downstream sees a natural subject\nconst subject = String(j.subject || meta.subject || '').replace(/\\[enquiry\\]\\s*/i, '').trim();\nreturn [{ json: {\n  to_raw: String(j.to || meta.to || ''),\n  from_email,\n  from_name,\n  subject,\n  body,\n  received_at: j.date || meta.date || null,\n  external_id: 'gmail-' + String(j.messageId || meta.messageId || Date.now())\n} }];"
+      }
+    },
+    {
+      "id": "pg1",
+      "name": "Resolve Business From Mailbox",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "SELECT business_id FROM vaibhavcapstone_businesses\nWHERE $1 ILIKE '%' || (config->>'intake_email') || '%'\n  AND lower($2) NOT IN (lower(config->>'sender_identity'), lower(config->>'intake_email'))\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$json.to_raw, $json.from_email] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "Which business owns this mailbox? Pure config lookup (config.intake_email) - no tenant hardcoding. ANTI-LOOP (BUG-001): mail FROM the business own sender/intake identity is never ingested."
+    },
+    {
+      "id": "if1",
+      "name": "Business Mapped?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.business_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "http1",
+      "name": "Forward To Intake Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-intake",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  business_id: $json.business_id,\n  channel: 'gmail',\n  from_email: $('Extract Email Fields').first().json.from_email,\n  from_name: $('Extract Email Fields').first().json.from_name,\n  subject: $('Extract Email Fields').first().json.subject,\n  body: $('Extract Email Fields').first().json.body,\n  received_at: $('Extract Email Fields').first().json.received_at,\n  external_id: $('Extract Email Fields').first().json.external_id\n}) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "pg2",
+      "name": "Log Unmapped Mailbox",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        880,
+        100
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\nVALUES ('unknown', NULL, NULL, 'gmail-adapter', 'ADAPTER_UNMAPPED_MAILBOX', 'system', $1::jsonb)\nRETURNING event_id;",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($('Extract Email Fields').first().json)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "content": "## The email door\n\nWatches a real mailbox and turns each new message into the standard shape the front door expects.\n\nThis is the only part of the system that knows anything about email. Everything after it just sees \"an enquiry arrived\".",
+        "height": 175,
+        "width": 1300,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -360
+      ],
+      "id": "sticky-cbqL8f-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Read the mailbox\n\n**Watch for new mail**, checked on a timer, so an enquiry is picked up within about a minute of landing.\n\n**Pull out the useful parts** — the sender's real address and their name, which arrive tangled together on one line; the subject; and the message text. If the message was sent as a formatted web page, strip it back to plain words.\n\n**Whose mailbox is this?** Look up which business owns the address it was sent *to*. That one lookup is how a single mailbox-watching workflow serves every business on the platform.",
+        "height": 480,
+        "width": 700,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -200
+      ],
+      "id": "sticky-cbqL8f-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Hand it to the front door\n\n**A recognised business** → forward the message to the front door in the standard shape, exactly as any other channel would.\n\n**An unrecognised mailbox** → record it and stop. Mail to an address we don't know is never guessed at or attached to the nearest business.",
+        "height": 480,
+        "width": 580,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -200
+      ],
+      "id": "sticky-cbqL8f-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## The trap this door had to be taught to avoid\n\nThe system sends email as well as reading it — so its own outgoing replies can land back in the very mailbox it watches, and get treated as fresh enquiries. A loop, if nobody stops it.\n\n**The lookup above quietly refuses any message sent from the business's own address**, whether that's its replying address or the intake address itself.\n\nThis was a real bug found in testing, not a hypothetical. It's why that condition exists.",
+        "height": 250,
+        "width": 1300,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        320
+      ],
+      "id": "sticky-cbqL8f-3",
+      "name": "Sticky Note3"
+    }
+  ],
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Extract Email Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email Fields": {
+      "main": [
+        [
+          {
+            "node": "Resolve Business From Mailbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Business From Mailbox": {
+      "main": [
+        [
+          {
+            "node": "Business Mapped?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Business Mapped?": {
+      "main": [
+        [
+          {
+            "node": "Forward To Intake Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Unmapped Mailbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "saveDataErrorExecution": "all",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI"
+  },
+  "meta": {}
+}

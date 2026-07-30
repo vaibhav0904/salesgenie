@@ -1,0 +1,898 @@
+{
+  "name": "VaibhavCapstone-06-DraftHITL",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trg",
+      "name": "When Called By Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        -32
+      ],
+      "notes": "Agent contract: Envelope v1.0. Called by WF-05 for RECOMMENDED (grounded) leads."
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst miss = ['envelope_version','business_id','lead_id','trace_id'].filter(k => !e[k]);\nif (miss.length) throw new Error('LEAD:' + (e.lead_id || '') + '|TRACE:' + (e.trace_id || '') + '|invalid envelope, missing: ' + miss.join(', '));\nreturn [{ json: e }];"
+      },
+      "id": "env",
+      "name": "Validate Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT l.lead_id, l.business_id, l.trace_id, l.from_email AS customer_email, l.subject AS original_subject,\n       e.contact_name, q.band, q.score, r.items,\n       b.name AS business_name, b.config->>'tone' AS tone, b.config->>'currency' AS currency,\n       b.config->>'reviewer_email' AS reviewer_email, b.config->>'sender_identity' AS sender_identity,\n       b.config->>'customer_email_redirect' AS customer_email_redirect\nFROM vaibhavcapstone_leads l\nJOIN vaibhavcapstone_extractions e USING (lead_id)\nJOIN vaibhavcapstone_qualifications q USING (lead_id)\nJOIN vaibhavcapstone_recommendations r USING (lead_id)\nJOIN vaibhavcapstone_businesses b ON b.business_id = l.business_id\nWHERE l.lead_id = $1 AND l.status = 'RECOMMENDED' AND r.grounded;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id] }}"
+        }
+      },
+      "id": "fetch",
+      "name": "Fetch Draft Context",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        448,
+        -32
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifrc",
+              "leftValue": "={{ $json.lead_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifr",
+      "name": "Ready For Draft?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [{ text: \"You draft a reply email from a business to a customer's product enquiry.\\nRespond with ONLY JSON: {\\\"subject\\\": string, \\\"body\\\": string} (body is plain text).\\nHard rules:\\n- Use ONLY the provided facts: customer name, the recommended products (name, price, currency, rationale), business name.\\n- NEVER invent discounts, stock promises, delivery dates, warranties, or specifications not provided.\\n- Greet by first name if a name is provided, otherwise a neutral greeting.\\n- Present each recommended product with its name, price and a one-line reason tied to their need.\\n- Close by inviting a reply or a showroom visit, then sign off matching the tone instruction.\\n- Follow the tone instruction exactly.\" }] }, contents: [{ role: 'user', parts: [{ text: ('Tone instruction: ' + ($json.tone || 'friendly, professional') + '\\n\\nFacts:\\n' + JSON.stringify({ business_name: $json.business_name, currency: $json.currency, customer_name: $json.contact_name, original_subject: $json.original_subject, recommended_products: $json.items })) }] }], generationConfig: { responseMimeType: 'application/json' } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "gem",
+      "name": "Gemini Draft Reply",
+      "position": [
+        1344,
+        -128
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "lLjcnrnGkFilQs0h",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before."
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || '').join('');\nelse if (r.content !== undefined) r = r.content;\nif (typeof r === 'string') { try { r = JSON.parse(r.replace(/^```json?\\s*|```\\s*$/g, '')); } catch (e) { r = null; } }\nconst c = $('Fetch Draft Context').first().json;\nlet subject = r && typeof r.subject === 'string' && r.subject.trim() ? r.subject.trim() : null;\nlet body = r && typeof r.body === 'string' && r.body.trim() ? r.body.trim() : null;\nif (!subject || !body) {\n  // deterministic fallback template: grounded facts only, never blocks on the LLM\n  subject = 'Our recommendations for you - ' + c.business_name;\n  const items = (c.items || []).map(i => '- ' + i.name + ' (' + i.currency + ' ' + i.price + '): ' + i.rationale).join('\\n');\n  body = 'Hi ' + (c.contact_name ? c.contact_name.split(' ')[0] : 'there') + ',\\n\\nThank you for your enquiry. Based on what you told us, we recommend:\\n\\n' + items + '\\n\\nReply to this email or visit a showroom and we will take care of the rest.\\n\\n' + c.business_name;\n}\nreturn [{ json: { lead_id: c.lead_id, business_id: c.business_id, trace_id: c.trace_id, subject, body } }];"
+      },
+      "id": "parse",
+      "name": "Assemble Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text lead, $2::text biz, $3::text trc, $4::text subj, $5::text body),\nd AS (INSERT INTO vaibhavcapstone_drafts (draft_id, lead_id, business_id, draft_type, subject, body, status)\n  SELECT 'drf_' || substr(md5(random()::text), 1, 14), lead, biz, 'CUSTOMER', subj, body, 'PENDING_APPROVAL'\n  FROM p RETURNING draft_id),\nu AS (UPDATE vaibhavcapstone_leads SET status = 'PENDING_APPROVAL', updated_at = now()\n  WHERE lead_id = (SELECT lead FROM p) AND status = 'RECOMMENDED' RETURNING lead_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT biz, lead, trc, 'draft-hitl', 'DRAFT_CREATED', 'system',\n    jsonb_build_object('draft_id', (SELECT draft_id FROM d)) FROM p RETURNING event_id)\nSELECT (SELECT draft_id FROM d) AS draft_id;",
+        "options": {
+          "queryReplacement": "={{ (() => { const a = $(\"Assemble Draft\").first().json; return [a.lead_id, a.business_id, a.trace_id, a.subject, a.body]; })() }}"
+        }
+      },
+      "id": "persist",
+      "name": "Persist Draft (PENDING_APPROVAL)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2688,
+        -128
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "fromEmail": "={{ $('Fetch Draft Context').first().json.sender_identity }}",
+        "toEmail": "={{ $('Fetch Draft Context').first().json.reviewer_email }}",
+        "subject": "={{ '[Approval needed] ' + $('Fetch Draft Context').first().json.band + ' lead: ' + ($('Fetch Draft Context').first().json.contact_name || $('Fetch Draft Context').first().json.customer_email) + ' - ' + ($('Fetch Draft Context').first().json.original_subject || 'enquiry') }}",
+        "message": "={{ '<h3>Draft reply awaiting your approval</h3>' + '<p><b>Customer:</b> ' + ($('Fetch Draft Context').first().json.contact_name || 'unknown') + ' &lt;' + $('Fetch Draft Context').first().json.customer_email + '&gt;<br><b>Band:</b> ' + $('Fetch Draft Context').first().json.band + ' (score ' + $('Fetch Draft Context').first().json.score + ')<br><b>Draft ID:</b> ' + $json.draft_id + '</p>' + '<p><b>Subject:</b> ' + $('Assemble Draft').first().json.subject + '</p>' + '<pre style=\"background:#f6f6f6;padding:12px;border-radius:6px;white-space:pre-wrap\">' + $('Assemble Draft').first().json.body + '</pre>' + '<p>Approve to send this reply to the customer. Reject to close the lead without sending.</p>' }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "id": "wait",
+      "name": "Ask Reviewer (Send & Wait)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2912,
+        -128
+      ],
+      "webhookId": "1868c57b-2dc1-4ebc-b693-0696a966fa5d",
+      "credentials": {
+        "smtp": {
+          "id": "9Chmlw4pL9nqibCH",
+          "name": "Capstone-SMTP"
+        }
+      },
+      "notes": "HITL gate. Execution pauses here until the reviewer clicks Approve/Reject in their inbox (or the MCP path decides first - the guarded UPDATEs below make the two surfaces race-safe)."
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst approved = !!(j.data && j.data.approved === true);\nconst p = $('Persist Draft (PENDING_APPROVAL)').first().json;\nconst c = $('Fetch Draft Context').first().json;\nreturn [{ json: { approved, draft_id: p.draft_id, trace_id: c.trace_id, reviewer: c.reviewer_email, customer_email: c.customer_email, redirect: c.customer_email_redirect, sender: c.sender_identity, business_name: c.business_name } }];"
+      },
+      "id": "dec",
+      "name": "Read Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifac",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifa",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3360,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH d AS (UPDATE vaibhavcapstone_drafts SET status = 'APPROVED', decided_by = $2, decided_at = now()\n  WHERE draft_id = $1 AND status = 'PENDING_APPROVAL'\n  RETURNING draft_id, lead_id, business_id, subject, body),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, $3, 'draft-hitl', 'DRAFT_APPROVED', $2,\n    jsonb_build_object('draft_id', draft_id, 'via', 'email-approval') FROM d RETURNING event_id)\nSELECT * FROM d;",
+        "options": {
+          "queryReplacement": "={{ [$json.draft_id, $json.reviewer, $json.trace_id] }}"
+        }
+      },
+      "id": "appr",
+      "name": "Mark APPROVED (guarded)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3584,
+        -224
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "Guarded: only PENDING_APPROVAL -> APPROVED. If MCP already decided, this returns 0 rows and nothing is sent (no double-send)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifrecc",
+              "leftValue": "={{ $json.draft_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifrec",
+      "name": "Approval Recorded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3808,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $('Read Decision').first().json.sender }}",
+        "toEmail": "={{ $('Read Decision').first().json.redirect || $('Read Decision').first().json.customer_email }}",
+        "subject": "={{ ($('Read Decision').first().json.redirect ? '[DEMO -> ' + $('Read Decision').first().json.customer_email + '] ' : '') + $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Send To Customer",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        4032,
+        -224
+      ],
+      "webhookId": "84af07f0-7aa4-41c0-afa2-808cd76de046",
+      "credentials": {
+        "smtp": {
+          "id": "9Chmlw4pL9nqibCH",
+          "name": "Capstone-SMTP"
+        }
+      },
+      "notes": "GUARDRAIL: this node is reachable ONLY from a successful PENDING_APPROVAL->APPROVED transition enforced in Postgres. customer_email_redirect (demo config) reroutes to the operator inbox since seed customers are fictional."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH d AS (UPDATE vaibhavcapstone_drafts SET status = 'SENT'\n  WHERE draft_id = $1 AND status = 'APPROVED' RETURNING draft_id, lead_id, business_id),\nu AS (UPDATE vaibhavcapstone_leads SET status = 'SENT', updated_at = now()\n  WHERE lead_id = (SELECT lead_id FROM d) RETURNING lead_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, $2, 'draft-hitl', 'EMAIL_SENT', 'system',\n    jsonb_build_object('draft_id', draft_id, 'intended_to', $3::text, 'delivered_to', $4::text) FROM d RETURNING event_id)\nSELECT (SELECT draft_id FROM d) AS draft_id;",
+        "options": {
+          "queryReplacement": "={{ [$('Read Decision').first().json.draft_id, $('Read Decision').first().json.trace_id, $('Read Decision').first().json.customer_email, $('Read Decision').first().json.redirect || $('Read Decision').first().json.customer_email] }}"
+        }
+      },
+      "id": "sent",
+      "name": "Mark SENT",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4256,
+        -224
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH d AS (UPDATE vaibhavcapstone_drafts SET status = 'REJECTED', decided_by = $2, decided_at = now()\n  WHERE draft_id = $1 AND status = 'PENDING_APPROVAL' RETURNING draft_id, lead_id, business_id),\nu AS (UPDATE vaibhavcapstone_leads SET status = 'REJECTED', updated_at = now()\n  WHERE lead_id = (SELECT lead_id FROM d) AND status = 'PENDING_APPROVAL' RETURNING lead_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, $3, 'draft-hitl', 'DRAFT_REJECTED', $2,\n    jsonb_build_object('draft_id', draft_id, 'via', 'email-approval') FROM d RETURNING event_id)\nSELECT (SELECT draft_id FROM d) AS draft_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.draft_id, $json.reviewer, $json.trace_id] }}"
+        }
+      },
+      "id": "rej",
+      "name": "Mark REJECTED (guarded)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3584,
+        -32
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifrevc",
+              "leftValue": "={{ $json.reviewer_email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifrev",
+      "name": "Reviewer Configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text lead, $2::text biz, $3::text trc),\nu AS (UPDATE vaibhavcapstone_leads SET status = 'AWAITING_SETUP',\n  status_detail = jsonb_build_object('reason', 'setup_incomplete', 'missing', jsonb_build_array('reviewer'),\n    'resume_from', 'draft', 'parked_at', now()), updated_at = now()\n  WHERE lead_id = (SELECT lead FROM p) RETURNING lead_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT biz, lead, trc, 'draft', 'LEAD_PARKED_AWAITING_SETUP', 'system',\n    jsonb_build_object('missing', 'reviewer') FROM p RETURNING event_id)\nSELECT (SELECT lead FROM p) AS lead_id, 'AWAITING_SETUP' AS status;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id, $json.business_id, $json.trace_id] }}"
+        }
+      },
+      "id": "park6",
+      "name": "Park AWAITING_SETUP (no reviewer)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1120,
+        64
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "No reviewer configured = nobody can approve, so nothing is drafted or sent. Resumes when set_reviewer runs."
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
+      },
+      "id": "st_drafter",
+      "name": "Stamp drafter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -128
+      ],
+      "notes": "Telemetry stamp (docs/traceability.md): start time + input size. Passes data through unchanged."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_llm_calls\n (business_id, lead_id, trace_id, call_site, prompt_version, model, latency_ms,\n  input_tokens, output_tokens, cost_usd, schema_valid, attempt, fallback_used, finish_reason, usage_source)\nVALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING call_id;",
+        "options": {
+          "queryReplacement": "={{ (() => { const g = $('LLM Result drafter').first().json; const st = $('Stamp drafter').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = (g.usageMetadata && g.usageMetadata.promptTokenCount != null) ? g.usageMetadata : null; const it = u ? (u.promptTokenCount || 0) : Math.ceil((st.__in_chars || 0) / 4); const ot = u ? ((u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0)) : Math.ceil(txt.length / 4); let ok=false; try { const r=JSON.parse(txt.replace(/^```json?\\s*|```\\s*$/g,'')); ok=!!(r.subject&&r.body) } catch(e) {} return [$json.business_id, $json.lead_id || null, $json.trace_id || null, 'drafter', 'v1', (g.__model || 'gemini-2.5-flash'), Date.now() - (st.__t0 || Date.now()), it, ot, +(((g.__fallback ? it * 0.15 + ot * 0.6 : it * 0.3 + ot * 2.5)) / 1e6).toFixed(6), ok, 1, (g.__fallback === true || !ok), cand.finishReason || null, u ? 'exact_api' : 'estimated'] })() }}"
+        }
+      },
+      "id": "lg_drafter",
+      "name": "Log LLM drafter",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2240,
+        -128
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://langfuse-web:3000/api/public/ingestion",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const g = $('LLM Result drafter').first().json; const st = $('Stamp drafter').first().json; const c = $('Assemble Draft').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = g.usageMetadata || {}; const now = new Date().toISOString(); const tid = c.trace_id || ('wf_' + (c.business_id || 'x') + '_' + now.slice(0,10)); const t0 = new Date(st.__t0 || Date.now()).toISOString(); const inp = JSON.stringify(Object.fromEntries(Object.entries(st).filter(([k]) => !k.startsWith('__')))).slice(0, 4000); const uniq = tid + '-drafter-' + Date.now(); return JSON.stringify({ batch: [{ id: uniq + '-t', timestamp: now, type: 'trace-create', body: { id: tid, name: 'lead-pipeline', metadata: { business_id: c.business_id, lead_id: c.lead_id || null } } },{ id: uniq + '-g', timestamp: now, type: 'generation-create', body: { id: uniq, traceId: tid, name: 'drafter', model: (g.__model || 'gemini-2.5-flash'), startTime: t0, endTime: now, usage: { input: u.promptTokenCount || 0, output: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0), unit: 'TOKENS' }, metadata: { call_site: 'drafter', prompt_version: 'v1', business_id: c.business_id, lead_id: c.lead_id || null, schema_valid: true }, input: inp, output: txt.slice(0, 4000) } } ] }); })() }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "lf_drafter",
+      "name": "Ship LF drafter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2464,
+        -128
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "x9DKbzWznHMJTync",
+          "name": "Capstone-Langfuse"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'system', content: \"You draft a reply email from a business to a customer's product enquiry.\\nRespond with ONLY JSON: {\\\"subject\\\": string, \\\"body\\\": string} (body is plain text).\\nHard rules:\\n- Use ONLY the provided facts: customer name, the recommended products (name, price, currency, rationale), business name.\\n- NEVER invent discounts, stock promises, delivery dates, warranties, or specifications not provided.\\n- Greet by first name if a name is provided, otherwise a neutral greeting.\\n- Present each recommended product with its name, price and a one-line reason tied to their need.\\n- Close by inviting a reply or a showroom visit, then sign off matching the tone instruction.\\n- Follow the tone instruction exactly.\" }, { role: 'user', content: ('Tone instruction: ' + ($json.tone || 'friendly, professional') + '\\n\\nFacts:\\n' + JSON.stringify({ business_name: $json.business_name, currency: $json.currency, customer_name: $json.contact_name, original_subject: $json.original_subject, recommended_products: $json.items })) }] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "fb_drafter",
+      "name": "OpenAI Fallback drafter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1568,
+        -48
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "openAiApi": {
+          "id": "qQqGaHdi61WLgZ52",
+          "name": "OpenAI account"
+        }
+      },
+      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright."
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
+      },
+      "id": "mr_drafter",
+      "name": "LLM Result drafter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        -128
+      ],
+      "notes": "Merge point: normalizes Gemini or OpenAI responses to one shape; __model/__fallback feed telemetry."
+    },
+    {
+      "parameters": {
+        "content": "## Writing the reply — and the stop that makes all of this trustworthy\n\nThe system now knows who is asking, how promising they are, and which real, in-stock products suit them. So it writes the reply.\n\nThen it stops. **Nothing reaches a customer until a person has read it and clicked Approve.** That stop is not a gap in the build — it is the product.",
+        "height": 180,
+        "width": 3120,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -540
+      ],
+      "id": "sticky-6SDxlP-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Getting ready\n\n**Check the job ticket**, then fetch everything needed to write a good reply in a single go: the customer's name, what they asked for, the products that survived both stock checks, and this business's own tone of voice.\n\n**Is this enquiry actually ready to be drafted?** If not — wrong stage, or already handled — we stop quietly rather than write a second reply.",
+        "height": 660,
+        "width": 780,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -340
+      ],
+      "id": "sticky-6SDxlP-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Write the reply\n\n**Is there anyone to approve it?** If this business hasn't named a reviewer yet, the enquiry parks and waits, rather than drafting a reply nobody is allowed to release. It resumes on its own once a reviewer is set.\n\n**Ask Google's AI to write the email** in this business's voice, using only the verified products — OpenAI backing it up, both answers flattened to one shape, the call recorded with its exact tokens and cost.\n\n**If the AI writes nothing usable, we still produce a sensible reply.** A plain template built from the very same verified facts takes over: correct product names, correct prices, nothing invented. The customer never waits on the AI having a bad day.",
+        "height": 700,
+        "width": 500,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        -360
+      ],
+      "id": "sticky-6SDxlP-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Save it, then ask a person\n\n**Save the draft as \"waiting for approval\".** From this moment the reply exists — but it is not sendable.\n\n**Email the reviewer, and wait.** The workflow genuinely pauses here, for minutes or for days. The waiting is remembered in the database, so a restart doesn't lose it.\n\n**Read the answer, and record it under guard.** Approve or reject is written to the record **only if the enquiry is still waiting for approval**. That single condition is what makes a double-click, a forwarded approval email, or two people answering at once completely harmless — the second answer simply finds nothing left to change.",
+        "height": 660,
+        "width": 1120,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        -340
+      ],
+      "id": "sticky-6SDxlP-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### Only now, send\n\n**Check the approval was really recorded** before anything leaves the building. If the guarded write didn't apply — because someone had already answered — we stop right here.\n\n**Send the reply to the customer**, then mark the enquiry as sent.\n\nThis is the only path that reaches a customer. A rejected draft simply ends: nothing is sent, and the record says why.",
+        "height": 700,
+        "width": 680,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2360,
+        -360
+      ],
+      "id": "sticky-6SDxlP-4",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## The one rule the whole system is built around\n\n**No customer ever receives a word a person didn't approve.**\n\nThe sending step can only be reached from an approved enquiry — and \"approved\" can only be written while the enquiry is still waiting. Both conditions are enforced by the database, not by trusting the workflow to behave.\n\nReal reviewers, real clicks: **6 approved, 1 rejected.** The rejected one was never sent.",
+        "height": 290,
+        "width": 780,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        380
+      ],
+      "id": "sticky-6SDxlP-5",
+      "name": "Sticky Note5"
+    }
+  ],
+  "connections": {
+    "When Called By Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Envelope": {
+      "main": [
+        [
+          {
+            "node": "Fetch Draft Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Draft Context": {
+      "main": [
+        [
+          {
+            "node": "Ready For Draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready For Draft?": {
+      "main": [
+        [
+          {
+            "node": "Reviewer Configured?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Gemini Draft Reply": {
+      "main": [
+        [
+          {
+            "node": "LLM Result drafter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI Fallback drafter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Draft": {
+      "main": [
+        [
+          {
+            "node": "Log LLM drafter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Draft (PENDING_APPROVAL)": {
+      "main": [
+        [
+          {
+            "node": "Ask Reviewer (Send & Wait)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask Reviewer (Send & Wait)": {
+      "main": [
+        [
+          {
+            "node": "Read Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Decision": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Mark APPROVED (guarded)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark REJECTED (guarded)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark APPROVED (guarded)": {
+      "main": [
+        [
+          {
+            "node": "Approval Recorded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Recorded?": {
+      "main": [
+        [
+          {
+            "node": "Send To Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send To Customer": {
+      "main": [
+        [
+          {
+            "node": "Mark SENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reviewer Configured?": {
+      "main": [
+        [
+          {
+            "node": "Stamp drafter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Park AWAITING_SETUP (no reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stamp drafter": {
+      "main": [
+        [
+          {
+            "node": "Gemini Draft Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log LLM drafter": {
+      "main": [
+        [
+          {
+            "node": "Ship LF drafter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ship LF drafter": {
+      "main": [
+        [
+          {
+            "node": "Persist Draft (PENDING_APPROVAL)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Fallback drafter": {
+      "main": [
+        [
+          {
+            "node": "LLM Result drafter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Result drafter": {
+      "main": [
+        [
+          {
+            "node": "Assemble Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI",
+    "saveDataErrorExecution": "all",
+    "binaryMode": "separate"
+  },
+  "meta": {}
+}

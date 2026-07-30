@@ -1,0 +1,14 @@
+# Secrets — never commit. Template lives in .env.example
+.env
+.env.*
+!.env.example
+
+# Local scratch
+*.log
+node_modules/
+
+# Course material (Interview Kickstart's copyright — not redistributed; README summarises the brief)
+docs/05_Official_Problem_Statement.pdf
+
+# Build artefact — duplicates n8n/workflows/; regenerate with Compress-Archive for Drive uploads
+salesgenie-n8n-workflows.zip

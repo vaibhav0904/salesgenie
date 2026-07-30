@@ -1,0 +1,193 @@
+{
+  "_meta": {
+    "created": "2026-07-26",
+    "rule": "Labels written BEFORE any prompt was tuned (evals/README.md). Never edit labels to match output.",
+    "notes": "expected_terminal_status assumes the reviewer APPROVES drafts; in demos a reviewer may deliberately REJECT one (E10-S1), which is a valid deviation. band labels use Oak & Ember default scoring (db/002). plausible_skus = acceptable grounded recommendations, not an exact required set."
+  },
+  "emails": [
+    {
+      "id": "seed-email-01",
+      "expected": {
+        "classification": "ENQUIRY",
+        "entities": {
+          "contact_name": "Priya Mehta",
+          "contact_email": "priya.mehta@zenithworks.example",
+          "company": "Zenith Works",
+          "budget_value": 1800000,
+          "budget_currency": "INR",
+          "urgency": "high",
+          "location": "Pune",
+          "product_interest": ["desks", "office-chairs"]
+        },
+        "band": "HOT",
+        "plausible_skus": ["DSK-002", "DSK-001", "CHR-001", "CHR-002"],
+        "expected_terminal_status": "SENT",
+        "scenario": "happy path, bulk B2B"
+      }
+    },
+    {
+      "id": "seed-email-02",
+      "expected": {
+        "classification": "ENQUIRY",
+        "entities": {
+          "contact_name": "Rahul Sharma",
+          "contact_email": "rahul.sharma87@example.com",
+          "company": null,
+          "budget_value": 90000,
+          "budget_currency": "INR",
+          "urgency": "medium",
+          "location": "Bangalore",
+          "product_interest": ["sofas"]
+        },
+        "band": "HOT",
+        "plausible_skus": ["SOF-002"],
+        "expected_terminal_status": "SENT",
+        "scenario": "happy path, clear budget + timeline"
+      }
+    },
+    {
+      "id": "seed-email-03",
+      "expected": {
+        "classification": "ENQUIRY",
+        "entities": {
+          "contact_name": "Ananya Iyer",
+          "contact_email": "ananya.iyer@example.com",
+          "company": null,
+          "budget_value": null,
+          "budget_currency": null,
+          "urgency": "low",
+          "location": null,
+          "product_interest": ["dining"]
+        },
+        "band": "WARM",
+        "plausible_skus": ["DIN-001", "DIN-002"],
+        "expected_terminal_status": "SENT",
+        "scenario": "vague budget, browsing"
+      }
+    },
+    {
+      "id": "seed-email-04",
+      "expected": {
+        "classification": "ENQUIRY",
+        "entities": {
+          "contact_name": "Vikram Rao",
+          "contact_email": "vikram.rao@example.com",
+          "company": null,
+          "budget_value": null,
+          "budget_currency": null,
+          "urgency": "medium",
+          "location": null,
+          "product_interest": ["office-chairs"]
+        },
+        "band": "WARM",
+        "plausible_skus": ["CHR-001", "CHR-002"],
+        "expected_terminal_status": "SENT",
+        "scenario": "need stated, no budget"
+      }
+    },
+    {
+      "id": "seed-email-05",
+      "expected": {
+        "classification": "ENQUIRY",
+        "entities": {
+          "contact_name": "Sneha Kulkarni",
+          "contact_email": "sneha.kulkarni.student@example.com",
+          "company": null,
+          "budget_value": 2000,
+          "budget_currency": "INR",
+          "urgency": "low",
+          "location": null,
+          "product_interest": ["bookshelves"]
+        },
+        "band": "COLD",
+        "plausible_skus": [],
+        "no_grounded_option": true,
+        "expected_terminal_status": "NEEDS_REVIEW",
+        "scenario": "budget below cheapest catalog item (BSH-002 @ 4499) -> grounding fallback"
+      }
+    },
+    {
+      "id": "seed-email-06",
+      "expected": {
+        "classification": "ENQUIRY",
+        "entities": {
+          "contact_name": "Kavita Nair",
+          "contact_email": "kavita.nair@example.com",
+          "company": null,
+          "budget_value": 75000,
+          "budget_currency": "INR",
+          "urgency": "high",
+          "location": "Kochi",
+          "product_interest": ["beds"]
+        },
+        "band": "HOT",
+        "plausible_skus": ["BED-002"],
+        "expected_terminal_status": "SENT",
+        "scenario": "asked item BED-001 is OUT OF STOCK -> must substitute in-stock BED-002, never recommend BED-001"
+      }
+    },
+    {
+      "id": "seed-email-07",
+      "expected": {
+        "classification": "ENQUIRY",
+        "entities": {
+          "contact_name": "Arjun Menon",
+          "contact_email": "arjun@greenspaces.example",
+          "company": "Green Spaces Landscaping",
+          "budget_value": null,
+          "budget_currency": null,
+          "urgency": "medium",
+          "location": null,
+          "product_interest": ["outdoor"]
+        },
+        "band": "WARM",
+        "plausible_skus": [],
+        "no_grounded_option": true,
+        "expected_terminal_status": "NEEDS_REVIEW",
+        "scenario": "off-catalog category (gazebos/pergolas) -> grounding fallback, internal note not customer email"
+      }
+    },
+    {
+      "id": "seed-email-08",
+      "expected": {
+        "classification": "NOT_ENQUIRY",
+        "entities": null,
+        "band": null,
+        "plausible_skus": null,
+        "expected_terminal_status": "DISCARDED_NOT_ENQUIRY",
+        "scenario": "supplier pitch, not a customer"
+      }
+    },
+    {
+      "id": "seed-email-09",
+      "expected": {
+        "classification": "SPAM",
+        "entities": null,
+        "band": null,
+        "plausible_skus": null,
+        "expected_terminal_status": "DISCARDED_SPAM",
+        "scenario": "lottery scam; SPAM recall must be 100% (evals/cases/classification.md)"
+      }
+    },
+    {
+      "id": "seed-email-10",
+      "expected": {
+        "classification": "ENQUIRY",
+        "entities": {
+          "contact_name": null,
+          "contact_email": "raj.k.9812@example.com",
+          "company": null,
+          "budget_value": null,
+          "budget_currency": null,
+          "urgency": null,
+          "location": null,
+          "product_interest": []
+        },
+        "band": "COLD",
+        "plausible_skus": [],
+        "expected_terminal_status": "NEEDS_REVIEW",
+        "scenario": "gibberish/ambiguous: too little signal -> low-confidence route to human (E9-S2). Extraction must NOT hallucinate a name from 'raj'."
+      }
+    }
+  ]
+}

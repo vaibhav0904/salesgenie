@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-04",
+  "from_email": "vikram.rao@example.com",
+  "from_name": "Vikram Rao",
+  "subject": "Ergonomic chair for home office",
+  "body": "Hi team,\n\nI've been working from home and my back is killing me. Looking for a good ergonomic chair with lumbar support. What would you recommend? Not sure what these usually cost.\n\nVikram Rao",
+  "received_at": "2026-07-22T09:30:00+05:30"
+}

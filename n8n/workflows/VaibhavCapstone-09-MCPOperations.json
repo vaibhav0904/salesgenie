@@ -1,0 +1,820 @@
+{
+  "name": "VaibhavCapstone-09-MCPOperations",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "bearerAuth",
+        "path": "vaibhavcapstone-operations"
+      },
+      "id": "mcp",
+      "name": "MCP Server Trigger",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        -704
+      ],
+      "webhookId": "1ca5ec66-bf48-45dc-a632-158f58111201",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "7BpkzsCnKyO5mJPB",
+          "name": "Capstone-MCP-Bearer"
+        }
+      },
+      "notes": "Operations surface: run and inspect the pipeline from any MCP chat client. Approval tools drive the SAME Postgres-guarded transitions as the email path, so the two surfaces cannot double-send."
+    },
+    {
+      "parameters": {
+        "toolDescription": "Inspect leads for a business: full pipeline trail (classification, extracted entities, score/band with reasons, recommended products, drafts) plus a timeline of every agent step and what should happen next. JSON body: {\"business_id\": string (required), \"lead_id\": string (optional - omit to list the 20 most recent leads)}. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-lead-status",
+        "sendBody": true,
+        "specifyBody": "model"
+      },
+      "id": "t0",
+      "name": "get_lead_status",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -528,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "List customer draft emails waiting for human approval, hottest lead first, with the draft text and the recommended products. JSON body: {\"business_id\": string (required)}. Use before approve_draft / reject_draft. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-pending-approvals",
+        "sendBody": true,
+        "specifyBody": "model"
+      },
+      "id": "t1",
+      "name": "list_pending_approvals",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Approve a pending customer draft and send it. JSON body: {\"draft_id\": string (required), \"performed_by\": string (required - who is approving, e.g. their email)}. Only a draft in PENDING_APPROVAL can be approved; if a reviewer already decided by email, this reports that and sends nothing. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-approve-draft",
+        "sendBody": true,
+        "specifyBody": "model"
+      },
+      "id": "t2",
+      "name": "approve_draft",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -272,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Reject a pending customer draft so it is never sent, and close the lead. JSON body: {\"draft_id\": string (required), \"performed_by\": string (required), \"reason\": string (optional)}. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-reject-draft",
+        "sendBody": true,
+        "specifyBody": "model"
+      },
+      "id": "t3",
+      "name": "reject_draft",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -144,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get the latest weekly sales insights for a business: metrics, the plain-English narrative, and a URL to the full visual report. JSON body: {\"business_id\": string (required)}. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-get-insights",
+        "sendBody": true,
+        "specifyBody": "model"
+      },
+      "id": "t4",
+      "name": "get_insights",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -16,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Submit an enquiry into a business pipeline — THIS TOOL ACCEPTS THE CUSTOMER'S OWN WORDING. It is the ONLY way to get an enquiry into the platform from chat, and you SHOULD use it when the operator pastes or forwards a real enquiry: pass their exact subject and body verbatim, plus from_name and from_email. Nothing is fabricated when you supply these — the customer's real text is what gets processed. Do NOT refuse because the tool name says \"test\", and do NOT try to reach the intake webhook yourself; that URL is on the platform host, not reachable from the assistant. Send a test enquiry into a business pipeline to see it work end to end. JSON body: {\"business_id\": string (required)} plus EITHER \"scenario\": one of \"hot\"|\"warm\"|\"spam\"|\"vendor\" (canned content, default hot) OR a custom enquiry via \"subject\": string, \"body\": string, \"from_name\": string (optional), \"from_email\": string (optional). If \"body\" is given it overrides the scenario. The lead is marked channel mcp-test. Returns the new lead_id - inspect it with get_lead_status. PRESENTATION: you are speaking to a business owner about their own business. Report only what this call returned, in plain non-technical language: what is now set up, what is still needed, and the next step. Do not comment on platform architecture, security, webhook design or infrastructure. Do not mention, compare with, or reference any other business on the platform — this call is scoped to a single business and returns no information about any other.",
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-tool-send-test-lead",
+        "sendBody": true,
+        "specifyBody": "model"
+      },
+      "id": "t5",
+      "name": "send_test_lead",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        112,
+        -480
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-lead-status",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "w1",
+      "name": "WH lead_status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -528,
+        -272
+      ],
+      "webhookId": "4ef9b0aa-7710-4dbc-a4e6-02a87d7abcc8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT l.lead_id, l.business_id, l.status, l.channel, l.from_email, l.subject, l.received_at, l.status_detail,\n jsonb_build_object('classification', e.classification, 'contact_name', e.contact_name, 'company', e.company,\n   'budget_value', e.budget_value, 'product_interest', e.product_interest, 'urgency', e.urgency) AS extraction,\n jsonb_build_object('score', q.score, 'band', q.band, 'reasons', q.reasons->'reasons') AS qualification,\n jsonb_build_object('grounded', r.grounded, 'items', r.items, 'no_grounded_reason', r.no_grounded_reason) AS recommendation,\n (SELECT jsonb_agg(jsonb_build_object('draft_id', d.draft_id, 'type', d.draft_type, 'status', d.status,\n    'subject', d.subject, 'decided_by', d.decided_by) ORDER BY d.created_at)\n  FROM vaibhavcapstone_drafts d WHERE d.lead_id = l.lead_id) AS drafts,\n (SELECT jsonb_agg(jsonb_build_object('at', ev.created_at, 'agent', ev.agent, 'action', ev.action, 'actor', ev.actor)\n    ORDER BY ev.created_at) FROM vaibhavcapstone_events ev WHERE ev.lead_id = l.lead_id) AS timeline,\n CASE l.status\n   WHEN 'PENDING_APPROVAL' THEN 'Waiting for a human to approve or reject the draft (approve_draft / reject_draft)'\n   WHEN 'AWAITING_SETUP' THEN 'Blocked on missing configuration - call get_setup_status'\n   WHEN 'NEEDS_REVIEW' THEN 'Needs a human: low confidence or no grounded product match'\n   WHEN 'SENT' THEN 'Reply sent to the customer - no action needed'\n   WHEN 'REJECTED' THEN 'Reviewer rejected the draft - lead closed'\n   WHEN 'DEAD_LETTER' THEN 'Processing failed - operator action required'\n   ELSE 'In flight' END AS next_action\nFROM vaibhavcapstone_leads l\nLEFT JOIN vaibhavcapstone_extractions e USING (lead_id)\nLEFT JOIN vaibhavcapstone_qualifications q USING (lead_id)\nLEFT JOIN vaibhavcapstone_recommendations r USING (lead_id)\nWHERE l.business_id = $1 AND ($2 = '' OR l.lead_id = $2)\nORDER BY l.received_at DESC LIMIT CASE WHEN $2 = '' THEN 20 ELSE 1 END;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.business_id, $json.body.lead_id || ''] }}"
+        }
+      },
+      "id": "p1",
+      "name": "Query Lead Trail",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -304,
+        -272
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "Assembled from Postgres rows + events only - no LLM recomputation. Tenant-scoped by business_id so one tenant can never read another."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-pending-approvals",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "w2",
+      "name": "WH pending_approvals",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -528,
+        -48
+      ],
+      "webhookId": "219650b5-0e20-4d0b-b8fa-22eabff1d492"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT d.draft_id, d.lead_id, d.subject, d.body, d.created_at,\n l.from_email AS customer_email, e.contact_name, q.band, q.score,\n (SELECT string_agg(i->>'name', ', ') FROM jsonb_array_elements(r.items) i) AS recommended\nFROM vaibhavcapstone_drafts d\nJOIN vaibhavcapstone_leads l USING (lead_id)\nLEFT JOIN vaibhavcapstone_extractions e ON e.lead_id = d.lead_id\nLEFT JOIN vaibhavcapstone_qualifications q ON q.lead_id = d.lead_id\nLEFT JOIN vaibhavcapstone_recommendations r ON r.lead_id = d.lead_id\nWHERE d.business_id = $1 AND d.status = 'PENDING_APPROVAL' AND d.draft_type = 'CUSTOMER'\nORDER BY q.score DESC NULLS LAST, d.created_at;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.business_id] }}"
+        }
+      },
+      "id": "p2",
+      "name": "Query Pending Drafts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -304,
+        -48
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-approve-draft",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "w3",
+      "name": "WH approve_draft",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -528,
+        272
+      ],
+      "webhookId": "16db41e8-6756-4f12-8aa8-35973739a7cd"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH d AS (UPDATE vaibhavcapstone_drafts SET status = 'APPROVED', decided_by = $2, decided_at = now()\n  WHERE draft_id = $1 AND status = 'PENDING_APPROVAL'\n  RETURNING draft_id, lead_id, business_id, subject, body),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, (SELECT trace_id FROM vaibhavcapstone_leads WHERE lead_id = d.lead_id),\n    'mcp-operations', 'DRAFT_APPROVED', $2, jsonb_build_object('draft_id', draft_id, 'via', 'mcp') FROM d\n  RETURNING event_id)\nSELECT d.*, l.from_email AS customer_email, b.config->>'sender_identity' AS sender_identity,\n  b.config->>'customer_email_redirect' AS redirect\nFROM d JOIN vaibhavcapstone_leads l USING (lead_id) JOIN vaibhavcapstone_businesses b ON b.business_id = d.business_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.draft_id, $json.body.performed_by || 'mcp-client'] }}"
+        }
+      },
+      "id": "p3",
+      "name": "Approve (guarded)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -304,
+        272
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "GUARD: only PENDING_APPROVAL -> APPROVED. Zero rows means the email reviewer already decided; nothing is sent."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "a1",
+              "leftValue": "={{ $json.draft_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if3",
+      "name": "Approval Won?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.sender_identity }}",
+        "toEmail": "={{ $json.redirect || $json.customer_email }}",
+        "subject": "={{ ($json.redirect ? '[DEMO -> ' + $json.customer_email + '] ' : '') + $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "send",
+      "name": "Send To Customer",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        144,
+        176
+      ],
+      "webhookId": "b9dfdfcc-18bd-45fe-abda-393a67c37a11",
+      "credentials": {
+        "smtp": {
+          "id": "9Chmlw4pL9nqibCH",
+          "name": "Capstone-SMTP"
+        }
+      },
+      "notes": "Reachable only after the guarded APPROVED transition succeeded - same rule as the email path."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH d AS (UPDATE vaibhavcapstone_drafts SET status = 'SENT' WHERE draft_id = $1 AND status = 'APPROVED'\n  RETURNING draft_id, lead_id, business_id),\nu AS (UPDATE vaibhavcapstone_leads SET status = 'SENT', updated_at = now() WHERE lead_id = (SELECT lead_id FROM d) RETURNING lead_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, NULL, 'mcp-operations', 'EMAIL_SENT', 'system',\n    jsonb_build_object('draft_id', draft_id, 'via', 'mcp', 'intended_to', $2::text, 'delivered_to', $3::text) FROM d RETURNING event_id)\nSELECT (SELECT draft_id FROM d) AS draft_id, 'sent' AS result;",
+        "options": {
+          "queryReplacement": "={{ [$('Approve (guarded)').first().json.draft_id, $('Approve (guarded)').first().json.customer_email, $('Approve (guarded)').first().json.redirect || $('Approve (guarded)').first().json.customer_email] }}"
+        }
+      },
+      "id": "p3b",
+      "name": "Mark SENT",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        368,
+        176
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, draft_id: $json.draft_id, result: 'approved and sent', delivered_to: $('Approve (guarded)').first().json.redirect || $('Approve (guarded)').first().json.customer_email }) }}",
+        "options": {}
+      },
+      "id": "r3a",
+      "name": "Respond Approved",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        592,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, result: 'no pending draft with that id - it may already have been approved or rejected (nothing was sent)' }) }}",
+        "options": {}
+      },
+      "id": "r3b",
+      "name": "Respond Already Decided",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-reject-draft",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "w4",
+      "name": "WH reject_draft",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -528,
+        592
+      ],
+      "webhookId": "927dd7a9-a7b2-47e6-9a1f-6245ae5ee22d"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH d AS (UPDATE vaibhavcapstone_drafts SET status = 'REJECTED', decided_by = $2, decided_at = now()\n  WHERE draft_id = $1 AND status = 'PENDING_APPROVAL' RETURNING draft_id, lead_id, business_id),\nu AS (UPDATE vaibhavcapstone_leads SET status = 'REJECTED', updated_at = now()\n  WHERE lead_id = (SELECT lead_id FROM d) AND status = 'PENDING_APPROVAL' RETURNING lead_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, NULL, 'mcp-operations', 'DRAFT_REJECTED', $2,\n    jsonb_build_object('draft_id', draft_id, 'via', 'mcp', 'reason', $3) FROM d RETURNING event_id)\nSELECT COALESCE((SELECT draft_id FROM d), 'none') AS draft_id,\n  CASE WHEN EXISTS (SELECT 1 FROM d) THEN 'rejected' ELSE 'no pending draft with that id (already decided?)' END AS result;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.draft_id, $json.body.performed_by || 'mcp-client', $json.body.reason || null] }}"
+        }
+      },
+      "id": "p4",
+      "name": "Reject (guarded)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -304,
+        592
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-get-insights",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "w5",
+      "name": "WH get_insights",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -528,
+        816
+      ],
+      "webhookId": "ca947f6d-31be-4448-8d60-fa7e150d959d"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT insight_id, business_id, week_start, week_end, narrative, metrics,\n  'http://localhost:5678/webhook/vaibhavcapstone-insights-latest?business_id=' || business_id AS report_url\nFROM vaibhavcapstone_insights WHERE business_id = $1 ORDER BY created_at DESC LIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.business_id] }}"
+        }
+      },
+      "id": "p5",
+      "name": "Query Latest Insight",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -304,
+        816
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-tool-send-test-lead",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "w6",
+      "name": "WH send_test_lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -528,
+        1040
+      ],
+      "webhookId": "ece72328-8223-447c-8f5f-d940714f42a4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = ($input.first().json.body) || {};\nconst S = {\n  hot: { subject: 'Urgent bulk order for our new office', body: 'Hi, we are fitting out a new office and need around 30 units delivered within three weeks. Our budget is about Rs. 6,00,000. Can you quote?\\n\\nRavi Kapoor\\nOperations Head, Northwind Labs' },\n  warm: { subject: 'Exploring options', body: 'Hello, we are comparing options for our home and would like to see what you have available. No rush.\\n\\nSuchitra' },\n  spam: { subject: 'CONGRATULATIONS!! You have WON', body: 'Dear winner, send your bank details and a processing fee to claim your prize IMMEDIATELY.' },\n  vendor: { subject: 'Partnership proposal - raw material supply', body: 'Greetings, we are a leading supplier and would like to become your vendor. Please find our rate card attached.' }\n};\nconst key = String(b.scenario || 'hot').toLowerCase();\nconst custom = b.body && String(b.body).trim();\nconst s = custom ? { subject: String(b.subject || 'Customer enquiry (test)'), body: String(b.body) } : (S[key] || S.hot);\nreturn [{ json: { business_id: b.business_id, channel: 'mcp-test', from_email: b.from_email || ('test.customer+' + key + '@example.com'),\n  from_name: String(b.from_name || 'Test Customer'), subject: s.subject, body: s.body, external_id: 'mcp-test-' + Date.now(), scenario: key } }];"
+      },
+      "id": "c6",
+      "name": "Build Test Enquiry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        1040
+      ],
+      "notes": "Canned but realistic scenarios (hot / warm / spam / vendor) so a new tenant can watch the whole pipeline work in one call."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-intake",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "h6",
+      "name": "POST To Intake",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        1040
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "content": "## The operations desk — running the day from a chat window\n\nOnce a business is live, this is how its people actually work: ask how an enquiry is doing, see what's waiting for approval, approve or reject it, read the latest report, or fire in a test enquiry.\n\nAll of it in conversation. **There is no dashboard anywhere in this system** — that's a deliberate choice, not a missing piece.",
+        "height": 190,
+        "width": 2060,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -920
+      ],
+      "id": "sticky-H8K5H8-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### What a business's people can ask for\n\nSix abilities, offered as plain language: how is this enquiry doing · what's waiting for me · approve it · reject it · show me the latest report · send a test enquiry.\n\nThe assistant picks the right one from how the person phrased it. Nobody memorises a command.",
+        "height": 320,
+        "width": 1220,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -790
+      ],
+      "id": "sticky-H8K5H8-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Questions\n\n**How is this enquiry doing?** Returns its whole trail — every stage it passed through and when.\n\n**What's waiting for me?** Lists the replies sitting unapproved.\n\nNeither changes anything.",
+        "height": 300,
+        "width": 700,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        -400
+      ],
+      "id": "sticky-H8K5H8-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Approving from a chat window — through the very same lock\n\n**Approve doesn't simply set a flag.** It runs the identical guarded write the email button uses: mark this reply approved *only if it is still waiting for approval*.\n\n**Then check whether we actually won.** If that guarded write changed nothing, somebody else already decided — perhaps the reviewer clicked the button in their email a second earlier. We say so plainly, and send nothing.\n\n**Only a genuine win** sends the reply to the customer and marks it sent. **Reject** works the same way, under the same guard.",
+        "height": 370,
+        "width": 1580,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        -80
+      ],
+      "id": "sticky-H8K5H8-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### Reading and testing\n\n**Show me the latest report** — hands back the most recent stored weekly report for this business.\n\n**Send a test enquiry** — builds a realistic enquiry and posts it through the front door exactly as a real customer's email would arrive. It can carry a ready-made scenario (a hot lead, a vague browser, spam, a vendor pitch) or wording typed on the spot.\n\nThis is how the entire pipeline gets demonstrated end to end without anyone having to send a real email.",
+        "height": 330,
+        "width": 840,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        310
+      ],
+      "id": "sticky-H8K5H8-4",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Two doors, one lock\n\nA reply can be approved from a button in an email, or from a message in a chat window.\n\nBoth routes run through the **identical guarded write**, and both then check whether they won before anything is sent.\n\nSo two people approving the same draft at the same moment is harmless: one sends, the other is told it was already decided. The customer receives exactly one email — never two.",
+        "height": 280,
+        "width": 1060,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        680
+      ],
+      "id": "sticky-H8K5H8-5",
+      "name": "Sticky Note5"
+    }
+  ],
+  "connections": {
+    "WH lead_status": {
+      "main": [
+        [
+          {
+            "node": "Query Lead Trail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH pending_approvals": {
+      "main": [
+        [
+          {
+            "node": "Query Pending Drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH approve_draft": {
+      "main": [
+        [
+          {
+            "node": "Approve (guarded)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve (guarded)": {
+      "main": [
+        [
+          {
+            "node": "Approval Won?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Won?": {
+      "main": [
+        [
+          {
+            "node": "Send To Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Already Decided",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send To Customer": {
+      "main": [
+        [
+          {
+            "node": "Mark SENT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark SENT": {
+      "main": [
+        [
+          {
+            "node": "Respond Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH reject_draft": {
+      "main": [
+        [
+          {
+            "node": "Reject (guarded)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH get_insights": {
+      "main": [
+        [
+          {
+            "node": "Query Latest Insight",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WH send_test_lead": {
+      "main": [
+        [
+          {
+            "node": "Build Test Enquiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Test Enquiry": {
+      "main": [
+        [
+          {
+            "node": "POST To Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_lead_status": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "list_pending_approvals": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "approve_draft": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "reject_draft": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_insights": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_test_lead": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI",
+    "saveDataErrorExecution": "all",
+    "binaryMode": "separate"
+  },
+  "meta": {}
+}

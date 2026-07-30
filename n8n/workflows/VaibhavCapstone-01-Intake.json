@@ -1,0 +1,487 @@
+{
+  "name": "VaibhavCapstone-01-Intake",
+  "nodes": [
+    {
+      "id": "wh1",
+      "name": "Intake Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-intake",
+        "responseMode": "responseNode"
+      },
+      "notes": "Canonical intake for ALL channels/tenants. Payload: {business_id, channel, from_email, from_name, subject, body, received_at, external_id}. Adapters (Gmail etc.) map their source into this shape.",
+      "webhookId": "80ba8a50-6123-417c-8ab2-161bf1317dc2"
+    },
+    {
+      "id": "code1",
+      "name": "Validate & Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst b = item.body || {};\nconst errors = [];\nfor (const f of ['business_id', 'from_email', 'body']) {\n  if (!b[f] || typeof b[f] !== 'string' || !b[f].trim()) errors.push('missing or empty: ' + f);\n}\nif (b.from_email && !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(b.from_email.trim())) {\n  errors.push('invalid from_email');\n}\nconst rand = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);\nreturn [{ json: {\n  ok: errors.length === 0,\n  errors,\n  business_id: (b.business_id || '').trim(),\n  lead_id: 'lead_' + rand(),\n  trace_id: 'trc_' + rand(),\n  channel: (b.channel || 'webhook').trim(),\n  from_email: (b.from_email || '').trim().toLowerCase(),\n  from_name: b.from_name || null,\n  subject: b.subject || null,\n  body_text: b.body || '',\n  received_at: b.received_at || null,\n  raw: b\n} }];"
+      },
+      "notes": "Envelope birth: mints lead_id + trace_id. Rejects malformed payloads (ok=false)."
+    },
+    {
+      "id": "if1",
+      "name": "Valid Payload?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "pg1",
+      "name": "Create Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        660,
+        -100
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::jsonb AS j),\nbiz AS (\n  SELECT b.business_id FROM vaibhavcapstone_businesses b, p\n  WHERE b.business_id = p.j->>'business_id'\n),\nins AS (\n  INSERT INTO vaibhavcapstone_leads\n    (lead_id, business_id, trace_id, channel, from_email, subject, body, raw_payload, received_at, status)\n  SELECT p.j->>'lead_id', biz.business_id, p.j->>'trace_id', p.j->>'channel',\n         p.j->>'from_email', p.j->>'subject', p.j->>'body_text', p.j->'raw',\n         COALESCE((p.j->>'received_at')::timestamptz, now()), 'RECEIVED'\n  FROM p, biz\n  RETURNING lead_id, business_id, trace_id\n),\nevt AS (\n  INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, trace_id, 'intake', 'LEAD_RECEIVED', 'system',\n         jsonb_build_object('channel', (SELECT j->>'channel' FROM p))\n  FROM ins\n  RETURNING event_id\n)\nSELECT ins.lead_id, ins.trace_id, ins.business_id, 'RECEIVED' AS status FROM ins;",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "Atomic CTE: verify business exists -> insert lead (RECEIVED) -> log event. 0 rows = unknown business."
+    },
+    {
+      "id": "if2",
+      "name": "Business Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.lead_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ok1",
+      "name": "Respond 201 Received",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        -160
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, lead_id: $json.lead_id, trace_id: $json.trace_id, status: $json.status }) }}",
+        "options": {
+          "responseCode": 201
+        }
+      }
+    },
+    {
+      "id": "pg2",
+      "name": "Log Unknown Business",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1100,
+        -40
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\nVALUES (COALESCE($1::jsonb->>'business_id','unknown'), NULL, $1::jsonb->>'trace_id',\n        'intake', 'INTAKE_UNKNOWN_BUSINESS', 'system', $1::jsonb)\nRETURNING event_id;",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($('Validate & Normalize').first().json)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "err404",
+      "name": "Respond 404 Unknown Business",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        -40
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: 'unknown business_id: ' + $('Validate & Normalize').first().json.business_id }) }}",
+        "options": {
+          "responseCode": 404
+        }
+      }
+    },
+    {
+      "id": "pg3",
+      "name": "Log Rejected Payload",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        660,
+        120
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\nVALUES (COALESCE($1::jsonb->>'business_id','unknown'), NULL, $1::jsonb->>'trace_id',\n        'intake', 'INTAKE_REJECTED', 'system', $1::jsonb)\nRETURNING event_id;",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "err400",
+      "name": "Respond 400 Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, errors: $('Validate & Normalize').first().json.errors }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "envb",
+      "name": "Build Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        -160
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { envelope_version: '1.0', business_id: j.business_id, lead_id: j.lead_id, trace_id: j.trace_id, agent: 'intake', status: 'ok', payload: {} } }];"
+      }
+    },
+    {
+      "id": "callwf3",
+      "name": "Call ClassifyExtract",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        -160
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "BmN8SfRaPZQYYb9m",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## The front door\n\nEvery enquiry enters the system here, whatever it came from — an ordinary email, a chat message from the business's own staff, or another company's AI agent. They all arrive at this one address, in the same shape.\n\nThat's deliberate: **nothing downstream ever needs to know how a customer reached us.**",
+        "height": 190,
+        "width": 1900,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -420
+      ],
+      "id": "sticky-S9Foc6-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Check what arrived\n\n**One address; anything may knock.**\n\n**Does it make sense?** Is there a business, a sender's address, and some actual text? Is the address even shaped like an address?\n\nWe also stamp two identifiers here: one naming this enquiry, and one for tracking it across every step that follows. That second one is what lets you follow a single enquiry through the whole system later.",
+        "height": 520,
+        "width": 700,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -260
+      ],
+      "id": "sticky-S9Foc6-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Write it down before anything else\n\n**The enquiry is recorded immediately** — before any AI, any decision, any judgement. If everything after this point fell over, the enquiry would still be safely written down.\n\n**If the request was malformed**, the rejection itself is recorded and we answer with a clear \"that wasn't valid\". Even a bad request leaves a trace; nothing is silently dropped.",
+        "height": 520,
+        "width": 440,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -260
+      ],
+      "id": "sticky-S9Foc6-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Answer fast, then do the work\n\n**Answer straight away — \"received\".** Whoever sent it doesn't wait while we think; the acknowledgement goes back in a fraction of a second. The real work happens after.\n\n**Don't recognise the business?** Recorded, and answered honestly with \"we don't know that business\" rather than quietly swallowing the enquiry.\n\n**Then hand on the job ticket** to the workflow that reads the email. Everything from here on works from this one record.",
+        "height": 540,
+        "width": 700,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        -280
+      ],
+      "id": "sticky-S9Foc6-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Why one door matters\n\nEmail, chat and other companies' AI agents all funnel into this same address.\n\nAdding a new way for enquiries to arrive means writing a small adapter that knocks on this door — not touching the pipeline behind it. That's exactly how the agent-to-agent door was added late in the build without disturbing anything that already worked.",
+        "height": 250,
+        "width": 700,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        300
+      ],
+      "id": "sticky-S9Foc6-4",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Known limitation, stated honestly\n\n**This door isn't password-protected.** Anyone who knows the address could post an enquiry to it.\n\nThat's acceptable for a local demo and it's the first thing to fix for real use: a key per business, checked here. It's listed as the biggest known gap in the write-up rather than quietly left out.",
+        "height": 210,
+        "width": 700,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        300
+      ],
+      "id": "sticky-S9Foc6-5",
+      "name": "Sticky Note5"
+    }
+  ],
+  "connections": {
+    "Intake Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate & Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Normalize": {
+      "main": [
+        [
+          {
+            "node": "Valid Payload?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Payload?": {
+      "main": [
+        [
+          {
+            "node": "Create Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Rejected Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Lead": {
+      "main": [
+        [
+          {
+            "node": "Business Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Business Found?": {
+      "main": [
+        [
+          {
+            "node": "Respond 201 Received",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Unknown Business",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Unknown Business": {
+      "main": [
+        [
+          {
+            "node": "Respond 404 Unknown Business",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Rejected Payload": {
+      "main": [
+        [
+          {
+            "node": "Respond 400 Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 201 Received": {
+      "main": [
+        [
+          {
+            "node": "Build Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Envelope": {
+      "main": [
+        [
+          {
+            "node": "Call ClassifyExtract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "saveDataErrorExecution": "all",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI"
+  },
+  "meta": {}
+}

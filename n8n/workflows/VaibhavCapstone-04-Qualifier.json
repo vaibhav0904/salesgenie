@@ -1,0 +1,524 @@
+{
+  "name": "VaibhavCapstone-04-Qualifier",
+  "nodes": [
+    {
+      "id": "trg",
+      "name": "When Called By Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "notes": "Agent contract: Envelope v1.0. Called by WF-03 for EXTRACTED leads."
+    },
+    {
+      "id": "env",
+      "name": "Validate Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst miss = ['envelope_version','business_id','lead_id','trace_id'].filter(k => !e[k]);\nif (miss.length) throw new Error('LEAD:' + (e.lead_id || '') + '|TRACE:' + (e.trace_id || '') + '|invalid envelope, missing: ' + miss.join(', '));\nif (e.envelope_version !== '1.0') throw new Error('LEAD:' + e.lead_id + '|TRACE:' + e.trace_id + '|unsupported envelope_version ' + e.envelope_version);\nreturn [{ json: e }];"
+      }
+    },
+    {
+      "id": "fetch",
+      "name": "Fetch For Qualify",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        400,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "SELECT l.lead_id, l.business_id, l.trace_id,\n       e.contact_name, e.contact_email, e.company, e.budget_value, e.budget_currency,\n       e.product_interest, e.urgency, e.location,\n       b.config,\n       (SELECT min(p.price) FROM vaibhavcapstone_products p\n        WHERE p.business_id = l.business_id AND p.stock_qty > 0) AS min_price\nFROM vaibhavcapstone_leads l\nJOIN vaibhavcapstone_extractions e USING (lead_id)\nJOIN vaibhavcapstone_businesses b ON b.business_id = l.business_id\nWHERE l.lead_id = $1 AND l.status = 'EXTRACTED';",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "rubric",
+      "name": "Compute Rubric Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const L = $input.first().json;\nif (!L.lead_id) return []; // not in EXTRACTED state: no-op\nconst cfg = L.config || {};\nconst W = Object.assign({ base_enquiry: 15, contact_name: 10, product_interest: 20, budget_stated: 25,\n  budget_fit_bonus: 15, budget_below_catalog_penalty: 40, urgency_high: 20, urgency_medium: 10, company: 10 },\n  (cfg.scoring && cfg.scoring.weights) || {});\nconst T = Object.assign({ hot_min: 70, warm_min: 40 }, (cfg.scoring && cfg.scoring.thresholds) || {});\nconst pi = Array.isArray(L.product_interest) ? L.product_interest : JSON.parse(L.product_interest || '[]');\nconst bd = [];\nconst add = (label, pts) => { if (pts !== 0) bd.push({ factor: label, points: pts }); };\nadd('valid enquiry', W.base_enquiry);\nif (L.contact_name) add('contact name provided', W.contact_name);\nif (pi.length) add('specific product interest: ' + pi.join(', '), W.product_interest);\nconst budget = L.budget_value != null ? Number(L.budget_value) : null;\nif (budget != null) {\n  add('budget stated (' + budget + ' ' + (L.budget_currency || '') + ')', W.budget_stated);\n  if (L.min_price != null && budget >= Number(L.min_price)) add('budget fits catalog', W.budget_fit_bonus);\n  else if (L.min_price != null) add('budget below cheapest catalog item', -W.budget_below_catalog_penalty);\n}\nif (L.urgency === 'high') add('high urgency', W.urgency_high);\nelse if (L.urgency === 'medium') add('medium urgency', W.urgency_medium);\nif (L.company) add('business customer: ' + L.company, W.company);\nlet score = Math.max(0, Math.min(100, bd.reduce((s, b) => s + b.points, 0)));\nconst band = score >= T.hot_min ? 'HOT' : score >= T.warm_min ? 'WARM' : 'COLD';\nreturn [{ json: { lead_id: L.lead_id, business_id: L.business_id, trace_id: L.trace_id,\n  score, band, breakdown: bd, thresholds: T,\n  extraction: { contact_name: L.contact_name, company: L.company, budget_value: L.budget_value,\n    budget_currency: L.budget_currency, product_interest: pi, urgency: L.urgency, location: L.location } } }];"
+      },
+      "notes": "Deterministic + auditable: weights/thresholds from business config (tenant-tunable, defaults platform-wide). Gemini never changes the score - it only writes prose reasons."
+    },
+    {
+      "id": "gem",
+      "name": "Gemini Reasons",
+      "position": [
+        840,
+        0
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [{ text: \"You write the sales-rep-facing rationale for a lead qualification produced by a deterministic scoring rubric.\\nRespond with ONLY JSON: {\\\"reasons\\\": string[]} - 2 to 4 short sentences.\\nRules: reference ONLY the facts and rubric factors provided. Never invent facts, numbers, or intent.\\nEach reason should tie a concrete fact to why it matters for sales priority (e.g. budget size, timeline, bulk/B2B potential, fit with catalog).\" }] }, contents: [{ role: 'user', parts: [{ text: ('Band: ' + $json.band + ' (score ' + $json.score + ', HOT>=' + $json.thresholds.hot_min + ', WARM>=' + $json.thresholds.warm_min + ')\\n\\nExtracted facts:\\n' + JSON.stringify($json.extraction) + '\\n\\nRubric breakdown:\\n' + JSON.stringify($json.breakdown)) }] }], generationConfig: { responseMimeType: 'application/json' } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "googlePalmApi": {
+          "id": "lLjcnrnGkFilQs0h",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before."
+    },
+    {
+      "id": "parse",
+      "name": "Assemble Qualification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || '').join('');\nelse if (r.content !== undefined) r = r.content;\nif (typeof r === 'string') { try { r = JSON.parse(r.replace(/^```json?\\s*|```\\s*$/g, '')); } catch (e) { r = null; } }\nconst q = $('Compute Rubric Score').first().json;\nconst reasons = (r && Array.isArray(r.reasons) && r.reasons.length) ? r.reasons\n  : q.breakdown.map(b => b.factor + ' (' + (b.points > 0 ? '+' : '') + b.points + ')'); // deterministic fallback: rubric IS the reason\nreturn [{ json: { ...q, reasons } }];"
+      },
+      "notes": "If Gemini output is unusable, fall back to the rubric breakdown as reasons - qualification never blocks on the LLM."
+    },
+    {
+      "id": "persist",
+      "name": "Persist Qualification",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1280,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text lead, $2::text biz, $3::text trc, $4::int score, $5::text band, $6::jsonb reasons, $7::jsonb breakdown),\nq AS (INSERT INTO vaibhavcapstone_qualifications (lead_id, business_id, score, band, reasons)\n  SELECT lead, biz, score, band, jsonb_build_object('reasons', reasons, 'rubric', breakdown) FROM p\n  ON CONFLICT (lead_id) DO UPDATE SET score = EXCLUDED.score, band = EXCLUDED.band, reasons = EXCLUDED.reasons\n  RETURNING lead_id),\nu AS (UPDATE vaibhavcapstone_leads SET status = 'QUALIFIED', updated_at = now()\n  WHERE lead_id = (SELECT lead FROM p) AND status = 'EXTRACTED' RETURNING status),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT biz, lead, trc, 'qualifier', 'LEAD_QUALIFIED', 'system',\n    jsonb_build_object('score', score, 'band', band) FROM p RETURNING event_id)\nSELECT (SELECT lead FROM p) AS lead_id, (SELECT band FROM p) AS band, (SELECT score FROM p) AS score;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id, $json.business_id, $json.trace_id, $json.score, $json.band, JSON.stringify($json.reasons), JSON.stringify($json.breakdown)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "envr",
+      "name": "Envelope For Recommender",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst src = $('Validate Envelope').first().json;\nreturn [{ json: { envelope_version: '1.0', business_id: src.business_id, lead_id: j.lead_id, trace_id: src.trace_id, agent: 'qualifier', status: 'ok', payload: {} } }];"
+      }
+    },
+    {
+      "id": "callr",
+      "name": "Call Recommender",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1720,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "w5EsrbELebUE2ibV",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "st_qualifier_reasons",
+      "name": "Stamp qualifier_reasons",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        -140
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
+      },
+      "notes": "Telemetry stamp (docs/traceability.md): start time + input size. Passes data through unchanged."
+    },
+    {
+      "id": "lg_qualifier_reasons",
+      "name": "Log LLM qualifier_reasons",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1120,
+        170
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_llm_calls\n (business_id, lead_id, trace_id, call_site, prompt_version, model, latency_ms,\n  input_tokens, output_tokens, cost_usd, schema_valid, attempt, fallback_used, finish_reason, usage_source)\nVALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING call_id;",
+        "options": {
+          "queryReplacement": "={{ (() => { const g = $('LLM Result qualifier_reasons').first().json; const st = $('Stamp qualifier_reasons').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = (g.usageMetadata && g.usageMetadata.promptTokenCount != null) ? g.usageMetadata : null; const it = u ? (u.promptTokenCount || 0) : Math.ceil((st.__in_chars || 0) / 4); const ot = u ? ((u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0)) : Math.ceil(txt.length / 4); let ok=false; try { const r=JSON.parse(txt.replace(/^```json?\\s*|```\\s*$/g,'')); ok=Array.isArray(r.reasons)&&r.reasons.length>0 } catch(e) {} return [$json.business_id, $json.lead_id || null, $json.trace_id || null, 'qualifier_reasons', 'v1', (g.__model || 'gemini-2.5-flash'), Date.now() - (st.__t0 || Date.now()), it, ot, +(((g.__fallback ? it * 0.15 + ot * 0.6 : it * 0.3 + ot * 2.5)) / 1e6).toFixed(6), ok, 1, (g.__fallback === true || !ok), cand.finishReason || null, u ? 'exact_api' : 'estimated'] })() }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata)."
+    },
+    {
+      "id": "lf_qualifier_re",
+      "name": "Ship LF qualifier_reasons",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        230
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://langfuse-web:3000/api/public/ingestion",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const g = $('LLM Result qualifier_reasons').first().json; const st = $('Stamp qualifier_reasons').first().json; const c = $('Assemble Qualification').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = g.usageMetadata || {}; const now = new Date().toISOString(); const tid = c.trace_id || ('wf_' + (c.business_id || 'x') + '_' + now.slice(0,10)); const t0 = new Date(st.__t0 || Date.now()).toISOString(); const inp = JSON.stringify(Object.fromEntries(Object.entries(st).filter(([k]) => !k.startsWith('__')))).slice(0, 4000); const uniq = tid + '-qualifier_reasons-' + Date.now(); return JSON.stringify({ batch: [{ id: uniq + '-t', timestamp: now, type: 'trace-create', body: { id: tid, name: 'lead-pipeline', metadata: { business_id: c.business_id, lead_id: c.lead_id || null } } },{ id: uniq + '-g', timestamp: now, type: 'generation-create', body: { id: uniq, traceId: tid, name: 'qualifier_reasons', model: (g.__model || 'gemini-2.5-flash'), startTime: t0, endTime: now, usage: { input: u.promptTokenCount || 0, output: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0), unit: 'TOKENS' }, metadata: { call_site: 'qualifier_reasons', prompt_version: 'v1', business_id: c.business_id, lead_id: c.lead_id || null, schema_valid: true }, input: inp, output: txt.slice(0, 4000) } } ] }); })() }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "x9DKbzWznHMJTync",
+          "name": "Capstone-Langfuse"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id."
+    },
+    {
+      "id": "fb_qualifier_re",
+      "name": "OpenAI Fallback qualifier_reasons",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'system', content: \"You write the sales-rep-facing rationale for a lead qualification produced by a deterministic scoring rubric.\\nRespond with ONLY JSON: {\\\"reasons\\\": string[]} - 2 to 4 short sentences.\\nRules: reference ONLY the facts and rubric factors provided. Never invent facts, numbers, or intent.\\nEach reason should tie a concrete fact to why it matters for sales priority (e.g. budget size, timeline, bulk/B2B potential, fit with catalog).\" }, { role: 'user', content: ('Band: ' + $json.band + ' (score ' + $json.score + ', HOT>=' + $json.thresholds.hot_min + ', WARM>=' + $json.thresholds.warm_min + ')\\n\\nExtracted facts:\\n' + JSON.stringify($json.extraction) + '\\n\\nRubric breakdown:\\n' + JSON.stringify($json.breakdown)) }] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "qQqGaHdi61WLgZ52",
+          "name": "OpenAI account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright."
+    },
+    {
+      "id": "mr_qualifier_re",
+      "name": "LLM Result qualifier_reasons",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        90
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
+      },
+      "notes": "Merge point: normalizes Gemini or OpenAI responses to one shape; __model/__fallback feed telemetry."
+    },
+    {
+      "parameters": {
+        "content": "## Deciding how promising this enquiry is\n\nEvery enquiry gets a score out of 100 and lands in one of three buckets — hot, warm or cold — so the team knows what to chase first.\n\nThe important part, and the thing most people get wrong: **the score is worked out by arithmetic, not by the AI.** The business's own settings decide what earns points. The AI is only asked to put the result into a sentence a person can read.",
+        "height": 185,
+        "width": 2040,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -450
+      ],
+      "id": "sticky-cm1Uub-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Score it — by arithmetic\n\n**Check the job ticket**, then fetch the enquiry along with this business's own scoring settings.\n\n**Add up the points.** Every rule is a plain sum: a stated budget earns points, a named contact earns points, a clear product interest earns points, real urgency earns points. A budget below everything in the catalogue *loses* points. Add it up, compare against this business's own thresholds, and out comes hot, warm or cold.\n\nTwo businesses can score the very same email differently, because each brings its own weights and thresholds. Nothing here is wired to one company.",
+        "height": 620,
+        "width": 780,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -240
+      ],
+      "id": "sticky-cm1Uub-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Ask the AI to explain the score — not to set it\n\nBy the time we get here the score already exists. The AI's only job is to turn the arithmetic into a readable line or two for whoever picks the lead up.\n\n**Ask Google's AI**, with OpenAI standing by if Google fails, and both answers flattened into one shape.\n\n**If the AI says nothing useful, it doesn't matter.** The reasons fall back to the arithmetic itself — \"stated budget (+25), clear product interest (+20)\". The score is never blocked, delayed or changed by the AI being unavailable.\n\n**The call is recorded** with its exact tokens and cost, like every other.",
+        "height": 620,
+        "width": 560,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        -240
+      ],
+      "id": "sticky-cm1Uub-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Save it, and move on\n\n**Write the band, the score and the reasons** onto the enquiry's record, and move it to its next stage.\n\n**Write the next job ticket** and call the workflow that matches real products to the enquiry.\n\nCold leads travel the same road as hot ones — scored, recorded, passed along. Nothing is thrown away here; it's just put in order.",
+        "height": 620,
+        "width": 660,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        -240
+      ],
+      "id": "sticky-cm1Uub-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Why the AI doesn't get to score\n\nAsk an AI to rate a lead and it will cheerfully give you a different answer for the same email tomorrow.\n\nSo it doesn't get the job. The score comes from arithmetic the business controls and can inspect. The AI writes the explanation — and if it fails, the arithmetic explains itself.\n\n**The same email always scores the same. 85.7% agreement with the human labels, and never once was a hot lead called cold.**",
+        "height": 260,
+        "width": 780,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        400
+      ],
+      "id": "sticky-cm1Uub-4",
+      "name": "Sticky Note4"
+    }
+  ],
+  "connections": {
+    "When Called By Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Envelope": {
+      "main": [
+        [
+          {
+            "node": "Fetch For Qualify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch For Qualify": {
+      "main": [
+        [
+          {
+            "node": "Compute Rubric Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Rubric Score": {
+      "main": [
+        [
+          {
+            "node": "Stamp qualifier_reasons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Reasons": {
+      "main": [
+        [
+          {
+            "node": "LLM Result qualifier_reasons",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI Fallback qualifier_reasons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Qualification": {
+      "main": [
+        [
+          {
+            "node": "Persist Qualification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log LLM qualifier_reasons",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ship LF qualifier_reasons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Qualification": {
+      "main": [
+        [
+          {
+            "node": "Envelope For Recommender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envelope For Recommender": {
+      "main": [
+        [
+          {
+            "node": "Call Recommender",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stamp qualifier_reasons": {
+      "main": [
+        [
+          {
+            "node": "Gemini Reasons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Fallback qualifier_reasons": {
+      "main": [
+        [
+          {
+            "node": "LLM Result qualifier_reasons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Result qualifier_reasons": {
+      "main": [
+        [
+          {
+            "node": "Assemble Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI",
+    "saveDataErrorExecution": "all"
+  },
+  "meta": {}
+}

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="260" fill="#FAF9F7"/>
+  <text x="480" y="42" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">The scoreboard — measured against an answer key written before the AI existed</text>
+  <g font-variant-numeric="tabular-nums">
+    <rect x="30" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="114" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">10/10</text>
+    <text x="114" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">emails correctly recognized</text>
+    <text x="114" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">spam never slipped through</text>
+    <rect x="216" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="300" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">95%+</text>
+    <text x="300" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">facts captured correctly</text>
+    <text x="300" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">zero facts ever invented</text>
+    <rect x="402" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="486" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">100%</text>
+    <text x="486" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">recommendations real</text>
+    <text x="486" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">39 of 39, in live stock</text>
+    <rect x="588" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="672" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">86%</text>
+    <text x="672" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">drafts approved by humans</text>
+    <text x="672" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">real clicks, gate is real</text>
+    <rect x="774" y="80" width="156" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="852" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">₹0.62</text>
+    <text x="852" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">AI cost per enquiry</text>
+    <text x="852" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">exact, to the token</text>
+  </g>
+</svg>

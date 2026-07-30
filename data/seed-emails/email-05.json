@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-05",
+  "from_email": "sneha.kulkarni.student@example.com",
+  "from_name": "Sneha Kulkarni",
+  "subject": "cheapest bookshelf",
+  "body": "hi, im a student setting up my hostel room. do you have any small bookshelf under Rs 2000? thats my max budget. thanks",
+  "received_at": "2026-07-22T20:12:00+05:30"
+}

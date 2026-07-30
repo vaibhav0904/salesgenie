@@ -1,0 +1,10 @@
+{
+  "business_id": "biz_oakember",
+  "channel": "seed-replay",
+  "external_id": "seed-email-01",
+  "from_email": "priya.mehta@zenithworks.example",
+  "from_name": "Priya Mehta",
+  "subject": "Office furniture for new Pune office - 40 workstations",
+  "body": "Hello,\n\nWe are Zenith Works, a design consultancy setting up a new office in Baner, Pune. We need to fit out 40 workstations before the end of August - that means 40 desks (height-adjustable preferred) and 40 ergonomic chairs with good lumbar support.\n\nOur budget for this is around Rs. 18 lakh. Could you share a quotation and bulk pricing? Happy to visit your showroom this week if needed.\n\nRegards,\nPriya Mehta\nProcurement Lead, Zenith Works\n+91 98220 44xxx",
+  "received_at": "2026-07-20T10:15:00+05:30"
+}

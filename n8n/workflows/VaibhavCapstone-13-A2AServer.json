@@ -1,0 +1,713 @@
+{
+  "name": "VaibhavCapstone-13-A2AServer",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "a2a-agent-card",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "whcard",
+      "name": "GET Agent Card",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -224
+      ],
+      "webhookId": "56bcebfb-d0cf-4601-a170-1fd1f54bacf1",
+      "notes": "A2A discovery (ADR-0011): every tenant is an A2A-discoverable Sales Agent. Card is 100% config-derived - zero tenant hardcoding."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT b.business_id, b.name, b.industry, b.config->>'tone' AS tone,\n  (SELECT count(*) FROM vaibhavcapstone_products p WHERE p.business_id = b.business_id AND p.stock_qty > 0) AS live_products\nFROM vaibhavcapstone_businesses b WHERE b.business_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [$json.query.business_id || ''] }}"
+        }
+      },
+      "id": "pgcard",
+      "name": "Load Business For Card",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        224,
+        -224
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nif (!j.business_id) return [{ json: { __status: 404, error: 'unknown business' } }];\nreturn [{ json: {\n  protocolVersion: '0.3.0',\n  name: j.name + ' Sales Agent',\n  description: 'Sales agent for ' + j.name + ' (' + (j.industry || 'retail') + '). Send a product enquiry as a natural-language message; a grounded, human-approved offer is returned as the task artifact. Every offer is reviewed by a human before release.',\n  url: 'http://localhost:5678/webhook/a2a-rpc?business_id=' + j.business_id + '',\n  preferredTransport: 'JSONRPC',\n  provider: { organization: j.name, url: 'http://localhost:5678' },\n  version: '1.0.0',\n  capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },\n  securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },\n  security: [{ bearer: [] }],\n  defaultInputModes: ['text/plain'],\n  defaultOutputModes: ['application/json', 'text/plain'],\n  skills: [{\n    id: 'product_enquiry',\n    name: 'Product enquiry',\n    description: 'Ask about products, budgets, quantities and delivery. The task completes with a human-approved reply and 1-3 recommended in-stock products (' + j.live_products + ' products currently live).',\n    tags: ['sales', 'retail', 'quote'],\n    examples: ['We need 25 ergonomic chairs, budget 3 lakh, delivery in 4 weeks.']\n  }]\n} }];"
+      },
+      "id": "card",
+      "name": "Build Agent Card",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "rcard",
+      "name": "Respond Card",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        -224
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "a2a-rpc",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "whrpc",
+      "name": "POST RPC",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        64
+      ],
+      "webhookId": "f0620c10-20f4-4693-9d80-16c44ff2c985"
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $input.first().json;\nconst auth = String((req.headers || {}).authorization || '');\nconst body = req.body || {};\nconst rpcId = body.id != null ? body.id : null;\nconst bid = (req.query || {}).business_id || '';\nconst err = (code, msg) => [{ json: { __route: 'error', __auth: auth, rpc: { jsonrpc: '2.0', id: rpcId, error: { code, message: msg } } } }];\nif (body.jsonrpc !== '2.0' || !body.method) return err(-32600, 'invalid JSON-RPC 2.0 request');\nif (body.method === 'message/send') {\n  const parts = (((body.params || {}).message) || {}).parts || [];\n  const text = parts.filter(p => p.kind === 'text' || p.type === 'text').map(p => p.text).join('\\n').trim();\n  if (!text) return err(-32602, 'message/send requires a text part');\n  const meta = (body.params || {}).metadata || {};\n  return [{ json: { __route: 'send', __auth: auth, rpc_id: rpcId, business_id: bid, text,\n    remote_agent: String(meta.agent_name || (req.headers || {})['user-agent'] || 'unknown-a2a-client').slice(0, 120),\n    from_email: String(meta.contact_email || 'agent@remote-a2a.invalid'),\n    from_name: String(meta.contact_name || meta.agent_name || 'Remote Agent') } }];\n}\nif (body.method === 'tasks/get') {\n  const tid = ((body.params || {}).id) || '';\n  if (!tid) return err(-32602, 'tasks/get requires params.id');\n  return [{ json: { __route: 'get', __auth: auth, rpc_id: rpcId, business_id: bid, task_id: tid } }];\n}\nreturn err(-32601, 'method not found: ' + body.method + ' (supported: message/send, tasks/get)');"
+      },
+      "id": "route",
+      "name": "Route RPC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        64
+      ],
+      "notes": "Bearer check + JSON-RPC validation + method routing. Errors use standard JSON-RPC codes."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifsendc",
+              "leftValue": "={{ $json.__route }}",
+              "rightValue": "send",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifsend",
+      "name": "message/send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifgetc",
+              "leftValue": "={{ $json.__route }}",
+              "rightValue": "get",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifget",
+      "name": "tasks/get?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.rpc) }}",
+        "options": {}
+      },
+      "id": "rerr",
+      "name": "Respond RPC Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-intake",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ business_id: $json.business_id, channel: 'a2a', from_email: $json.from_email, from_name: $json.from_name, subject: 'A2A enquiry from ' + $json.remote_agent, body: $json.text, external_id: 'a2a-' + Date.now() }) }}",
+        "options": {}
+      },
+      "id": "intake",
+      "name": "Forward To Intake",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        -64
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "notes": "Adapter pattern (like Gmail): the pipeline, guardrails and telemetry are untouched - A2A leads are born instrumented."
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('Route RPC').first().json;\nconst resp = $input.first().json;\nif (!resp.ok || !resp.lead_id) return [{ json: { __fail: true, rpc: { jsonrpc: '2.0', id: r.rpc_id, error: { code: -32000, message: 'intake rejected: ' + JSON.stringify(resp.errors || resp.error || 'unknown') } } } }];\nreturn [{ json: { __fail: false, rpc_id: r.rpc_id, business_id: r.business_id, lead_id: resp.lead_id,\n  task_id: 'a2a_' + resp.lead_id.slice(5), remote_agent: r.remote_agent } }];"
+      },
+      "id": "sendmap",
+      "name": "Build Task Id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ins AS (INSERT INTO vaibhavcapstone_a2a_tasks (task_id, lead_id, business_id, remote_agent)\n  VALUES ($1, $2, $3, $4) ON CONFLICT (task_id) DO NOTHING RETURNING task_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  VALUES ($3, $2, NULL, 'a2a-server', 'A2A_TASK_CREATED', $4, jsonb_build_object('task_id', $1)) RETURNING event_id)\nSELECT $1 AS task_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.lead_id, $json.business_id, $json.remote_agent] }}"
+        }
+      },
+      "id": "pgmap",
+      "name": "Map Task To Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1104,
+        -64
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: $('Build Task Id').first().json.rpc_id, result: { id: $('Build Task Id').first().json.task_id, contextId: $('Build Task Id').first().json.task_id, kind: 'task', status: { state: 'submitted', timestamp: new Date().toISOString() } } }) }}",
+        "options": {}
+      },
+      "id": "rsend",
+      "name": "Respond Task Submitted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1328,
+        -64
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.task_id, l.status, l.status_detail, b.name AS business_name,\n  d.subject AS reply_subject, d.body AS reply_body, r.items\nFROM vaibhavcapstone_a2a_tasks t\nJOIN vaibhavcapstone_leads l USING (lead_id)\nJOIN vaibhavcapstone_businesses b ON b.business_id = t.business_id\nLEFT JOIN vaibhavcapstone_drafts d ON d.lead_id = l.lead_id AND d.draft_type = 'CUSTOMER' AND d.status = 'SENT'\nLEFT JOIN vaibhavcapstone_recommendations r ON r.lead_id = l.lead_id\nWHERE t.task_id = $1 AND t.business_id = $2;",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.business_id] }}"
+        }
+      },
+      "id": "pgstate",
+      "name": "Load Task State",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        880,
+        208
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "Tenant isolation: task must belong to the business in the URL path."
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('Route RPC').first().json;\nconst row = $input.first().json;\nif (!row.task_id) return [{ json: { rpc: { jsonrpc: '2.0', id: r.rpc_id, error: { code: -32004, message: 'task not found for this agent' } } } }];\nconst MAP = { RECEIVED:'working', CLASSIFIED:'working', EXTRACTED:'working', QUALIFIED:'working',\n  RECOMMENDED:'working', DRAFTED:'working', PENDING_APPROVAL:'input-required', APPROVED:'working',\n  SENT:'completed', REJECTED:'canceled', DISCARDED_SPAM:'rejected', DISCARDED_NOT_ENQUIRY:'rejected',\n  NEEDS_REVIEW:'working', AWAITING_SETUP:'working', DEAD_LETTER:'failed' };\nconst state = MAP[row.status] || 'unknown';\nconst MSG = { 'input-required': 'A human reviewer at ' + row.business_name + ' is checking the proposed reply before it is released.',\n  working: 'The enquiry is progressing through ' + row.business_name + \"'s pipeline (stage: \" + row.status + ').',\n  rejected: 'This message was not accepted as a product enquiry.',\n  canceled: 'The reviewer declined to send an offer for this enquiry.',\n  failed: 'Processing failed; a human operator has been alerted.',\n  completed: 'Offer approved and released by a human reviewer.' };\nconst task = { id: row.task_id, contextId: row.task_id, kind: 'task',\n  status: { state, message: { role: 'agent', parts: [{ kind: 'text', text: MSG[state] || row.status }] }, timestamp: new Date().toISOString() } };\nif (state === 'completed') task.artifacts = [{ artifactId: row.task_id + '-offer', name: 'approved-offer',\n  parts: [ { kind: 'text', text: (row.reply_subject ? row.reply_subject + '\\n\\n' : '') + (row.reply_body || '') },\n           { kind: 'data', data: { recommended_products: row.items || [] } } ] }];\nreturn [{ json: { rpc: { jsonrpc: '2.0', id: r.rpc_id, result: task } } }];"
+      },
+      "id": "taskresp",
+      "name": "Translate To A2A Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        208
+      ],
+      "notes": "ADR-0011 state mapping. PENDING_APPROVAL surfaces as input-required: the human gate is visible to the remote agent."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.rpc) }}",
+        "options": {}
+      },
+      "id": "rget",
+      "name": "Respond Task",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1328,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE((SELECT $1 = 'Bearer ' || value FROM vaibhavcapstone_platform_config WHERE key = 'a2a_bearer'), false) AS authorized;",
+        "options": {
+          "queryReplacement": "={{ [$json.__auth] }}"
+        }
+      },
+      "id": "vb",
+      "name": "Verify Bearer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        336,
+        192
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "Token lives in vaibhavcapstone_platform_config (inserted at deploy from .env, never committed). Code nodes cannot read env vars in this n8n - DB is the source of truth anyway."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "a1",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "authif",
+      "name": "Auth OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('Route RPC').first().json;\nreturn [{ json: { rpc: { jsonrpc: '2.0', id: r.rpc_id != null ? r.rpc_id : null, error: { code: -32001, message: 'unauthorized: valid bearer token required' } } } }];"
+      },
+      "id": "unauth",
+      "name": "Compose Unauthorized",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $('Route RPC').first().json }];"
+      },
+      "id": "reload",
+      "name": "Reload Routed Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        -48
+      ],
+      "notes": "Restores the routed request after the auth check (the Postgres check replaced $json)."
+    },
+    {
+      "parameters": {
+        "content": "## The robot door — letting another company's AI buy from us\n\nEverything else in this system serves a person. This door serves software: another organisation's AI agent, shopping on its owner's behalf, with nobody writing an email on either side.\n\nIt speaks a shared language for AI agents, so a buyer's agent and our seller's agent can do business **without either company having built anything for the other.**",
+        "height": 190,
+        "width": 1940,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -496
+      ],
+      "id": "sticky-K08cnv-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### The public business card — no password needed\n\nAny agent may ask: who are you, what do you sell, how do I talk to you? We answer from this business's own record — and include one line that matters more than the rest: **a human reviews every offer before it is released.** We advertise the gate rather than hide it.",
+        "width": 900,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -304
+      ],
+      "id": "sticky-K08cnv-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Someone knocks\n\n**A request arrives.** We work out what is being asked: send a new enquiry, or check how an existing one is getting on. Anything else is refused politely.\n\n**Check the caller's key.** The business card is public, but *doing business* needs a shared key. No key, no conversation.\n\nNote that the refusal is written in the protocol's own language rather than as a plain web error — a machine on the other end needs an answer it can actually understand.",
+        "height": 580,
+        "width": 700,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        -128
+      ],
+      "id": "sticky-K08cnv-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### The work — through the very same pipeline\n\n**A new enquiry** is handed to the front door, exactly as an email would be, and the buyer's agent gets a ticket number to check on later.\n\nNothing downstream knows or cares that this one came from a machine. Same reading, same scoring, same grounded products, same human approval.\n\n**Checking on an enquiry** simply looks up how far it has got.",
+        "height": 620,
+        "width": 400,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -160
+      ],
+      "id": "sticky-K08cnv-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "### Answering in the agent's own language\n\nOur internal stages are translated into the words the protocol uses. Most of them simply mean \"working\".\n\nThe one that matters: **waiting for human approval becomes \"input-required\"** — the standard way of saying *a person must act before this can go further*. The buyer's agent sees the human gate, understands it, and waits.\n\nSent becomes \"completed\", returned with the approved reply and a tidy list of products the other company's systems can file automatically.",
+        "height": 620,
+        "width": 520,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        -160
+      ],
+      "id": "sticky-K08cnv-4",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Why this door exists at all — and only here\n\nInside the platform, our own steps don't need a protocol to talk to each other. They're one system; they can just call each other directly. Using a formal protocol internally would be pure overhead.\n\nAt the boundary it's the opposite: the other side is a stranger, built by someone we've never spoken to. That is exactly the problem this protocol solves — so it's used here, and nowhere else.\n\nProven end to end on both businesses. It also flushed out a real bug: a customer asking for \"journals\" wasn't matching a product called \"Leather Journal A5\".",
+        "height": 290,
+        "width": 900,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        512
+      ],
+      "id": "sticky-K08cnv-5",
+      "name": "Sticky Note5"
+    }
+  ],
+  "connections": {
+    "GET Agent Card": {
+      "main": [
+        [
+          {
+            "node": "Load Business For Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Business For Card": {
+      "main": [
+        [
+          {
+            "node": "Build Agent Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Agent Card": {
+      "main": [
+        [
+          {
+            "node": "Respond Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST RPC": {
+      "main": [
+        [
+          {
+            "node": "Route RPC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route RPC": {
+      "main": [
+        [
+          {
+            "node": "Verify Bearer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "message/send?": {
+      "main": [
+        [
+          {
+            "node": "Forward To Intake",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "tasks/get?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tasks/get?": {
+      "main": [
+        [
+          {
+            "node": "Load Task State",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond RPC Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward To Intake": {
+      "main": [
+        [
+          {
+            "node": "Build Task Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Task Id": {
+      "main": [
+        [
+          {
+            "node": "Map Task To Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Task To Lead": {
+      "main": [
+        [
+          {
+            "node": "Respond Task Submitted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Task State": {
+      "main": [
+        [
+          {
+            "node": "Translate To A2A Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Translate To A2A Task": {
+      "main": [
+        [
+          {
+            "node": "Respond Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Bearer": {
+      "main": [
+        [
+          {
+            "node": "Auth OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth OK?": {
+      "main": [
+        [
+          {
+            "node": "Reload Routed Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compose Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reload Routed Request": {
+      "main": [
+        [
+          {
+            "node": "message/send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Unauthorized": {
+      "main": [
+        [
+          {
+            "node": "Respond RPC Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI",
+    "saveDataErrorExecution": "all",
+    "binaryMode": "separate"
+  },
+  "meta": {}
+}

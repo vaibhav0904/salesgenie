@@ -1,0 +1,524 @@
+{
+  "name": "VaibhavCapstone-12-LLMJudge",
+  "nodes": [
+    {
+      "id": "cron",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -80
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "wh",
+      "name": "Run Now (manual/demo)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        80
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-judge-sweep",
+        "responseMode": "onReceived"
+      },
+      "webhookId": "58847088-8577-42b0-93fc-16fa701abc75"
+    },
+    {
+      "id": "claim",
+      "name": "Select Un-judged Artifacts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "SELECT * FROM (\n  SELECT 'extraction' AS artifact_type, l.lead_id AS artifact_ref, l.lead_id, l.business_id, l.trace_id,\n    jsonb_build_object(\n      'email', jsonb_build_object('from_name', l.raw_payload->>'from_name', 'from_email', l.from_email,\n                                  'subject', l.subject, 'body', l.body),\n      'extraction', jsonb_build_object('contact_name', e.contact_name, 'contact_email', e.contact_email,\n        'company', e.company, 'budget_value', e.budget_value, 'budget_currency', e.budget_currency,\n        'product_interest', e.product_interest, 'urgency', e.urgency, 'location', e.location)\n    ) AS payload\n  FROM vaibhavcapstone_leads l JOIN vaibhavcapstone_extractions e USING (lead_id)\n  WHERE e.classification = 'ENQUIRY'\n    AND NOT EXISTS (SELECT 1 FROM vaibhavcapstone_judge_scores j\n                    WHERE j.artifact_type = 'extraction' AND j.artifact_ref = l.lead_id)\n  UNION ALL\n  SELECT 'draft', d.draft_id, d.lead_id, d.business_id, l.trace_id,\n    jsonb_build_object('tone_instruction', b.config->>'tone',\n      'allowed_products', COALESCE(r.items, '[]'::jsonb),\n      'draft_subject', d.subject, 'draft_body', d.body)\n  FROM vaibhavcapstone_drafts d\n  JOIN vaibhavcapstone_leads l ON l.lead_id = d.lead_id\n  JOIN vaibhavcapstone_businesses b ON b.business_id = d.business_id\n  LEFT JOIN vaibhavcapstone_recommendations r ON r.lead_id = d.lead_id\n  WHERE d.draft_type = 'CUSTOMER'\n    AND NOT EXISTS (SELECT 1 FROM vaibhavcapstone_judge_scores j\n                    WHERE j.artifact_type = 'draft' AND j.artifact_ref = d.draft_id)\n  UNION ALL\n  SELECT 'reasons', q.lead_id, q.lead_id, q.business_id, l.trace_id,\n    jsonb_build_object(\n      'extraction', jsonb_build_object('contact_name', e.contact_name, 'company', e.company,\n        'budget_value', e.budget_value, 'product_interest', e.product_interest, 'urgency', e.urgency),\n      'rubric_breakdown', q.reasons->'rubric', 'reasons', q.reasons->'reasons')\n  FROM vaibhavcapstone_qualifications q JOIN vaibhavcapstone_extractions e USING (lead_id) JOIN vaibhavcapstone_leads l USING (lead_id)\n  WHERE NOT EXISTS (SELECT 1 FROM vaibhavcapstone_judge_scores j\n                    WHERE j.artifact_type = 'reasons' AND j.artifact_ref = q.lead_id)\n) x ORDER BY artifact_type LIMIT 15;",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "notes": "Doer = Gemini, grader = OpenAI (different family - no self-preference). UNIQUE(artifact_type, artifact_ref) makes judging idempotent. 15 artifacts per sweep."
+    },
+    {
+      "id": "sib",
+      "name": "One At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "prompt",
+      "name": "Build Judge Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nif (!j.artifact_type) return [];\nconst RUBRICS = {\n  extraction: [\n    'You judge whether structured data extracted from an email is FAITHFUL to the email text. Faithfulness means: nothing INVENTED. It does NOT mean completeness or your preferred interpretation.',\n    'RULE 1 - NULLS ARE ALWAYS CORRECT: a null or empty field is NEVER a violation. Null means the extractor declined to guess. Only NON-NULL values can be violations.',\n    'RULE 2 - VERBATIM fields (contact_name, contact_email, company, budget_value, location): a non-null value must be supported by the email text or headers. Obvious implications count as support: Rs. / rupees / lakh implies budget_currency=INR; a signature or From-Name supports contact_name.',\n    'RULE 3 - DERIVED fields (urgency, product_interest): categorical judgments by design. Flag ONLY when a non-null value has NO textual basis at all. Calibration disagreements (you would have chosen high instead of medium) are NOT violations.',\n    'Score 5: no violations. Score 3: one borderline stretch worth noting (still no fabrication). Score 1: any non-null value with no support in the email.',\n    'violations must ONLY contain non-null fabricated values, as field=value.'\n  ].join('\\n'),\n  draft: [\n    'You judge a sales reply draft for GROUNDEDNESS and TONE ADHERENCE.',\n    'Groundedness: the draft may mention ONLY the allowed_products (names/prices as given). Any invented discount, delivery promise, stock claim, warranty, or product = violation.',\n    'Tone: compare against tone_instruction.',\n    'Score 5: fully grounded AND clearly matches the tone. Score 3: grounded but tone generic/flat. Score 2 or 1 (AUTOMATIC on any invented commercial claim): fabrication present.',\n    'List every fabricated claim in violations verbatim.'\n  ].join('\\n'),\n  reasons: [\n    'You judge whether lead-qualification reasons are FACTUAL.',\n    'Each reason must reference facts in extraction or factors in rubric_breakdown. Paraphrase is fine; new facts are not.',\n    'Score 5: all reasons traceable. Score 3: one vague but harmless reason. Score 2 or 1: any invented fact.',\n    'List invented claims in violations.'\n  ].join('\\n')\n};\nconst system = RUBRICS[j.artifact_type] +\n  '\\nRespond with ONLY JSON: {\"score_1_5\": 1|2|3|4|5, \"violations\": string[], \"reasoning\": string (max 50 words)}.';\nreturn [{ json: { ...j, judge_system: system, judge_user: JSON.stringify(j.payload), __t0: Date.now() } }];"
+      },
+      "notes": "Criteria-anchored rubrics per artifact type (docs/traceability.md). Judge sees exactly what the original call saw - never more PII."
+    },
+    {
+      "id": "ai",
+      "name": "OpenAI Judge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o', temperature: 0, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: $json.judge_system }, { role: 'user', content: $json.judge_user } ] }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "qQqGaHdi61WLgZ52",
+          "name": "OpenAI account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput",
+      "notes": "JSON mode, temperature 0. Exact token usage returned (better than the estimated Gemini telemetry)."
+    },
+    {
+      "id": "parse",
+      "name": "Parse Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst src = $('Build Judge Prompt').first().json;\nlet verdict = null;\ntry { verdict = JSON.parse(raw.choices[0].message.content); } catch (e) {}\nconst usage = raw.usage || {};\nconst valid = !!(verdict && Number.isInteger(verdict.score_1_5) && verdict.score_1_5 >= 1 && verdict.score_1_5 <= 5 && Array.isArray(verdict.violations));\nreturn [{ json: {\n  artifact_type: src.artifact_type, artifact_ref: src.artifact_ref,\n  lead_id: src.lead_id, business_id: src.business_id, trace_id: src.trace_id || null,\n  valid, score: valid ? verdict.score_1_5 : null,\n  violations: valid ? verdict.violations : ['judge output invalid'],\n  reasoning: valid ? String(verdict.reasoning || '').slice(0, 500) : 'unparseable judge output',\n  latency_ms: Date.now() - (src.__t0 || Date.now()),\n  input_tokens: usage.prompt_tokens || null, output_tokens: usage.completion_tokens || null,\n  cost_usd: usage.prompt_tokens != null ? +(((usage.prompt_tokens * 2.50 + usage.completion_tokens * 10.0) / 1e6).toFixed(6)) : null\n} }];"
+      }
+    },
+    {
+      "id": "save",
+      "name": "Persist Score + Telemetry",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1320,
+        100
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text at, $2::text ref, $3::text lead, $4::text biz, $5::int score,\n                  $6::jsonb viol, $7::text reasoning, $8::boolean ok,\n                  $9::int lat, $10::int itok, $11::int otok, $12::numeric cost),\nins AS (INSERT INTO vaibhavcapstone_judge_scores\n  (business_id, lead_id, artifact_type, artifact_ref, judge_model, score, violations, reasoning)\n  SELECT biz, lead, at, ref, 'gpt-4o', score, viol, reasoning FROM p WHERE ok\n  ON CONFLICT (artifact_type, artifact_ref) DO NOTHING RETURNING score_id),\ntel AS (INSERT INTO vaibhavcapstone_llm_calls\n  (business_id, lead_id, trace_id, call_site, prompt_version, model, latency_ms,\n   input_tokens, output_tokens, cost_usd, schema_valid, attempt, fallback_used, finish_reason)\n  SELECT biz, lead, NULL, 'judge', 'v2', 'gpt-4o', lat, itok, otok, cost, ok, 1, false, NULL\n  FROM p RETURNING call_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT biz, lead, NULL, 'llm-judge', 'JUDGE_SCORED', 'system',\n    jsonb_build_object('artifact_type', at, 'artifact_ref', ref, 'score', score, 'violations', viol)\n  FROM p WHERE ok RETURNING event_id)\nSELECT (SELECT count(*) FROM ins) AS inserted, (SELECT score FROM p) AS score,\n       (SELECT at FROM p) AS artifact_type, (SELECT ref FROM p) AS artifact_ref,\n       (SELECT viol FROM p) AS violations, (SELECT biz FROM p) AS business_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.artifact_type, $json.artifact_ref, $json.lead_id, $json.business_id, $json.score, JSON.stringify($json.violations), $json.reasoning, $json.valid, $json.latency_ms, $json.input_tokens, $json.output_tokens, $json.cost_usd] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "notes": "Judge failures log and skip - monitoring never blocks anything."
+    },
+    {
+      "id": "ifbad",
+      "name": "Score <= 2?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1540,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "b1",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "alert",
+      "name": "Alert Operator",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1760,
+        200
+      ],
+      "parameters": {
+        "operation": "send",
+        "fromEmail": "reviewer@example.com",
+        "toEmail": "reviewer@example.com",
+        "subject": "={{ '[SalesGenie JUDGE ALERT] ' + $json.artifact_type + ' scored ' + $json.score + ' (' + $json.business_id + ')' }}",
+        "emailFormat": "text",
+        "text": "={{ 'The LLM judge flagged an artifact.\\n\\nType: ' + $json.artifact_type + '\\nRef: ' + $json.artifact_ref + '\\nBusiness: ' + $json.business_id + '\\nScore: ' + $json.score + '\\nViolations:\\n- ' + (JSON.parse(JSON.stringify($json.violations)) || []).join('\\n- ') + '\\n\\nReview the artifact before trusting further output from this prompt.' }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "9Chmlw4pL9nqibCH",
+          "name": "Capstone-SMTP"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "webhookId": "4674028e-e5fc-4a02-bb34-16ac6a039574"
+    },
+    {
+      "id": "loopback",
+      "name": "Next Artifact",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1980,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "lfjudge",
+      "name": "Ship LF judge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1500,
+        260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://langfuse-web:3000/api/public/ingestion",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const v = $('Parse Verdict').item.json; const raw = $('OpenAI Judge').item.json; const u = raw.usage || {}; const now = new Date().toISOString(); const tid = v.trace_id || ('judge_' + v.artifact_ref); const uniq = tid + '-judge-' + Date.now(); return JSON.stringify({ batch: [{ id: uniq + '-t', timestamp: now, type: 'trace-create', body: { id: tid, name: 'lead-pipeline', metadata: { business_id: v.business_id } } },{ id: uniq + '-g', timestamp: now, type: 'generation-create', body: { id: uniq, traceId: tid, name: 'judge_' + v.artifact_type, model: 'gpt-4o', endTime: now, usage: { input: u.prompt_tokens || 0, output: u.completion_tokens || 0, unit: 'TOKENS' }, metadata: { artifact_type: v.artifact_type, artifact_ref: v.artifact_ref, business_id: v.business_id }, output: JSON.stringify({ score: v.score, violations: v.violations }).slice(0, 2000) } },{ id: uniq + '-s', timestamp: now, type: 'score-create', body: { id: uniq + '-sc', traceId: tid, name: 'judge_' + v.artifact_type, value: v.score == null ? 0 : v.score, comment: String(v.reasoning || '').slice(0, 500) } } ] }); })() }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "x9DKbzWznHMJTync",
+          "name": "Capstone-Langfuse"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Judge call as a Langfuse generation + rubric result as a score on the lead trace."
+    },
+    {
+      "id": "restorev",
+      "name": "Restore Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        260
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: $('Parse Verdict').item.json }];"
+      }
+    },
+    {
+      "parameters": {
+        "content": "## The AI that checks the AI\n\nEvery so often this picks up work the system has already done — facts pulled from an email, products recommended, replies drafted — and has a **different company's AI** grade it out of five.\n\nThe question it asks is narrow on purpose: **was anything invented?** Not \"was this good\", not \"would I have phrased it differently\". Only: is every claim actually supported by what was in front of it.",
+        "height": 195,
+        "width": 2230,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -330
+      ],
+      "id": "sticky-MoUh9t-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Find work that hasn't been graded\n\n**Every half hour**, or on demand for a demo.\n\n**Pick up anything not yet graded.** Each piece of work is graded exactly once — and that's enforced by the database rather than by the workflow remembering, so a rerun can't quietly double-count anything.\n\n**One at a time**, so one slow marking doesn't hold up the rest.",
+        "height": 570,
+        "width": 700,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -190
+      ],
+      "id": "sticky-MoUh9t-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Grade it — using a rival's model, deliberately\n\n**Build the marking scheme** for whichever kind of work this is. The rules are strictest about one thing: **an empty field is never a fault.** Blank means the system declined to guess, which is exactly what it was told to do. Only a filled-in field can be wrong.\n\n**Ask OpenAI's model to mark it.** Google's AI did the work, so OpenAI does the marking — a model never grades its own homework.\n\nAnd unlike everywhere else in this system, the marker has **no backup model**. Falling back to Google here would defeat the entire point of asking someone else.\n\n**Read the verdict** — a score out of five, plus anything it believes was invented, quoted word for word.",
+        "height": 570,
+        "width": 620,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        620,
+        -190
+      ],
+      "id": "sticky-MoUh9t-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Record it — and shout if it's bad\n\n**Save the score** against the exact piece of work it graded, along with what the marking itself cost.\n\n**Send it to the tracing dashboard**, so quality can be watched as a trend over time rather than read once and forgotten.\n\n**Anything scoring two or below emails the operator straight away**, with the quoted problems attached. A quality drop should reach a person long before it could reach a customer.",
+        "height": 570,
+        "width": 880,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1260,
+        -190
+      ],
+      "id": "sticky-MoUh9t-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## The test that proves the marker actually works\n\nA grader that never catches anything is worthless — so it was tested with a trap.\n\nFive false claims were deliberately planted in a copy of a real draft: a product that didn't exist, a price that was wrong, a promise nobody had made.\n\n**It caught all five, quoted each one back, scored the draft 1 out of 5, and sent the alert.** Genuine work scores 5.0, 5.0 and 4.9.",
+        "height": 280,
+        "width": 900,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        420
+      ],
+      "id": "sticky-MoUh9t-4",
+      "name": "Sticky Note4"
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Select Un-judged Artifacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Now (manual/demo)": {
+      "main": [
+        [
+          {
+            "node": "Select Un-judged Artifacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Un-judged Artifacts": {
+      "main": [
+        [
+          {
+            "node": "One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One At A Time": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Build Judge Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Judge Prompt": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Judge": {
+      "main": [
+        [
+          {
+            "node": "Parse Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Verdict": {
+      "main": [
+        [
+          {
+            "node": "Persist Score + Telemetry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Score + Telemetry": {
+      "main": [
+        [
+          {
+            "node": "Ship LF judge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score <= 2?": {
+      "main": [
+        [
+          {
+            "node": "Alert Operator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Next Artifact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Operator": {
+      "main": [
+        [
+          {
+            "node": "Next Artifact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next Artifact": {
+      "main": [
+        [
+          {
+            "node": "One At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ship LF judge": {
+      "main": [
+        [
+          {
+            "node": "Restore Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Verdict": {
+      "main": [
+        [
+          {
+            "node": "Score <= 2?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI",
+    "saveDataErrorExecution": "all"
+  },
+  "meta": {}
+}

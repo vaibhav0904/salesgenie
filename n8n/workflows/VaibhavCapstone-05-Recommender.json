@@ -1,0 +1,727 @@
+{
+  "name": "VaibhavCapstone-05-Recommender",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "trg",
+      "name": "When Called By Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        144
+      ],
+      "notes": "Agent contract: Envelope v1.0. Called by WF-04 for QUALIFIED leads."
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst miss = ['envelope_version','business_id','lead_id','trace_id'].filter(k => !e[k]);\nif (miss.length) throw new Error('LEAD:' + (e.lead_id || '') + '|TRACE:' + (e.trace_id || '') + '|invalid envelope, missing: ' + miss.join(', '));\nreturn [{ json: e }];"
+      },
+      "id": "env",
+      "name": "Validate Envelope",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH lead AS (\n  SELECT l.lead_id, l.business_id, l.trace_id, e.contact_name, e.company,\n         e.budget_value, e.budget_currency, e.product_interest, e.urgency, e.location, q.band,\n         (SELECT min(price) FROM vaibhavcapstone_products mp\n          WHERE mp.business_id = l.business_id AND mp.stock_qty > 0) AS min_price\n  FROM vaibhavcapstone_leads l\n  JOIN vaibhavcapstone_extractions e USING (lead_id)\n  JOIN vaibhavcapstone_qualifications q USING (lead_id)\n  WHERE l.lead_id = $1 AND l.status = 'QUALIFIED'),\ntoks AS (\n  SELECT DISTINCT lower(w) AS tok FROM lead,\n    jsonb_array_elements_text(COALESCE(lead.product_interest, '[]'::jsonb)) t(v),\n    regexp_split_to_table(t.v, '[-_\\s]+') w WHERE length(w) > 2),\ncands AS (\n  SELECT p.sku, p.name, p.category, p.price, p.currency, p.stock_qty, p.attributes\n  FROM vaibhavcapstone_products p, lead\n  WHERE p.business_id = lead.business_id AND p.stock_qty > 0\n    AND (lead.budget_value IS NULL OR p.price <= lead.budget_value * 1.15\n         OR (lead.budget_value > 100000))  -- bulk/total budgets: do not price-cap items\n    AND EXISTS (SELECT 1 FROM toks WHERE p.category ILIKE '%' || regexp_replace(toks.tok, 's$', '') || '%'\n                                      OR p.name ILIKE '%' || regexp_replace(toks.tok, 's$', '') || '%')\n  ORDER BY p.price DESC LIMIT 12)\nSELECT lead.*, (SELECT count(*) FROM vaibhavcapstone_products cp WHERE cp.business_id = lead.business_id) AS catalog_size, COALESCE((SELECT jsonb_agg(c) FROM cands c), '[]'::jsonb) AS candidates FROM lead;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id] }}"
+        }
+      },
+      "id": "fetch",
+      "name": "Fetch Lead + Grounded Candidates",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        448,
+        144
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "GROUNDING SOURCE: in-stock products of THIS business, filtered by interest tokens + budget window. The LLM never sees products it may not pick."
+    },
+    {
+      "parameters": {
+        "jsCode": "const L = $input.first().json;\nif (!L.lead_id) return []; // not QUALIFIED: no-op\nconst cands = L.candidates || [];\nconst setup_incomplete = Number(L.catalog_size || 0) === 0; // no catalog at all = setup gate, not a product-fit problem\nlet no_reason = null;\nif (!cands.length) {\n  const budget = L.budget_value != null ? Number(L.budget_value) : null;\n  if (budget != null && L.min_price != null && budget < Number(L.min_price)) no_reason = 'stated budget (' + budget + ') is below the cheapest in-stock item (' + L.min_price + ')';\n  else no_reason = 'no in-stock catalog item matches the requested interest: ' + JSON.stringify(L.product_interest);\n}\nreturn [{ json: { lead_id: L.lead_id, business_id: L.business_id, trace_id: L.trace_id,\n  contact_name: L.contact_name, company: L.company, budget_value: L.budget_value,\n  budget_currency: L.budget_currency, product_interest: L.product_interest, urgency: L.urgency,\n  band: L.band, candidates: cands, has_candidates: cands.length > 0, setup_incomplete, no_reason } }];"
+      },
+      "id": "prep",
+      "name": "Prep Candidates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifcc",
+              "leftValue": "={{ $json.has_candidates }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifc",
+      "name": "Candidates Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [{ text: \"You select product recommendations for a customer enquiry.\\nRespond with ONLY JSON: {\\\"items\\\":[{\\\"sku\\\":string,\\\"rationale\\\":string}]} - 1 to 3 items.\\nHard rules:\\n- Choose ONLY skus that appear in the provided candidate list. NEVER invent or modify a sku.\\n- Ranking: match the customer's stated need first, then budget fit (for bulk/B2B asks judge per-unit affordability against the total budget), then value.\\n- rationale: one sentence tying THIS product to the customer's stated need/budget. Reference only provided facts.\\n- If several candidates are near-identical, prefer variety across the customer's asks (e.g. a desk AND a chair for an office fit-out).\" }] }, contents: [{ role: 'user', parts: [{ text: ('Customer need:\\n' + JSON.stringify({ contact_name: $json.contact_name, company: $json.company, budget_value: $json.budget_value, budget_currency: $json.budget_currency, product_interest: $json.product_interest, urgency: $json.urgency, band: $json.band }) + '\\n\\nCandidate products (the ONLY allowed skus):\\n' + JSON.stringify($json.candidates)) }] }], generationConfig: { responseMimeType: 'application/json' } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "gem",
+      "name": "Gemini Rank Items",
+      "position": [
+        1568,
+        -144
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "lLjcnrnGkFilQs0h",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before."
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || '').join('');\nelse if (r.content !== undefined) r = r.content;\nif (typeof r === 'string') { try { r = JSON.parse(r.replace(/^```json?\\s*|```\\s*$/g, '')); } catch (e) { r = null; } }\nconst q = $('Prep Candidates').first().json;\nconst allowed = new Set((q.candidates || []).map(c => c.sku));\nlet items = (r && Array.isArray(r.items)) ? r.items.filter(i => i && allowed.has(i.sku)).slice(0, 3) : [];\nreturn [{ json: { lead_id: q.lead_id, business_id: q.business_id, trace_id: q.trace_id,\n  items, item_count: items.length } }];"
+      },
+      "id": "parse",
+      "name": "Filter To Allowed SKUs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        -144
+      ],
+      "notes": "First guardrail layer: drop any sku not in the candidate list."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text lead, $2::text biz, $3::text trc, $4::jsonb items),\ncand AS (SELECT i->>'sku' AS sku, i->>'rationale' AS rat, ord.n\n  FROM p, jsonb_array_elements(p.items) WITH ORDINALITY ord(i, n)),\nok AS (SELECT c.sku, c.rat, c.n, pr.name, pr.price, pr.currency FROM cand c\n  JOIN vaibhavcapstone_products pr ON pr.business_id = (SELECT biz FROM p)\n   AND pr.sku = c.sku AND pr.stock_qty > 0),\nagg AS (SELECT COALESCE(jsonb_agg(jsonb_build_object('sku', sku, 'name', name, 'price', price,\n  'currency', currency, 'rationale', rat) ORDER BY n), '[]'::jsonb) AS items, count(*) AS cnt FROM ok),\nins AS (INSERT INTO vaibhavcapstone_recommendations (lead_id, business_id, items, grounded, no_grounded_reason)\n  SELECT p.lead, p.biz, agg.items, agg.cnt > 0,\n         CASE WHEN agg.cnt = 0 THEN 'model items failed SQL verification' END FROM p, agg\n  ON CONFLICT (lead_id) DO UPDATE SET items = EXCLUDED.items, grounded = EXCLUDED.grounded,\n    no_grounded_reason = EXCLUDED.no_grounded_reason RETURNING grounded),\nupd AS (UPDATE vaibhavcapstone_leads SET\n  status = CASE WHEN (SELECT grounded FROM ins) THEN 'RECOMMENDED' ELSE 'NEEDS_REVIEW' END,\n  status_detail = CASE WHEN (SELECT grounded FROM ins) THEN status_detail\n    ELSE jsonb_build_object('reason', 'no_grounded_option', 'detail', 'model items failed SQL verification', 'resume_from', 'recommend') END,\n  updated_at = now() WHERE lead_id = (SELECT lead FROM p) AND status = 'QUALIFIED' RETURNING status),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT p.biz, p.lead, p.trc, 'recommender',\n    CASE WHEN (SELECT grounded FROM ins) THEN 'RECOMMENDATION_GROUNDED' ELSE 'RECOMMENDATION_NO_GROUNDED' END,\n    'system', jsonb_build_object('items', (SELECT items FROM agg), 'verified_count', (SELECT cnt FROM agg))\n  FROM p RETURNING event_id)\nSELECT (SELECT grounded FROM ins) AS grounded, (SELECT items FROM agg) AS items, (SELECT lead FROM p) AS lead_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id, $json.business_id, $json.trace_id, JSON.stringify($json.items)] }}"
+        }
+      },
+      "id": "persist",
+      "name": "Verify SKUs + Persist",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2464,
+        -240
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "Second guardrail layer: SQL re-joins every item to a live in-stock product row. Zero survivors -> NEEDS_REVIEW, never a made-up recommendation."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text lead, $2::text biz, $3::text trc, $4::text reason),\nins AS (INSERT INTO vaibhavcapstone_recommendations (lead_id, business_id, items, grounded, no_grounded_reason)\n  SELECT lead, biz, '[]'::jsonb, false, reason FROM p\n  ON CONFLICT (lead_id) DO UPDATE SET items = '[]'::jsonb, grounded = false,\n    no_grounded_reason = EXCLUDED.no_grounded_reason RETURNING lead_id),\ndrf AS (INSERT INTO vaibhavcapstone_drafts (draft_id, lead_id, business_id, draft_type, subject, body, status)\n  SELECT 'drf_' || substr(md5(random()::text), 1, 14), lead, biz, 'INTERNAL',\n         'No grounded recommendation for this lead',\n         'The recommender found no verifiable in-stock catalog match. Reason: ' || reason ||\n         '. Suggested actions: check upcoming stock, offer an alternative category, or reply manually.', 'DRAFT'\n  FROM p RETURNING draft_id),\nupd AS (UPDATE vaibhavcapstone_leads SET status = 'NEEDS_REVIEW',\n  status_detail = jsonb_build_object('reason', 'no_grounded_option', 'detail', (SELECT reason FROM p), 'resume_from', 'recommend'),\n  updated_at = now() WHERE lead_id = (SELECT lead FROM p) AND status = 'QUALIFIED' RETURNING status),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT biz, lead, trc, 'recommender', 'RECOMMENDATION_NO_GROUNDED', 'system',\n    jsonb_build_object('reason', reason, 'internal_draft', (SELECT draft_id FROM drf)) FROM p RETURNING event_id)\nSELECT false AS grounded, (SELECT reason FROM p) AS reason;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id, $json.business_id, $json.trace_id, $json.no_reason] }}"
+        }
+      },
+      "id": "nog",
+      "name": "Persist No-Grounded-Option",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1344,
+        48
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "Honesty path (E5-S2): records why, files an INTERNAL note draft for the rep, parks lead in NEEDS_REVIEW."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "gc",
+              "leftValue": "={{ $json.grounded }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifg",
+      "name": "Grounded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2688,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst src = $('Validate Envelope').first().json;\nreturn [{ json: { envelope_version: '1.0', business_id: src.business_id, lead_id: j.lead_id, trace_id: src.trace_id, agent: 'recommender', status: 'ok', payload: {} } }];"
+      },
+      "id": "envd",
+      "name": "Envelope For DraftHITL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "6SDxlPJ5fU1PSwLB",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "calld",
+      "name": "Call DraftHITL",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3136,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ifsetupc",
+              "leftValue": "={{ $json.setup_incomplete }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ifsetup",
+      "name": "Catalog Configured?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text lead, $2::text biz, $3::text trc),\nu AS (UPDATE vaibhavcapstone_leads SET status = 'AWAITING_SETUP',\n  status_detail = jsonb_build_object('reason', 'setup_incomplete', 'missing', jsonb_build_array('catalog'),\n    'resume_from', 'recommend', 'parked_at', now()), updated_at = now()\n  WHERE lead_id = (SELECT lead FROM p) RETURNING lead_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT biz, lead, trc, 'recommend', 'LEAD_PARKED_AWAITING_SETUP', 'system',\n    jsonb_build_object('missing', 'catalog') FROM p RETURNING event_id)\nSELECT (SELECT lead FROM p) AS lead_id, 'AWAITING_SETUP' AS status;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id, $json.business_id, $json.trace_id] }}"
+        }
+      },
+      "id": "park5",
+      "name": "Park AWAITING_SETUP (no catalog)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1120,
+        240
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "notes": "PRODUCT STATE, not an error: the tenant has no catalog yet. Lead keeps everything learned so far and resumes automatically when upload_catalog runs."
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
+      },
+      "id": "st_recommender_rank",
+      "name": "Stamp recommender_rank",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -144
+      ],
+      "notes": "Telemetry stamp (docs/traceability.md): start time + input size. Passes data through unchanged."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_llm_calls\n (business_id, lead_id, trace_id, call_site, prompt_version, model, latency_ms,\n  input_tokens, output_tokens, cost_usd, schema_valid, attempt, fallback_used, finish_reason, usage_source)\nVALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING call_id;",
+        "options": {
+          "queryReplacement": "={{ (() => { const g = $('LLM Result recommender_rank').first().json; const st = $('Stamp recommender_rank').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = (g.usageMetadata && g.usageMetadata.promptTokenCount != null) ? g.usageMetadata : null; const it = u ? (u.promptTokenCount || 0) : Math.ceil((st.__in_chars || 0) / 4); const ot = u ? ((u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0)) : Math.ceil(txt.length / 4); let ok=false; try { const r=JSON.parse(txt.replace(/^```json?\\s*|```\\s*$/g,'')); ok=Array.isArray(r.items) } catch(e) {} return [$json.business_id, $json.lead_id || null, $json.trace_id || null, 'recommender_rank', 'v1', (g.__model || 'gemini-2.5-flash'), Date.now() - (st.__t0 || Date.now()), it, ot, +(((g.__fallback ? it * 0.15 + ot * 0.6 : it * 0.3 + ot * 2.5)) / 1e6).toFixed(6), ok, 1, (g.__fallback === true || !ok), cand.finishReason || null, u ? 'exact_api' : 'estimated'] })() }}"
+        }
+      },
+      "id": "lg_recommender_rank",
+      "name": "Log LLM recommender_rank",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2464,
+        -48
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://langfuse-web:3000/api/public/ingestion",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const g = $('LLM Result recommender_rank').first().json; const st = $('Stamp recommender_rank').first().json; const c = $('Filter To Allowed SKUs').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = g.usageMetadata || {}; const now = new Date().toISOString(); const tid = c.trace_id || ('wf_' + (c.business_id || 'x') + '_' + now.slice(0,10)); const t0 = new Date(st.__t0 || Date.now()).toISOString(); const inp = JSON.stringify(Object.fromEntries(Object.entries(st).filter(([k]) => !k.startsWith('__')))).slice(0, 4000); const uniq = tid + '-recommender_rank-' + Date.now(); return JSON.stringify({ batch: [{ id: uniq + '-t', timestamp: now, type: 'trace-create', body: { id: tid, name: 'lead-pipeline', metadata: { business_id: c.business_id, lead_id: c.lead_id || null } } },{ id: uniq + '-g', timestamp: now, type: 'generation-create', body: { id: uniq, traceId: tid, name: 'recommender_rank', model: (g.__model || 'gemini-2.5-flash'), startTime: t0, endTime: now, usage: { input: u.promptTokenCount || 0, output: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0), unit: 'TOKENS' }, metadata: { call_site: 'recommender_rank', prompt_version: 'v1', business_id: c.business_id, lead_id: c.lead_id || null, schema_valid: true }, input: inp, output: txt.slice(0, 4000) } } ] }); })() }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "lf_recommender_",
+      "name": "Ship LF recommender_rank",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2464,
+        144
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "x9DKbzWznHMJTync",
+          "name": "Capstone-Langfuse"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'system', content: \"You select product recommendations for a customer enquiry.\\nRespond with ONLY JSON: {\\\"items\\\":[{\\\"sku\\\":string,\\\"rationale\\\":string}]} - 1 to 3 items.\\nHard rules:\\n- Choose ONLY skus that appear in the provided candidate list. NEVER invent or modify a sku.\\n- Ranking: match the customer's stated need first, then budget fit (for bulk/B2B asks judge per-unit affordability against the total budget), then value.\\n- rationale: one sentence tying THIS product to the customer's stated need/budget. Reference only provided facts.\\n- If several candidates are near-identical, prefer variety across the customer's asks (e.g. a desk AND a chair for an office fit-out).\" }, { role: 'user', content: ('Customer need:\\n' + JSON.stringify({ contact_name: $json.contact_name, company: $json.company, budget_value: $json.budget_value, budget_currency: $json.budget_currency, product_interest: $json.product_interest, urgency: $json.urgency, band: $json.band }) + '\\n\\nCandidate products (the ONLY allowed skus):\\n' + JSON.stringify($json.candidates)) }] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "fb_recommender_",
+      "name": "OpenAI Fallback recommender_rank",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1792,
+        -64
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "openAiApi": {
+          "id": "qQqGaHdi61WLgZ52",
+          "name": "OpenAI account"
+        }
+      },
+      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright."
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
+      },
+      "id": "mr_recommender_",
+      "name": "LLM Result recommender_rank",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        -144
+      ],
+      "notes": "Merge point: normalizes Gemini or OpenAI responses to one shape; __model/__fallback feed telemetry."
+    },
+    {
+      "parameters": {
+        "content": "## Choosing what to actually offer\n\nThis is where the system recommends products — and where it would be easiest to embarrass the business by inventing something that doesn't exist.\n\nIt can't. There are **two locks**, one before the AI and one after, and a recommendation has to pass both to reach a customer.",
+        "height": 175,
+        "width": 2540,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -500
+      ],
+      "id": "sticky-w5Esrb-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Lock 1 — ask the shop first\n\n**Before the AI is involved at all**, we ask the database a plain question: which items are genuinely in stock right now, for this business, that match what this customer asked about and fit their budget?\n\nWhatever comes back is the shortlist — and **the AI is only ever shown this shortlist.** It cannot recommend something that isn't on it, because it is never shown anything else.\n\nThen two gates decide whether there is anything to work with at all: does this business even have a catalogue yet, and did the shortlist come back with anything on it?",
+        "height": 760,
+        "width": 1020,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -300
+      ],
+      "id": "sticky-w5Esrb-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### The AI picks from the shortlist\n\n**Ask Google's AI to choose two or three** and say why each suits this customer — OpenAI backing it up, both answers flattened into one shape, the call recorded with its exact tokens and cost.\n\n**Then throw away anything that wasn't on the list.** Even though the AI was only shown real items, its answer is checked against the shortlist again and anything else is silently dropped.\n\nTwo enquiries stop in this column instead:\n\n**No catalogue yet** → the enquiry parks and waits. Not an error — a business that hasn't finished setting up. It wakes up on its own once the catalogue arrives.\n\n**A catalogue, but nothing suitable** → we record the honest reason, such as \"the stated budget is below the cheapest item in stock\". An honest no beats a convenient yes.",
+        "height": 840,
+        "width": 520,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        940,
+        -380
+      ],
+      "id": "sticky-w5Esrb-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Lock 2 — check the shop again, as we save\n\n**Every chosen item is re-checked against live stock at the moment it is written down.** Time has passed since the shortlist was built and something may have sold out in between. Anything that no longer verifies is not saved.\n\n**Did anything survive?** If so, write the next job ticket and call the workflow that drafts the reply.\n\nIf nothing survived, the enquiry does not go on to a customer reply — because there is nothing truthful left to offer.",
+        "height": 760,
+        "width": 960,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        -300
+      ],
+      "id": "sticky-w5Esrb-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## The promise these two locks keep\n\n**Every product ever recommended was real and in stock. 39 out of 39. 100%.**\n\nLock 1 means the AI never sees a product that doesn't exist.\nLock 2 means even a correct-looking answer is re-checked against the shelf before it is saved.\n\nWhen a customer asked for something that was out of stock, by name, the system didn't offer it. It said so.",
+        "height": 260,
+        "width": 1020,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        500
+      ],
+      "id": "sticky-w5Esrb-4",
+      "name": "Sticky Note4"
+    }
+  ],
+  "connections": {
+    "When Called By Agent": {
+      "main": [
+        [
+          {
+            "node": "Validate Envelope",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Envelope": {
+      "main": [
+        [
+          {
+            "node": "Fetch Lead + Grounded Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Lead + Grounded Candidates": {
+      "main": [
+        [
+          {
+            "node": "Prep Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Candidates": {
+      "main": [
+        [
+          {
+            "node": "Catalog Configured?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidates Found?": {
+      "main": [
+        [
+          {
+            "node": "Stamp recommender_rank",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Persist No-Grounded-Option",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Rank Items": {
+      "main": [
+        [
+          {
+            "node": "LLM Result recommender_rank",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI Fallback recommender_rank",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter To Allowed SKUs": {
+      "main": [
+        [
+          {
+            "node": "Verify SKUs + Persist",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log LLM recommender_rank",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ship LF recommender_rank",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify SKUs + Persist": {
+      "main": [
+        [
+          {
+            "node": "Grounded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grounded?": {
+      "main": [
+        [
+          {
+            "node": "Envelope For DraftHITL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Envelope For DraftHITL": {
+      "main": [
+        [
+          {
+            "node": "Call DraftHITL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Catalog Configured?": {
+      "main": [
+        [
+          {
+            "node": "Candidates Found?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Park AWAITING_SETUP (no catalog)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stamp recommender_rank": {
+      "main": [
+        [
+          {
+            "node": "Gemini Rank Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Fallback recommender_rank": {
+      "main": [
+        [
+          {
+            "node": "LLM Result recommender_rank",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Result recommender_rank": {
+      "main": [
+        [
+          {
+            "node": "Filter To Allowed SKUs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "errorWorkflow": "7jyaQ5gz8eYDBFJI",
+    "saveDataErrorExecution": "all",
+    "binaryMode": "separate"
+  },
+  "meta": {}
+}

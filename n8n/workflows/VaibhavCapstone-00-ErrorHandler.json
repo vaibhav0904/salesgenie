@@ -1,0 +1,311 @@
+{
+  "name": "VaibhavCapstone-00-ErrorHandler",
+  "nodes": [
+    {
+      "id": "et1",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {},
+      "notes": "Safety net for every VaibhavCapstone-* workflow (set as their errorWorkflow). Nothing fails silently: dead-letter known lead -> audit event -> operator alert."
+    },
+    {
+      "id": "code1",
+      "name": "Extract Error Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst exec = j.execution || {};\nconst err = exec.error || {};\n// n8n Code-node errors split the thrown message on colons across message/description;\n// the stack keeps the original string, so search all three for the LEAD/TRACE tags.\nconst hay = [err.message, err.description, err.stack].filter(Boolean).join(\" | \");\nconst leadM = hay.match(/LEAD:([A-Za-z0-9_-]+)/);\nconst traceM = hay.match(/TRACE:([A-Za-z0-9_-]+)/);\nreturn [{ json: {\n  workflow_name: (j.workflow || {}).name || \"unknown\",\n  workflow_id: (j.workflow || {}).id || null,\n  execution_id: exec.id || null,\n  execution_url: exec.url || null,\n  failed_node: exec.lastNodeExecuted || (err.node || {}).name || null,\n  message: hay.slice(0, 500) || \"unknown error\",\n  lead_id: leadM ? leadM[1] : \"\",\n  trace_id: traceM ? traceM[1] : null,\n  happened_at: new Date().toISOString()\n} }];"
+      }
+    },
+    {
+      "id": "pg1",
+      "name": "Dead-letter Lead If Known",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "UPDATE vaibhavcapstone_leads\nSET status = 'DEAD_LETTER',\n    status_detail = jsonb_build_object(\n      'error', $2, 'failed_node', $3, 'workflow', $4, 'execution_id', $5, 'at', now()),\n    updated_at = now()\nWHERE lead_id = NULLIF($1, '')\n  AND status NOT IN ('SENT', 'REJECTED', 'DEAD_LETTER')\nRETURNING lead_id, business_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id, $json.message, $json.failed_node, $json.workflow_name, $json.execution_id] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "pg2",
+      "name": "Log Error Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "resource": "database",
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\nVALUES (\n  COALESCE((SELECT business_id FROM vaibhavcapstone_leads WHERE lead_id = NULLIF($1,'')), 'platform'),\n  NULLIF($1, ''), NULLIF($2, ''), 'error-handler', 'WORKFLOW_ERROR', 'system', $3::jsonb)\nRETURNING event_id;",
+        "options": {
+          "queryReplacement": "={{ [$('Extract Error Context').first().json.lead_id, $('Extract Error Context').first().json.trace_id || '', JSON.stringify($('Extract Error Context').first().json)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "KR1AzPVfamsVzB1d",
+          "name": "Capstone-Postgres"
+        }
+      },
+      "alwaysOutputData": true,
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "em1",
+      "name": "Alert Operator",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1100,
+        -60
+      ],
+      "parameters": {
+        "fromEmail": "reviewer@example.com",
+        "toEmail": "reviewer@example.com",
+        "subject": "={{ '[SalesGenie ALERT] ' + $('Extract Error Context').first().json.workflow_name + ' failed at ' + ($('Extract Error Context').first().json.failed_node || 'unknown node') }}",
+        "emailFormat": "text",
+        "text": "={{ 'SalesGenie workflow error\\n\\nWorkflow: ' + $('Extract Error Context').first().json.workflow_name + '\\nFailed node: ' + $('Extract Error Context').first().json.failed_node + '\\nLead: ' + ($('Extract Error Context').first().json.lead_id || 'none identified') + '\\nExecution: ' + ($('Extract Error Context').first().json.execution_url || $('Extract Error Context').first().json.execution_id) + '\\nAt: ' + $('Extract Error Context').first().json.happened_at + '\\n\\nError:\\n' + $('Extract Error Context').first().json.message + '\\n\\nIf a lead is named above it has been parked as DEAD_LETTER and needs operator action.' }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "9Chmlw4pL9nqibCH",
+          "name": "Capstone-SMTP"
+        }
+      },
+      "webhookId": "ba2f2f89-550b-443f-970c-d48872bd1aeb"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "c1",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Extract Error Context').first().json.execution_id }}",
+              "rightValue": ""
+            },
+            {
+              "id": "c2",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Extract Error Context').first().json.failed_node }}",
+              "rightValue": ""
+            },
+            {
+              "id": "c3",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('Extract Error Context').first().json.lead_id }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "real-failure-gate",
+      "name": "Real Failure?"
+    },
+    {
+      "parameters": {
+        "content": "## The safety net\n\nEvery other workflow points here when something goes wrong. **Nothing in this system is allowed to fail silently** — a customer enquiry must never simply evaporate.",
+        "height": 160,
+        "width": 1500,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -290
+      ],
+      "id": "sticky-7jyaQ5-0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### Work out what broke — and whether an enquiry was hurt\n\n**Something failed somewhere.** We're told which workflow, which step, and what the message said.\n\n**Find the enquiry, if there was one.** Failures are tagged with the enquiry and its tracking number, and we dig those back out of the failure text — which is fiddlier than it sounds, because the workflow engine chops error messages up before we see them.",
+        "height": 420,
+        "width": 660,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -150
+      ],
+      "id": "sticky-7jyaQ5-1",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "### Record it, and protect the enquiry\n\n**Mark the enquiry as stuck** — but only if it wasn't already finished. A late failure must never undo an enquiry that was already sent or already rejected.\n\n**Write the failure down** with everything needed to understand it later. This always happens, for every failure, no exceptions.",
+        "height": 420,
+        "width": 460,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        580,
+        -150
+      ],
+      "id": "sticky-7jyaQ5-2",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "### Only bother a person if it's real\n\n**Email the operator** — but only when there is something a person can actually act on.\n\nSome failures are self-healing: the mailbox connection drops, and the system reconnects by itself seconds later. Those arrive with no execution, no failing step and no enquiry attached — nothing to fix. They are still written down above, but they no longer send an email.\n\nAnything with a real execution, a real failing step, or a real enquiry attached still emails immediately.",
+        "height": 420,
+        "width": 420,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        -150
+      ],
+      "id": "sticky-7jyaQ5-3",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Why the alert is filtered, not switched off\n\nAn operator who gets an email every few hours for something that fixed itself stops reading the emails — and that is exactly how a real failure gets missed.\n\nSo the filter is deliberately narrow: silence **only** when there is no execution, no failing step *and* no enquiry. Everything else still shouts.\n\nThe recording step is also set to carry on even if it fails, so the alert still goes out **even when the database is the thing that's broken**.",
+        "height": 230,
+        "width": 1140,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        300
+      ],
+      "id": "sticky-7jyaQ5-4",
+      "name": "Sticky Note4"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Error Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Error Context": {
+      "main": [
+        [
+          {
+            "node": "Dead-letter Lead If Known",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dead-letter Lead If Known": {
+      "main": [
+        [
+          {
+            "node": "Log Error Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Error Event": {
+      "main": [
+        [
+          {
+            "node": "Real Failure?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real Failure?": {
+      "main": [
+        [
+          {
+            "node": "Alert Operator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "meta": {}
+}

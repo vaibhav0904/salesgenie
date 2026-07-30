@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="340" fill="#FAF9F7"/>
+  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">The same enquiry, before and after</text>
+  <!-- before -->
+  <rect x="40" y="70" width="420" height="230" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="2"/>
+  <text x="250" y="100" text-anchor="middle" fill="#6E6A63" font-size="16" font-weight="700">BEFORE — a person’s morning</text>
+  <g fill="#20242B" font-size="13.5">
+    <text x="70" y="132">📧 read the email, decide if it’s real</text>
+    <text x="70" y="160">⌨️ type name &amp; company into a spreadsheet</text>
+    <text x="70" y="188">🔍 search the person online</text>
+    <text x="70" y="216">🤔 recommend products from memory</text>
+    <text x="70" y="244">✍️ write the reply — if it isn’t forgotten</text>
+  </g>
+  <text x="250" y="282" text-anchor="middle" fill="#B4551D" font-size="14" font-weight="700">hours to days · typos · it depends who answered</text>
+  <!-- after -->
+  <rect x="500" y="70" width="420" height="230" rx="10" fill="#FFFFFF" stroke="#2E7D53" stroke-width="2.5"/>
+  <text x="710" y="100" text-anchor="middle" fill="#2E7D53" font-size="16" font-weight="700">AFTER — the person’s morning</text>
+  <g fill="#20242B" font-size="13.5">
+    <text x="530" y="140">☕ coffee</text>
+    <text x="530" y="176">📬 an approval request arrives: the enquiry, the facts,</text>
+    <text x="545" y="196">real in-stock products, a drafted reply</text>
+    <text x="530" y="232">👀 read it · ✅ click Approve</text>
+  </g>
+  <text x="710" y="282" text-anchor="middle" fill="#2E7D53" font-size="14" font-weight="700">19-second draft · zero typing · same quality every time</text>
+</svg>
