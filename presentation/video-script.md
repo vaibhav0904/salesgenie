@@ -35,6 +35,7 @@ cd "<the folder you cloned salesgenie into>"
       $env:A2A_POLL_SECONDS=10
       ```
 - [ ] **Log in to Langfuse *before* you record** and leave window D on the Traces list. The session must already be open — a login screen appearing in Take 4 would put a credential field on camera. The account was created automatically on first boot from `LANGFUSE_INIT_*` in `.env` (user `YOUR-EMAIL@gmail.com`); read the password with `Select-String -Path .env -Pattern LANGFUSE_INIT_USER_PASSWORD` in a terminal that is **not** being recorded.
+- [ ] **Archive every old `[Approval needed]` / `[SalesGenie]` email before recording.** Eval replay runs (including the 2026-07-30 spread) each left a batch of approval requests in the inbox. Takes 1–3 depend on *the newest* approval email being unambiguous — an inbox full of stale ones is how the wrong draft gets approved on camera.
 - [ ] Notifications silenced. Gmail spam folder checked once.
 - [ ] **`Green Thumb` must not exist yet.** Only `biz_oakember` and `biz_pagebindbooks` should be present — its creation is the opening beat.
 
