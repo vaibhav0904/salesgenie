@@ -1,0 +1,134 @@
+{
+  "name": "LearningLab-Replay",
+  "nodes": [
+    {
+      "id": "note1",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -300
+      ],
+      "parameters": {
+        "width": 620,
+        "height": 240,
+        "content": "## 📬 Replay Lab — inject a lead\n\n1. Open **Pick Email** and set `email_number` (1–10), or paste a full JSON payload into `custom_json`\n2. Click **Execute workflow**\n3. The last node shows the intake response (201 = lead created; note the lead_id!)\n4. Watch the pipeline fire under **Executions**, then inspect rows in LearningLab-SQL\n\nSeed guide: 1 hot bulk · 2 sofa+budget · 3 vague · 4 chair no-budget · 5 tiny budget\n6 out-of-stock bed · 7 off-catalog · 8 vendor pitch · 9 spam · 10 gibberish\n\nexternal_id is auto-rewritten to lab-<timestamp> so evals stay clean."
+      }
+    },
+    {
+      "id": "trig1",
+      "name": "When clicking Execute",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "set1",
+      "name": "Pick Email",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "email_number",
+              "value": 2,
+              "type": "number"
+            },
+            {
+              "id": "a2",
+              "name": "custom_json",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "code1",
+      "name": "Build Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Pick a seed email (1-10) or use a custom payload pasted in the Set node.\n// external_id is rewritten to lab-<timestamp> so eval queries (seed-email-%) never see lab runs.\nconst SEEDS = {\n  \"1\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-01\",\n    \"from_email\": \"priya.mehta@zenithworks.example\",\n    \"from_name\": \"Priya Mehta\",\n    \"subject\": \"Office furniture for new Pune office - 40 workstations\",\n    \"body\": \"Hello,\\n\\nWe are Zenith Works, a design consultancy setting up a new office in Baner, Pune. We need to fit out 40 workstations before the end of August - that means 40 desks (height-adjustable preferred) and 40 ergonomic chairs with good lumbar support.\\n\\nOur budget for this is around Rs. 18 lakh. Could you share a quotation and bulk pricing? Happy to visit your showroom this week if needed.\\n\\nRegards,\\nPriya Mehta\\nProcurement Lead, Zenith Works\\n+91 98220 44xxx\",\n    \"received_at\": \"2026-07-20T10:15:00+05:30\"\n  },\n  \"2\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-02\",\n    \"from_email\": \"rahul.sharma87@example.com\",\n    \"from_name\": \"Rahul Sharma\",\n    \"subject\": \"Looking for a leather sofa - budget 90k\",\n    \"body\": \"Hi,\\n\\nI'm moving into a new flat in Indiranagar, Bangalore next month and want a premium leather sofa for the living room. Three-seater, something classic looking. My budget is up to Rs. 90,000.\\n\\nDo you deliver in Bangalore and what are the options?\\n\\nThanks,\\nRahul\",\n    \"received_at\": \"2026-07-20T18:42:00+05:30\"\n  },\n  \"3\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-03\",\n    \"from_email\": \"ananya.iyer@example.com\",\n    \"from_name\": \"Ananya Iyer\",\n    \"subject\": \"Dining table options?\",\n    \"body\": \"Hello,\\n\\nWe're exploring dining sets for our home - ideally a 6-seater, wooden, at a reasonable price. Not in a rush, just comparing options for now. Could you send me what you have?\\n\\nAnanya\",\n    \"received_at\": \"2026-07-21T11:05:00+05:30\"\n  },\n  \"4\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-04\",\n    \"from_email\": \"vikram.rao@example.com\",\n    \"from_name\": \"Vikram Rao\",\n    \"subject\": \"Ergonomic chair for home office\",\n    \"body\": \"Hi team,\\n\\nI've been working from home and my back is killing me. Looking for a good ergonomic chair with lumbar support. What would you recommend? Not sure what these usually cost.\\n\\nVikram Rao\",\n    \"received_at\": \"2026-07-22T09:30:00+05:30\"\n  },\n  \"5\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-05\",\n    \"from_email\": \"sneha.kulkarni.student@example.com\",\n    \"from_name\": \"Sneha Kulkarni\",\n    \"subject\": \"cheapest bookshelf\",\n    \"body\": \"hi, im a student setting up my hostel room. do you have any small bookshelf under Rs 2000? thats my max budget. thanks\",\n    \"received_at\": \"2026-07-22T20:12:00+05:30\"\n  },\n  \"6\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-06\",\n    \"from_email\": \"kavita.nair@example.com\",\n    \"from_name\": \"Kavita Nair\",\n    \"subject\": \"Rosewood King Bed - availability\",\n    \"body\": \"Hello,\\n\\nI saw the Rosewood King Bed at your Kochi showroom last month and loved it. I'd like to order it now - my budget is about Rs. 75,000. Is it available for delivery to Kochi within 2-3 weeks?\\n\\nBest,\\nKavita Nair\",\n    \"received_at\": \"2026-07-23T14:20:00+05:30\"\n  },\n  \"7\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-07\",\n    \"from_email\": \"arjun@greenspaces.example\",\n    \"from_name\": \"Arjun Menon\",\n    \"subject\": \"Garden gazebos and pergolas?\",\n    \"body\": \"Hi,\\n\\nWe're landscaping a rooftop terrace for a client and need a wooden gazebo and possibly two pergolas. Do you make outdoor structures like these? Budget is flexible for the right quality.\\n\\nArjun Menon\\nGreen Spaces Landscaping\",\n    \"received_at\": \"2026-07-23T16:55:00+05:30\"\n  },\n  \"8\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-08\",\n    \"from_email\": \"sales@timberimpex.example\",\n    \"from_name\": \"Timber Impex Pvt Ltd\",\n    \"subject\": \"Partnership proposal - premium teak wood supply\",\n    \"body\": \"Dear Procurement Team,\\n\\nGreetings from Timber Impex! We are a leading importer of Burmese teak and African mahogany, supplying furniture manufacturers across India at highly competitive rates.\\n\\nWe would love to become your raw material partner. Please find our rate card attached and let us know a good time for a call.\\n\\nWarm regards,\\nSales Team, Timber Impex Pvt Ltd\",\n    \"received_at\": \"2026-07-24T10:03:00+05:30\"\n  },\n  \"9\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-09\",\n    \"from_email\": \"winner-claims@lucky-draw-intl.example\",\n    \"from_name\": \"International Lucky Draw\",\n    \"subject\": \"CONGRATULATIONS!! You WON Rs 50,00,000\",\n    \"body\": \"DEAR LUCKY WINNER,\\n\\nYour email ID has been selected in our INTERNATIONAL LUCKY DRAW. You have WON Rs 50,00,000 (FIFTY LAKH). To claim, send your bank account number, IFSC code and a processing fee of Rs 4,999 to the account below IMMEDIATELY. Offer expires in 24 HOURS!!!\\n\\nDr. James Okafor\\nClaims Department\",\n    \"received_at\": \"2026-07-24T22:47:00+05:30\"\n  },\n  \"10\": {\n    \"business_id\": \"biz_oakember\",\n    \"channel\": \"seed-replay\",\n    \"external_id\": \"seed-email-10\",\n    \"from_email\": \"raj.k.9812@example.com\",\n    \"from_name\": \"raj\",\n    \"subject\": \"frnitur\",\n    \"body\": \"hlo u hv frnitur?? prc?? snd fst\",\n    \"received_at\": \"2026-07-25T13:08:00+05:30\"\n  }\n};\n\nconst cfg = $input.first().json;\nlet payload;\nif (cfg.custom_json && String(cfg.custom_json).trim()) {\n  payload = JSON.parse(cfg.custom_json);\n} else {\n  const n = Number(cfg.email_number);\n  if (!SEEDS[n]) throw new Error('email_number must be 1-10 (got ' + cfg.email_number + ')');\n  payload = JSON.parse(JSON.stringify(SEEDS[n]));\n}\npayload.external_id = 'lab-' + Date.now();\npayload.channel = 'learning-lab';\nreturn [{ json: { picked: cfg.custom_json ? 'custom' : 'seed email ' + cfg.email_number, payload } }];"
+      }
+    },
+    {
+      "id": "http1",
+      "name": "POST To Intake",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/vaibhavcapstone-intake",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When clicking Execute": {
+      "main": [
+        [
+          {
+            "node": "Pick Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Email": {
+      "main": [
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "POST To Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

@@ -12,3 +12,9 @@ docs/05_Official_Problem_Statement.pdf
 
 # Build artefact — duplicates n8n/workflows/; regenerate with Compress-Archive for Drive uploads
 salesgenie-n8n-workflows.zip
+
+# Demo video working files — large/intermediate, never committed. Final small
+# exports (teaser gif/mp4) are committed explicitly from exports/.
+presentation/video-assets/raw/
+presentation/video-assets/audio/
+presentation/video-assets/work/

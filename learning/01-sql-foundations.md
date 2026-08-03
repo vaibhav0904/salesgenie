@@ -51,11 +51,56 @@ front counter; `-c` = one query and return.
   manual psql, future code. Workflow-level checks protect only that one workflow.
 - `business_id` is on almost every card: that one column IS multi-tenancy.
 
-## Exercises (answers to be recorded)
+## Exercises (answers to be recorded) — done by BUILDING LearningLab-Data
 
-1. **Predict:** `SELECT name, price FROM vaibhavcapstone_products WHERE price < 10000 ORDER BY price;`
-   — what kind of items come back, and in what order?
-2. **Write your own:** show subject and from_email of every Oak & Ember lead
-   currently in NEEDS_REVIEW. (Drawer: `vaibhavcapstone_leads`; filters needed: two.)
+*(Revision: Vaibhav writes zero SQL — everything through native node UIs. He builds
+the lab himself, guided click-by-click.)*
+
+Build: new workflow named **LearningLab-Data** → *Trigger manually* → Postgres node
+(credential `Capstone-Postgres`) with operation **Select rows from table**.
+
+1. **Predict, then run:** point the Select node at `vaibhavcapstone_products`,
+   add where-condition `price` *smaller than* `10000`, sort by `price` ascending,
+   Output Columns `name, price`. BEFORE clicking *Execute step*: what kind of items
+   will appear, in what order?
+2. **Configure your own:** a second Select node on `vaibhavcapstone_leads` showing
+   `subject, from_email` — two where-conditions combined with AND:
+   `status` equals `NEEDS_REVIEW`, `business_id` equals `biz_oakember`.
 3. **Concept:** why does `stock_qty >= 0` live as a CHECK in the database instead of
    just being careful in workflow code?
+
+## Exercise results (2026-07-30)
+
+1. **Prediction ✅** — items under ₹10k ascending. Bonus discovery: the list mixed
+   ALL THREE tenants' products (picture books, potting soil…) because the node had
+   no business_id filter — multi-tenancy seen physically. Every product query in
+   the real pipeline always filters business_id.
+2. **Got 588, truth is 28.** Filters were correct; the node was wired downstream of
+   exercise 1's node, and **n8n runs a node once per incoming item**: 21 products ×
+   28 leads = 588. Fix: connect from the trigger (parallel) or Settings → Execute
+   Once. THE key n8n looping behavior behind the project's splitInBatches gotchas.
+3. **CHECK vs IF (Vaibhav's answer, sharpened):** an IF node protects one path in
+   one workflow — only executions that pass through it are checked. A CHECK guards
+   the data itself at the storage layer, against every writer (14 workflows, MCP
+   tools, manual edits, future code), forever.
+
+## Bonus investigation: the 50 mystery leads
+
+Cabinet grew 59 → 109 leads in one day; Vaibhav made no runs. Evidence (grouping
+leads by channel + created date): 60 leads created 2026-07-30, channel
+`seed-replay`, external_id `seed-email-%` → the GitHub-upload session ran the eval
+suite (~6 full passes of the 10 seed emails). Also verified during this: repo now
+on GitHub (vaibhav0904/salesgenie) with `.env` ignored and untracked — secrets safe.
+Lesson: the cabinet never forgets, and grouping by channel/date answers "who did
+this?" in seconds.
+
+## Session closed ✅ (2026-07-30)
+
+- Ex2 re-run after rewiring: **28** ✓ (per-item execution lesson landed).
+- Summarize exercise: first attempt fed from the FILTERED node (28 items) →
+  27 seed-replay + 1 webhook. Extra lesson: **Postgres nodes query the database;
+  Summarize only summarizes the items flowing into it.** Accidental insight: only
+  1 of the 28 NEEDS_REVIEW leads is organic; 27 are eval replays.
+- 📌 Bookmarked for S3: a seed-email-07 (gazebo, off-catalog) replay was found in
+  NEEDS_REVIEW — same email lands in different states on different replays. Why?
+  (LLM nondeterminism/confidence — revisit when we open ClassifyExtract.)

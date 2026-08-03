@@ -1,11 +1,22 @@
-# SQL Cheatsheet — grown one concept at a time
+# SQL ↔ n8n Rosetta Stone — grown one concept at a time
 
-Every entry was added the moment we first met the concept in the real project.
-Run any of these with:
+Vaibhav writes **nodes, never SQL**. But the product workflows are full of SQL, so
+this file is a translation dictionary: each SQL idea, its native-n8n twin (what
+Vaibhav actually uses in LearningLab-Data), and the real query where we met it.
 
-```
-docker exec n8n-localdata-postgres-1 psql -U salesgenie -d salesgenie -c "<query>"
-```
+## The Rosetta stone
+
+| SQL (you READ this in product nodes) | Native n8n (you USE this) |
+|---|---|
+| `SELECT col1, col2` | Postgres node → *Select rows* → **Output Columns** option |
+| `FROM table` | **Table** dropdown |
+| `WHERE x = y AND …` | **Select Rows (where)** condition rows (AND combine) |
+| `ORDER BY price ASC` | **Sort** rule (or a separate Sort node) |
+| `LIMIT 5` | **Limit** field (Return All = off) |
+| `COUNT(*) … GROUP BY status` | **Summarize** node (aggregation: count, split by: status) |
+| `JOIN … ON a.id = b.id` | **Merge** node (Combine → match on fields) |
+| `config->>'tone'` (jsonb) | just an expression: `{{ $json.config.tone }}` |
+| `INSERT` / `UPDATE` | Postgres node insert/update operations (product only — labs never write) |
 
 ## The mental model (S1)
 
@@ -18,7 +29,7 @@ docker exec n8n-localdata-postgres-1 psql -U salesgenie -d salesgenie -c "<query
 | primary key | the card's unique file number | — |
 | foreign key | "see file #X in the other drawer" | — |
 
-## Concepts met in S1
+## Concepts met in S1 (SQL shown for READING practice — the product's nodes use these shapes)
 
 **`\dt vaibhavcapstone*`** — list the drawers (13 tables).
 
