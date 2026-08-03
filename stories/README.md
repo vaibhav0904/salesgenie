@@ -1,23 +1,81 @@
 # Stories — how work moves
 
-**The rule: no build work without a card.** Everything — features, bugs, chores — is a markdown card that lives in exactly one of:
+**The rule: no build work without a card, and no new epic without a PRD
+first.** `stories/STATUS.md` is the live dashboard — check it before
+assuming a story's stage from the folder alone. This file is the static
+process description.
+
+## The full lifecycle (from E22 onward — E1–E21 predate this, not retrofitted)
 
 ```
-stories/backlog/      all known work, written before building starts
-stories/in-progress/  what is being worked RIGHT NOW (max 1 story at a time)
-stories/done/         verified complete (acceptance criteria met; evals passed where gated)
+prds/backlog/ → prds/approved/ ─┐
+                                 ▼
+                    stories/backlog/ (prioritized together)
+                                 │  /story — picked, confirmed with Vaibhav
+                                 ▼
+                    stories/in-progress/<id>.md
+                                 │  /testplan — BEFORE any build work
+                                 ▼
+                    <id>.tests.md created, all rows "Not Run"
+                                 │  /implement — build, verify each criterion
+                                 ▼
+                    test case rows flip to Pass/Fail; eval gate runs if required
+                                 │  all Pass →
+                                 ▼
+                    <id>.uat.md generated — STOP, wait for Vaibhav
+                                 │  Vaibhav runs UAT with dummy data, signs off
+                                 ▼
+                    export workflow JSON, commit, merge to main
+                                 │
+                                 ▼
+                    stories/done/<id>.md (+ .tests.md, .uat.md alongside)
 ```
 
-## Lifecycle
-1. Pick the next card from `backlog/` (respect `Depends on:`).
-2. `git mv` (or move) it to `in-progress/`. Only one at a time.
-3. Build. If you discover a defect anywhere, **stop and file `BUG-<n>-slug.md` in `backlog/` immediately** (template below) — never fix-and-forget, never fold a bug silently into the current story.
-4. Verify every acceptance criterion. If the story is eval-gated, the eval case must pass and its result be saved in `evals/results/`.
-5. Move the card to `done/` and append a short **Outcome** section (what shipped, links to workflow/export/eval result).
+Bug cards (`BUG-<n>`) skip the PRD step — they go straight to
+`stories/backlog/` — but still get a `.tests.md` and UAT sign-off like any
+other story once picked up.
+
+## Folders
+
+```
+prds/backlog|approved|done/     see prds/README.md
+stories/backlog/                 all known work, written before building starts
+stories/in-progress/             what is being worked RIGHT NOW (max 1 story at a time)
+stories/done/                    verified complete, UAT signed off, promoted to main
+stories/STATUS.md                live dashboard — check first
+```
+
+## Step detail
+
+1. **PRD** (`/prd`): new capability → drafted in `prds/backlog/`. Approving
+   it writes the story cards into `stories/backlog/` and moves the PRD to
+   `prds/approved/`. Bugs skip this.
+2. **Prioritize + pick up** (`/story`): backlog order in `STATUS.md` is set
+   *together*, not mechanically — `/story` proposes the next pick (respecting
+   `Depends on` and BUG severity) and confirms with Vaibhav before moving the
+   card to `stories/in-progress/`.
+3. **Test cases** (`/testplan`): written **before any build work**, one row
+   per acceptance criterion in `<id>.tests.md`, all starting "Not Run".
+   `/implement` refuses to start building without this file present.
+4. **Build + test** (`/implement`): build, verify each criterion by actually
+   running it, flip test-case rows to Pass/Fail, run the eval gate if the
+   story has one. If every row is Pass, generate `<id>.uat.md` and stop —
+   nothing merges yet.
+5. **UAT**: Vaibhav follows `<id>.uat.md` — switch to the demo database
+   (`docs/environments.md`), run `scripts/reset-demo-db.js` for clean dummy
+   data, work through the numbered steps, and explicitly says "UAT passed"
+   (or reports what's wrong). This is a human gate, never automatic.
+6. **Promote**: only after sign-off — export touched workflow JSON to
+   `n8n/workflows/`, move the card (+ its `.tests.md`/`.uat.md`) to
+   `stories/done/` with an **Outcome** section, commit, merge to `main`.
+7. If a defect surfaces at any point, **stop and file
+   `BUG-<n>-slug.md`** immediately (template below) — never fix-and-forget,
+   never fold a bug silently into the current story.
 
 ## Naming
-- Stories: `E<epic>-S<n>-slug.md` (e.g. `E5-S1-real-instock-products.md`)
-- Bugs: `BUG-<nnn>-slug.md`, numbered in order of discovery.
+- PRDs: `PRD-E<epic>-slug.md` (`prds/README.md`)
+- Stories: `E<epic>-S<n>-slug.md`, paired `.tests.md` / `.uat.md` once picked up
+- Bugs: `BUG-<nnn>-slug.md`, numbered in order of discovery
 
 ## Story template
 ```markdown
@@ -38,6 +96,25 @@ stories/done/         verified complete (acceptance criteria met; evals passed w
 
 ## Technical notes
 - ...
+```
+
+## Test case template (`<id>-slug.tests.md`)
+```markdown
+# Test cases: E<epic>-S<n> <title>
+| # | Case | Steps | Expected | Status | Evidence |
+|---|---|---|---|---|---|
+| TC1 | ... | ... | ... | Not Run |  |
+```
+One row per acceptance criterion minimum. Eval-gated stories reference the
+eval case by name in one row rather than duplicating it.
+
+## UAT template (`<id>-slug.uat.md`)
+```markdown
+# UAT: E<epic>-S<n> <title>
+1. Switch Capstone-Postgres credential to `salesgenie` (demo).
+2. `node scripts/reset-demo-db.js` — clean dummy data.
+3. <numbered steps: what to type/click, what you should see>
+4. Sign-off: reply "UAT passed" (or file what's wrong) before this promotes.
 ```
 
 ## Bug template
