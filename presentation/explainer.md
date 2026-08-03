@@ -1,3 +1,7 @@
+> **Superseded by [demo-deck.html](demo-deck.html)** — the markdown twin of
+> `deck.html`'s plain-English narrative (E17-S1). Kept in place for history,
+> not current presentation material.
+
 SalesGenie v2 — The Full Story, in Plain English
 
 Applied Agentic AI for PMs · Capstone #1 · Vaibhav Saraf · July 2026

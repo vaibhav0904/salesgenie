@@ -1,3 +1,7 @@
+> **Superseded by [hero-demo-runbook.md](hero-demo-runbook.md)** (Scene 2,
+> "a business born in conversation") — kept in place for BUG-006/E18-S1
+> historical traceability, not current presentation material.
+
 # Script: onboard a brand-new business through Claude Desktop
 
 Your role: a founder called **Verde Living** — an indoor-plants studio in Bengaluru — joining SalesGenie by chat. Every line below is ready to copy-paste into Claude Desktop. Expected responses are noted so you always know it's working. Total time: ~10 minutes.

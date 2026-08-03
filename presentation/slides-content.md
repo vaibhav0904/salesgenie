@@ -1,3 +1,6 @@
+> **Superseded by [demo-deck.html](demo-deck.html)** — kept in place for
+> E13-S1/E14-S3 historical traceability, not current presentation material.
+
 # SalesGenie v2 — Slide Content (paste-ready, matches deck.html 1:1)
 
 > Final per-slide text for the official IK template, in the presenter's own voice. Speaker notes in *italics*. Visuals in [brackets]. Deck artifact: same content, designed.

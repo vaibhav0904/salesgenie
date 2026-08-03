@@ -1,3 +1,8 @@
+> **Superseded by [hero-demo-runbook.md](hero-demo-runbook.md)** and
+> [video-assets/narration-script.md](video-assets/narration-script.md) — kept
+> in place for E13-S3/BUG-004/BUG-008 historical traceability, not current
+> presentation material.
+
 # SalesGenie v2 — demo video script
 
 **Four takes. Four stops. Nothing else.**
