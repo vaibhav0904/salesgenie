@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SalesGenie — Live Demo</title>
+<style>
+  :root {
+    --paper:#FAF9F7; --ink:#20242B; --muted:#6E6A63; --line:#E2DFD9;
+    --ember:#B4551D; --ember-soft:#F4E3D7; --steel:#3D6C9E; --steel-soft:#DFE8F2;
+    --good:#2E7D53; --good-soft:#DEEEE5; --card:#FFFFFF; --term-bg:#22262E; --term-ink:#D8DCE3;
+  }
+  @media (prefers-color-scheme: dark) { :root {
+    --paper:#17191E; --ink:#E9E7E2; --muted:#9A968E; --line:#33373F;
+    --ember:#E08A4C; --ember-soft:#3A2A1E; --steel:#85ABD6; --steel-soft:#212C3A;
+    --good:#66B58C; --good-soft:#1E3229; --card:#1E2127; --term-bg:#22262E; --term-ink:#D8DCE3;
+  }}
+  * { box-sizing:border-box; margin:0; }
+  html,body { height:100%; }
+  body { background:var(--paper); color:var(--ink);
+    font-family:"Segoe UI", Arial, sans-serif; overflow:hidden; }
+  .slide { display:none; height:100vh; padding:32px 48px 56px;
+    flex-direction:column; align-items:center; justify-content:flex-start;
+    gap:12px; overflow-y:auto; }
+  .slide.on { display:flex; }
+  .kicker { color:var(--ember); font-weight:700; letter-spacing:.14em;
+    text-transform:uppercase; font-size:13px; }
+  h1 { font-size:clamp(26px,4.2vw,44px); text-align:center; line-height:1.15; }
+  h2 { font-size:clamp(20px,2.8vw,30px); text-align:center; }
+  .sub { color:var(--muted); font-size:clamp(14px,1.6vw,18px); text-align:center; max-width:860px; }
+  .fig { background:#FAF9F7; border:1px solid var(--line); border-radius:14px;
+    padding:10px; max-width:min(1060px,94vw); width:100%; }
+  .fig svg { display:block; width:100%; height:auto; max-height:50vh; }
+  .oneliner { position:absolute; bottom:14px; left:0; right:0; text-align:center;
+    color:var(--muted); font-style:italic; font-size:14px; pointer-events:none; }
+  .tiles { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:12px 22px; text-align:center; min-width:170px; }
+  .tile b { display:block; font-size:clamp(22px,3vw,32px); }
+  .tile span { color:var(--muted); font-size:13px; }
+  details { width:100%; max-width:1000px; background:var(--card);
+    border:1px solid var(--line); border-radius:10px; }
+  details summary { cursor:pointer; padding:8px 14px; font-weight:600; user-select:none; }
+  details.say summary { color:var(--ember); }
+  details.do summary { color:var(--steel); }
+  details[open] summary { border-bottom:1px solid var(--line); }
+  .notes { padding:11px 18px; font-size:14.5px; line-height:1.55; }
+  .notes ol { padding-left:20px; } .notes li { margin:6px 0; }
+  .notes p { margin:5px 0; }
+  .notes .cue { color:var(--good); font-weight:600; }
+  .notes code, .chat { background:var(--term-bg); color:var(--term-ink);
+    border-radius:6px; padding:1px 7px; font-family:Consolas,monospace; font-size:13px; }
+  .chat { display:block; padding:7px 10px; margin:4px 0; white-space:pre-wrap; }
+  .convo { display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    max-width:1000px; width:100%; font-size:14px; }
+  .convo .col h3 { font-size:14px; margin-bottom:6px; text-align:center; }
+  .buyer h3 { color:var(--steel); } .seller h3 { color:var(--ember); }
+  .msg { border:1px solid var(--line); background:var(--card); border-radius:10px;
+    padding:8px 11px; margin:6px 0; }
+  .msg small { color:var(--muted); display:block; margin-top:3px; }
+  .hl { background:var(--ember-soft); border-color:var(--ember); }
+  .nav { position:fixed; bottom:12px; right:16px; color:var(--muted);
+    font-size:14px; user-select:none; z-index:5; }
+  .nav button { background:var(--card); color:var(--ink); border:1px solid var(--line);
+    border-radius:8px; font-size:16px; padding:2px 12px; cursor:pointer; }
+  .bar { position:fixed; top:0; left:0; height:3px; background:var(--ember);
+    transition:width .25s; z-index:5; }
+  .pill { display:inline-block; background:var(--good-soft); color:var(--good);
+    border-radius:99px; padding:2px 12px; font-weight:600; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="bar" id="bar"></div>
+
+<!-- 1 ─ TITLE -->
+<section class="slide on">
+  <div class="kicker">SalesGenie · Live Demo</div>
+  <h1>A business is born, protected,<br>and proven — live.</h1>
+  <p class="sub">One enquiry handled end to end. A new business set up by chat. Replies sent only after human approval.</p>
+  <p class="pill">Everything you will see runs on my machine, right now. Nothing is a recording.</p>
+  <div class="oneliner">Press → to begin</div>
+</section>
+
+<!-- 2 ─ THE PROBLEM -->
+<section class="slide">
+  <div class="kicker">The problem</div>
+  <h2>A small business inbox is one mixed pile — and good buyers get missed.</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="340" fill="#FAF9F7"/>
+  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">The same enquiry, before and after</text>
+  <!-- before -->
+  <rect x="40" y="70" width="420" height="230" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="2"/>
+  <text x="250" y="100" text-anchor="middle" fill="#6E6A63" font-size="16" font-weight="700">BEFORE — a person’s morning</text>
+  <g fill="#20242B" font-size="13.5">
+    <text x="70" y="132">📧 read the email, decide if it’s real</text>
+    <text x="70" y="160">⌨️ type name &amp; company into a spreadsheet</text>
+    <text x="70" y="188">🔍 search the person online</text>
+    <text x="70" y="216">🤔 recommend products from memory</text>
+    <text x="70" y="244">✍️ write the reply — if it isn’t forgotten</text>
+  </g>
+  <text x="250" y="282" text-anchor="middle" fill="#B4551D" font-size="14" font-weight="700">hours to days · typos · it depends who answered</text>
+  <!-- after -->
+  <rect x="500" y="70" width="420" height="230" rx="10" fill="#FFFFFF" stroke="#2E7D53" stroke-width="2.5"/>
+  <text x="710" y="100" text-anchor="middle" fill="#2E7D53" font-size="16" font-weight="700">AFTER — the person’s morning</text>
+  <g fill="#20242B" font-size="13.5">
+    <text x="530" y="140">☕ coffee</text>
+    <text x="530" y="176">📬 an approval request arrives: the enquiry, the facts,</text>
+    <text x="545" y="196">real in-stock products, a drafted reply</text>
+    <text x="530" y="232">👀 read it · ✅ click Approve</text>
+  </g>
+  <text x="710" y="282" text-anchor="middle" fill="#2E7D53" font-size="14" font-weight="700">19-second draft · zero typing · same quality every time</text>
+</svg></div>
+</section>
+
+<!-- 3 ─ THE IDEA -->
+<section class="slide">
+  <div class="kicker">The idea</div>
+  <h2>SalesGenie is 14 automated workflows — one for each job.</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 500" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="500" fill="#FAF9F7"/>
+  <defs><marker id="f01a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+  <!-- control room -->
+  <rect x="260" y="28" width="440" height="92" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+  <text x="480" y="58" text-anchor="middle" fill="#3D6C9E" font-size="17" font-weight="700">THE CONTROL ROOM — a chat window</text>
+  <text x="480" y="82" text-anchor="middle" fill="#20242B" font-size="14">the owner sets up and runs everything by talking</text>
+  <text x="480" y="103" text-anchor="middle" fill="#6E6A63" font-size="12.5">“set up my shop” · “what’s pending?” · “approve it”</text>
+  <!-- assembly line -->
+  <rect x="260" y="168" width="440" height="150" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="2"/>
+  <text x="480" y="198" text-anchor="middle" fill="#20242B" font-size="17" font-weight="700">ONE ASSEMBLY LINE — for every business</text>
+  <text x="480" y="226" text-anchor="middle" fill="#20242B" font-size="14">read → pull out the facts → score → match real stock → draft</text>
+  <text x="480" y="256" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">→ a human clicks Approve → only then it is sent</text>
+  <text x="480" y="286" text-anchor="middle" fill="#6E6A63" font-size="12.5">plus: Monday report · error catcher · AI quality-examiner</text>
+  <!-- doors -->
+  <rect x="30" y="168" width="190" height="62" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
+  <text x="125" y="194" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">Door 1 · Email</text>
+  <text x="125" y="215" text-anchor="middle" fill="#6E6A63" font-size="12.5">customers write in</text>
+  <rect x="30" y="252" width="190" height="62" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
+  <text x="125" y="278" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">Door 2 · Any channel</text>
+  <text x="125" y="299" text-anchor="middle" fill="#6E6A63" font-size="12.5">website forms, apps…</text>
+  <rect x="740" y="168" width="190" height="150" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+  <text x="835" y="198" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">Door 3 · Other</text>
+  <text x="835" y="218" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">companies’ AIs</text>
+  <text x="835" y="245" text-anchor="middle" fill="#20242B" font-size="12.5">a buyer’s AI enquires</text>
+  <text x="835" y="263" text-anchor="middle" fill="#20242B" font-size="12.5">and gets a quote —</text>
+  <text x="835" y="286" text-anchor="middle" fill="#6E6A63" font-size="12">it even sees “a human is</text>
+  <text x="835" y="303" text-anchor="middle" fill="#6E6A63" font-size="12">reviewing your offer”</text>
+  <!-- database -->
+  <rect x="260" y="376" width="440" height="84" rx="10" fill="#FFFFFF" stroke="#20242B" stroke-width="2.5"/>
+  <text x="480" y="410" text-anchor="middle" fill="#20242B" font-size="17" font-weight="700">THE DATABASE — everything is written down</text>
+  <text x="480" y="437" text-anchor="middle" fill="#6E6A63" font-size="12.5">every enquiry, decision, AI action, approval — permanent and checkable</text>
+  <!-- arrows -->
+  <line x1="480" y1="120" x2="480" y2="164" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
+  <line x1="220" y1="199" x2="256" y2="214" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
+  <line x1="220" y1="283" x2="256" y2="268" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
+  <line x1="738" y1="243" x2="704" y2="243" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
+  <line x1="480" y1="318" x2="480" y2="372" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
+</svg></div>
+  <div class="oneliner">“Adding business #100 needs zero new code.”</div>
+</section>
+
+<!-- 4 ─ PART 1: ONE ENQUIRY, END TO END -->
+<section class="slide">
+  <div class="kicker">Part 1 · Live · ~3 min</div>
+  <h2>Watch one enquiry become a sale.</h2>
+  <div class="fig">
+  <svg viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
+    <rect width="960" height="300" fill="#FAF9F7"/>
+    <defs><marker id="p1a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+    <rect x="20" y="90" width="168" height="96" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
+    <text x="104" y="122" text-anchor="middle" fill="#20242B" font-size="14.5" font-weight="700">✉️ An enquiry</text>
+    <text x="104" y="146" text-anchor="middle" fill="#20242B" font-size="12">“a leather sofa,</text>
+    <text x="104" y="163" text-anchor="middle" fill="#20242B" font-size="12">budget ₹90,000”</text>
+    <line x1="190" y1="138" x2="228" y2="138" stroke="#6E6A63" stroke-width="2" marker-end="url(#p1a)"/>
+    <rect x="232" y="90" width="196" height="96" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+    <text x="330" y="118" text-anchor="middle" fill="#3D6C9E" font-size="14.5" font-weight="700">🤖 Automatic steps</text>
+    <text x="330" y="140" text-anchor="middle" fill="#20242B" font-size="11.5">read · pull out facts · score</text>
+    <text x="330" y="156" text-anchor="middle" fill="#20242B" font-size="11.5">match in-stock products · draft</text>
+    <text x="330" y="174" text-anchor="middle" fill="#6E6A63" font-size="11.5">≈ 22 seconds</text>
+    <line x1="430" y1="138" x2="468" y2="138" stroke="#6E6A63" stroke-width="2" marker-end="url(#p1a)"/>
+    <rect x="472" y="80" width="196" height="116" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2.5"/>
+    <text x="570" y="110" text-anchor="middle" fill="#B4551D" font-size="14.5" font-weight="700">📬 Approval email</text>
+    <text x="570" y="132" text-anchor="middle" fill="#20242B" font-size="12">lands in MY inbox with</text>
+    <text x="570" y="149" text-anchor="middle" fill="#20242B" font-size="12">Approve / Reject buttons</text>
+    <text x="570" y="171" text-anchor="middle" fill="#B4551D" font-size="11.5" font-weight="600">…and everything waits</text>
+    <line x1="670" y1="138" x2="708" y2="138" stroke="#6E6A63" stroke-width="2" marker-end="url(#p1a)"/>
+    <rect x="712" y="90" width="110" height="96" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2.5"/>
+    <text x="767" y="128" text-anchor="middle" fill="#2E7D53" font-size="14.5" font-weight="700">✅ I click</text>
+    <text x="767" y="150" text-anchor="middle" fill="#2E7D53" font-size="14.5" font-weight="700">Approve</text>
+    <line x1="824" y1="138" x2="856" y2="138" stroke="#6E6A63" stroke-width="2" marker-end="url(#p1a)"/>
+    <rect x="860" y="90" width="86" height="96" rx="10" fill="#FFFFFF" stroke="#2E7D53" stroke-width="2"/>
+    <text x="903" y="126" text-anchor="middle" font-size="20">📨</text>
+    <text x="903" y="150" text-anchor="middle" fill="#20242B" font-size="11.5">customer</text>
+    <text x="903" y="166" text-anchor="middle" fill="#20242B" font-size="11.5">gets the reply</text>
+    <text x="480" y="245" text-anchor="middle" fill="#6E6A63" font-size="14" font-style="italic">Then one click shows the enquiry's full history — every step, timestamped.</text>
+  </svg>
+  </div>
+</section>
+
+<!-- 5 ─ THE PATH (recap) -->
+<section class="slide">
+  <div class="kicker">What you just watched</div>
+  <h2>Every enquiry follows this path. Nothing skips the approval step.</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="300" fill="#FAF9F7"/>
+  <defs><marker id="f02a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">One enquiry, nineteen seconds — then everything stops, on purpose</text>
+  <!-- timeline base -->
+  <line x1="60" y1="150" x2="640" y2="150" stroke="#C9C5BD" stroke-width="3"/>
+  <!-- steps -->
+  <g text-anchor="middle" font-size="13">
+    <circle cx="80" cy="150" r="9" fill="#B4551D"/>
+    <text x="80" y="120" fill="#20242B" font-weight="700">0s</text><text x="80" y="185" fill="#20242B">email</text><text x="80" y="202" fill="#20242B">arrives</text>
+    <circle cx="200" cy="150" r="9" fill="#B4551D"/>
+    <text x="200" y="120" fill="#20242B" font-weight="700">~4s</text><text x="200" y="185" fill="#20242B">facts pulled out</text><text x="200" y="202" fill="#6E6A63">(blank beats a guess)</text>
+    <circle cx="330" cy="150" r="9" fill="#B4551D"/>
+    <text x="330" y="120" fill="#20242B" font-weight="700">~9s</text><text x="330" y="185" fill="#20242B">scored HOT</text><text x="330" y="202" fill="#6E6A63">(open arithmetic)</text>
+    <circle cx="470" cy="150" r="9" fill="#B4551D"/>
+    <text x="470" y="120" fill="#20242B" font-weight="700">~14s</text><text x="470" y="185" fill="#20242B">matched to</text><text x="470" y="202" fill="#20242B">real stock only</text>
+    <circle cx="600" cy="150" r="9" fill="#B4551D"/>
+    <text x="600" y="120" fill="#20242B" font-weight="700">~19s</text><text x="600" y="185" fill="#20242B">reply drafted</text><text x="600" y="202" fill="#6E6A63">(in your voice)</text>
+  </g>
+  <!-- the gate -->
+  <rect x="672" y="105" width="130" height="90" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="3"/>
+  <text x="737" y="136" text-anchor="middle" fill="#B4551D" font-size="26" font-weight="800">STOP</text>
+  <text x="737" y="160" text-anchor="middle" fill="#20242B" font-size="13">a human reads it</text>
+  <text x="737" y="180" text-anchor="middle" fill="#20242B" font-size="13">and clicks Approve</text>
+  <line x1="640" y1="150" x2="668" y2="150" stroke="#6E6A63" stroke-width="2" marker-end="url(#f02a)"/>
+  <!-- send -->
+  <rect x="836" y="118" width="100" height="64" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2"/>
+  <text x="886" y="145" text-anchor="middle" fill="#2E7D53" font-size="15" font-weight="700">SENT</text>
+  <text x="886" y="167" text-anchor="middle" fill="#20242B" font-size="12">only from here</text>
+  <line x1="804" y1="150" x2="832" y2="150" stroke="#6E6A63" stroke-width="2" marker-end="url(#f02a)"/>
+  <text x="480" y="262" text-anchor="middle" fill="#6E6A63" font-size="14">The wait can be minutes or days — the draft sits safely in the database. There is no path around the gate.</text>
+</svg></div>
+</section>
+
+<!-- 6 ─ PART 2a: A BUSINESS BORN BY CHAT -->
+<section class="slide">
+  <div class="kicker">Part 2 · Live · ~3.5 min</div>
+  <h2>I create a business by chatting. Its first enquiry arrives too early.</h2>
+  <div class="fig">
+  <svg viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
+    <rect width="960" height="300" fill="#FAF9F7"/>
+    <defs><marker id="t1a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+    <rect x="30" y="90" width="180" height="90" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+    <text x="120" y="122" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">💬 “Set up my business”</text>
+    <text x="120" y="146" text-anchor="middle" fill="#20242B" font-size="12.5">Aurora Lamps created</text>
+    <text x="120" y="164" text-anchor="middle" fill="#6E6A63" font-size="11.5">one new database record</text>
+    <line x1="212" y1="135" x2="268" y2="135" stroke="#6E6A63" stroke-width="2" marker-end="url(#t1a)"/>
+    <rect x="272" y="90" width="180" height="90" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
+    <text x="362" y="122" text-anchor="middle" fill="#20242B" font-size="15" font-weight="700">✉️ An enquiry arrives</text>
+    <text x="362" y="146" text-anchor="middle" fill="#20242B" font-size="12.5">“12 pendant lamps for</text>
+    <text x="362" y="163" text-anchor="middle" fill="#20242B" font-size="12.5">my café — ₹40,000”</text>
+    <line x1="454" y1="135" x2="510" y2="135" stroke="#6E6A63" stroke-width="2" marker-end="url(#t1a)"/>
+    <rect x="514" y="90" width="180" height="90" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
+    <text x="604" y="122" text-anchor="middle" fill="#20242B" font-size="15" font-weight="700">🤖 Classified &amp; scored</text>
+    <text x="604" y="146" text-anchor="middle" fill="#20242B" font-size="12.5">a real buyer with</text>
+    <text x="604" y="163" text-anchor="middle" fill="#20242B" font-size="12.5">a clear budget</text>
+    <line x1="696" y1="135" x2="752" y2="135" stroke="#6E6A63" stroke-width="2" marker-end="url(#t1a)"/>
+    <rect x="756" y="78" width="180" height="114" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2.5"/>
+    <text x="846" y="110" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">⏸ ON HOLD</text>
+    <text x="846" y="134" text-anchor="middle" fill="#20242B" font-size="12.5">The catalog is empty.</text>
+    <text x="846" y="152" text-anchor="middle" fill="#20242B" font-size="12.5">It won't recommend products</text>
+    <text x="846" y="170" text-anchor="middle" fill="#20242B" font-size="12.5">that don't exist.</text>
+    <text x="480" y="245" text-anchor="middle" fill="#B4551D" font-size="15" font-style="italic" font-weight="600">Not an error — the enquiry waits, and resumes automatically once setup is complete.</text>
+  </svg>
+  </div>
+</section>
+
+<!-- 7 ─ PART 2b: RESUME + APPROVE FROM CHAT -->
+<section class="slide">
+  <div class="kicker">Part 2 · continued</div>
+  <h2>I add products by chat. The enquiry resumes by itself. This time I approve from chat.</h2>
+  <div class="fig">
+  <svg viewBox="0 0 960 330" font-family="Segoe UI, Arial, sans-serif">
+    <rect width="960" height="330" fill="#FAF9F7"/>
+    <defs><marker id="t2a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+    <rect x="30" y="40" width="200" height="84" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+    <text x="130" y="70" text-anchor="middle" fill="#3D6C9E" font-size="14.5" font-weight="700">💬 “Here are my 3 lamps”</text>
+    <text x="130" y="92" text-anchor="middle" fill="#20242B" font-size="12">catalog added by chat</text>
+    <line x1="232" y1="82" x2="286" y2="82" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
+    <rect x="290" y="40" width="190" height="84" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2"/>
+    <text x="385" y="70" text-anchor="middle" fill="#2E7D53" font-size="14.5" font-weight="700">⚡ Enquiry resumes</text>
+    <text x="385" y="92" text-anchor="middle" fill="#20242B" font-size="12">one second later — matched</text>
+    <text x="385" y="108" text-anchor="middle" fill="#20242B" font-size="12">with real products</text>
+    <line x1="482" y1="82" x2="536" y2="82" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
+    <rect x="540" y="40" width="190" height="84" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
+    <text x="635" y="70" text-anchor="middle" fill="#B4551D" font-size="14.5" font-weight="700">⏸ On hold again</text>
+    <text x="635" y="92" text-anchor="middle" fill="#20242B" font-size="12">no approver is set yet</text>
+    <line x1="732" y1="82" x2="786" y2="82" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
+    <rect x="790" y="40" width="150" height="84" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+    <text x="865" y="70" text-anchor="middle" fill="#3D6C9E" font-size="14.5" font-weight="700">💬 “Set approver”</text>
+    <text x="865" y="92" text-anchor="middle" fill="#20242B" font-size="12">a reviewer is named</text>
+    <line x1="865" y1="126" x2="865" y2="160" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
+    <rect x="620" y="165" width="320" height="90" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
+    <text x="780" y="196" text-anchor="middle" fill="#20242B" font-size="14.5" font-weight="700">✍️ A reply is drafted…</text>
+    <text x="780" y="219" text-anchor="middle" fill="#20242B" font-size="12.5">using only products that really exist</text>
+    <text x="780" y="238" text-anchor="middle" fill="#B4551D" font-size="12.5" font-weight="600">…and it WAITS. Nothing sends itself.</text>
+    <line x1="616" y1="210" x2="560" y2="210" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
+    <rect x="240" y="165" width="316" height="90" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2.5"/>
+    <text x="398" y="198" text-anchor="middle" fill="#2E7D53" font-size="15" font-weight="700">✅ I approve — from chat</text>
+    <text x="398" y="222" text-anchor="middle" fill="#20242B" font-size="12.5">the reply is sent — half a minute of</text>
+    <text x="398" y="240" text-anchor="middle" fill="#20242B" font-size="12.5">machine work, one human decision</text>
+  </svg>
+  </div>
+</section>
+
+<!-- 8 ─ PART 3: TRY TO BREAK IT -->
+<section class="slide">
+  <div class="kicker">Part 3 · Live · ~2 min</div>
+  <h2>Now I try to make it lie.</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="320" fill="#FAF9F7"/>
+  <defs><marker id="f03a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+  <text x="480" y="42" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">Why it cannot invent a product — two locks</text>
+  <!-- lock 1 -->
+  <rect x="40" y="90" width="260" height="140" rx="10" fill="#FFFFFF" stroke="#3D6C9E" stroke-width="2.5"/>
+  <text x="170" y="122" text-anchor="middle" fill="#3D6C9E" font-size="16" font-weight="700">🔒 Lock 1 — before the AI</text>
+  <text x="170" y="150" text-anchor="middle" fill="#20242B" font-size="13.5">the database is asked first:</text>
+  <text x="170" y="170" text-anchor="middle" fill="#20242B" font-size="13.5">“what is really in stock,</text>
+  <text x="170" y="190" text-anchor="middle" fill="#20242B" font-size="13.5">matching this need &amp; budget?”</text>
+  <text x="170" y="215" text-anchor="middle" fill="#6E6A63" font-size="12.5">the AI only ever sees this shortlist</text>
+  <!-- middle -->
+  <rect x="360" y="105" width="220" height="110" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2.5"/>
+  <text x="470" y="140" text-anchor="middle" fill="#B4551D" font-size="16" font-weight="700">the AI picks 2–3</text>
+  <text x="470" y="165" text-anchor="middle" fill="#20242B" font-size="13.5">from the shortlist only,</text>
+  <text x="470" y="185" text-anchor="middle" fill="#20242B" font-size="13.5">with a reason for each</text>
+  <!-- lock 2 -->
+  <rect x="640" y="90" width="280" height="140" rx="10" fill="#FFFFFF" stroke="#3D6C9E" stroke-width="2.5"/>
+  <text x="780" y="122" text-anchor="middle" fill="#3D6C9E" font-size="16" font-weight="700">🔒 Lock 2 — after the AI</text>
+  <text x="780" y="150" text-anchor="middle" fill="#20242B" font-size="13.5">every pick is checked again</text>
+  <text x="780" y="170" text-anchor="middle" fill="#20242B" font-size="13.5">against live stock at the moment</text>
+  <text x="780" y="190" text-anchor="middle" fill="#20242B" font-size="13.5">of saving — fakes cannot survive</text>
+  <text x="780" y="215" text-anchor="middle" fill="#6E6A63" font-size="12.5">nothing suitable? it honestly says so</text>
+  <line x1="300" y1="160" x2="356" y2="160" stroke="#6E6A63" stroke-width="2" marker-end="url(#f03a)"/>
+  <line x1="580" y1="160" x2="636" y2="160" stroke="#6E6A63" stroke-width="2" marker-end="url(#f03a)"/>
+  <text x="480" y="282" text-anchor="middle" fill="#2E7D53" font-size="17" font-weight="700">Result: 39 of 39 recommendations ever made — real and in stock. 100%.</text>
+</svg></div>
+  <p class="sub">A customer asks for a product that is out of stock. A scammer promises millions. Watch both fail.</p>
+  <div class="oneliner">“The AI only picks from real, in-stock products.”</div>
+</section>
+
+<!-- 9 ─ PART 4: THE REPORT — EMAIL FIRST -->
+<section class="slide">
+  <div class="kicker">Part 4 · ~1.5 min</div>
+  <h2>Every Monday the report lands in the inbox — and lives at a link.</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="300" fill="#FAF9F7"/>
+  <text x="480" y="42" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">Estimates lie, meters don’t — the cost-per-enquiry correction</text>
+  <!-- bars: estimate tiny, exact big -->
+  <g>
+    <rect x="150" y="196" width="240" height="12" rx="4" fill="#6E6A63"/>
+    <text x="270" y="182" text-anchor="middle" fill="#6E6A63" font-size="14" font-weight="600">what my estimate said</text>
+    <text x="270" y="234" text-anchor="middle" fill="#20242B" font-size="16" font-weight="700">$0.0002</text>
+    <rect x="570" y="86" width="240" height="122" rx="6" fill="#B4551D"/>
+    <text x="690" y="72" text-anchor="middle" fill="#B4551D" font-size="14" font-weight="600">what the meter reads</text>
+    <text x="690" y="234" text-anchor="middle" fill="#20242B" font-size="16" font-weight="700">$0.0074  (₹0.62)</text>
+  </g>
+  <text x="480" y="150" text-anchor="middle" fill="#20242B" font-size="26" font-weight="800">36×</text>
+  <text x="480" y="172" text-anchor="middle" fill="#6E6A63" font-size="13">off</text>
+  <text x="480" y="272" text-anchor="middle" fill="#6E6A63" font-size="14">Why? AI models “think” silently before answering — and every thought is billed. Text-length estimates can’t see thinking.</text>
+</svg></div>
+  <div class="tiles">
+    <div class="tile"><b>2.6¢</b><span>AI cost per enquiry — measured, not estimated</span></div>
+    <div class="tile"><b>3.4 s</b><span>typical AI answer time</span></div>
+    <div class="tile"><b>4.98 / 5</b><span>independent audit for made-up facts</span></div>
+  </div>
+</section>
+
+<!-- 10 ─ PART 5: THE FINALE -->
+<section class="slide">
+  <div class="kicker">Part 5 · Live · ~2.5 min</div>
+  <h2>Another company's software buys from us — and is told: “a human is deciding.”</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 380" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="380" fill="#FAF9F7"/>
+  <defs><marker id="f06a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">Two companies’ AIs do business — with a human hand still on the pen</text>
+  <!-- actors -->
+  <rect x="40" y="70" width="220" height="60" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+  <text x="150" y="96" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">🤖 the buyer’s AI</text>
+  <text x="150" y="118" text-anchor="middle" fill="#6E6A63" font-size="12">“find us 25 good chairs”</text>
+  <rect x="700" y="70" width="220" height="60" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
+  <text x="810" y="96" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">🏪 the seller’s AI</text>
+  <text x="810" y="118" text-anchor="middle" fill="#6E6A63" font-size="12">same assembly line behind it</text>
+  <line x1="150" y1="130" x2="150" y2="340" stroke="#C9C5BD" stroke-width="2"/>
+  <line x1="810" y1="130" x2="810" y2="340" stroke="#C9C5BD" stroke-width="2"/>
+  <!-- exchanges -->
+  <g font-size="13.5">
+    <line x1="160" y1="165" x2="800" y2="165" stroke="#6E6A63" stroke-width="2" marker-end="url(#f06a)"/>
+    <text x="480" y="156" text-anchor="middle" fill="#20242B">reads the public “business card for AIs”, sends the enquiry</text>
+    <line x1="800" y1="205" x2="160" y2="205" stroke="#6E6A63" stroke-width="2" marker-end="url(#f06a)"/>
+    <text x="480" y="196" text-anchor="middle" fill="#20242B">“accepted — being worked on” (internals stay private)</text>
+    <line x1="800" y1="258" x2="160" y2="258" stroke="#B4551D" stroke-width="2.5" marker-end="url(#f06a)"/>
+    <text x="480" y="234" text-anchor="middle" fill="#B4551D" font-weight="700">“a HUMAN is reviewing the offer” — the gate is visible,</text>
+    <text x="480" y="250" text-anchor="middle" fill="#B4551D" font-weight="700">and the buyer’s AI waits for it</text>
+    <line x1="800" y1="310" x2="160" y2="310" stroke="#2E7D53" stroke-width="2.5" marker-end="url(#f06a)"/>
+    <text x="480" y="298" text-anchor="middle" fill="#2E7D53" font-weight="700">approved offer: a friendly letter + tidy data its systems can file</text>
+  </g>
+  <text x="480" y="358" text-anchor="middle" fill="#6E6A63" font-size="13.5">Nobody on either side read or wrote an email. The seller was open at 2 a.m.</text>
+</svg></div>
+  <div class="convo">
+    <div class="col buyer"><h3>🤖 The buyer software sends…</h3>
+      <div class="msg"><code>GET /a2a-agent-card</code><small>“Who are you? What can you do?”</small></div>
+      <div class="msg"><code>message/send</code> — “We need 25 office chairs…”<small>gets back a task number</small></div>
+      <div class="msg"><code>tasks/get</code> …every 10 seconds<small>“how is my order going?”</small></div>
+    </div>
+    <div class="col seller"><h3>🏢 SalesGenie answers…</h3>
+      <div class="msg">“Oak &amp; Ember Sales Agent. Send an enquiry; <b>every offer is reviewed by a human</b> before release.”</div>
+      <div class="msg">working → working…<small>the same steps as every email enquiry</small></div>
+      <div class="msg hl"><b>input-required</b> — “a human reviewer is checking” <small>then: completed — the offer + 3 real products with prices</small></div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 ─ SAFETY CHECKS -->
+<section class="slide">
+  <div class="kicker">Why you can trust it</div>
+  <h2>Three separate checks stand before the Send button.</h2>
+  <div class="fig">
+  <svg viewBox="0 0 960 380" font-family="Segoe UI, Arial, sans-serif">
+    <rect width="960" height="380" fill="#FAF9F7"/>
+    <rect x="60" y="30" width="840" height="320" rx="16" fill="none" stroke="#3D6C9E" stroke-width="2.5"/>
+    <text x="480" y="60" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">CHECK 1 — the flow: the send step only runs after an approval click</text>
+    <rect x="140" y="85" width="680" height="230" rx="14" fill="none" stroke="#B4551D" stroke-width="2.5"/>
+    <text x="480" y="115" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">CHECK 2 — no double-send: approval only counts while the draft is still waiting</text>
+    <rect x="230" y="140" width="500" height="140" rx="12" fill="none" stroke="#2E7D53" stroke-width="2.5"/>
+    <text x="480" y="170" text-anchor="middle" fill="#2E7D53" font-size="15" font-weight="700">CHECK 3 — the database itself refuses illegal shortcuts</text>
+    <text x="480" y="192" text-anchor="middle" fill="#6E6A63" font-size="12.5">a draft can never jump from “written” straight to “sent”</text>
+    <text x="480" y="248" text-anchor="middle" font-size="34">✉️ 🔒</text>
+  </svg>
+  </div>
+</section>
+
+<!-- 12 ─ TEST RESULTS -->
+<section class="slide">
+  <div class="kicker">The test results</div>
+  <h2>Tested against a fixed answer key — written before any tuning.</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="260" fill="#FAF9F7"/>
+  <text x="480" y="42" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">The scoreboard — measured against an answer key written before the AI existed</text>
+  <g font-variant-numeric="tabular-nums">
+    <rect x="30" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="114" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">10/10</text>
+    <text x="114" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">emails correctly recognized</text>
+    <text x="114" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">spam never slipped through</text>
+    <rect x="216" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="300" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">95%+</text>
+    <text x="300" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">facts captured correctly</text>
+    <text x="300" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">zero facts ever invented</text>
+    <rect x="402" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="486" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">100%</text>
+    <text x="486" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">recommendations real</text>
+    <text x="486" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">39 of 39, in live stock</text>
+    <rect x="588" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="672" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">86%</text>
+    <text x="672" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">drafts approved by humans</text>
+    <text x="672" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">real clicks, gate is real</text>
+    <rect x="774" y="80" width="156" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
+    <text x="852" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">₹0.62</text>
+    <text x="852" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">AI cost per enquiry</text>
+    <text x="852" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">exact, to the token</text>
+  </g>
+</svg></div>
+</section>
+
+<!-- 13 ─ CLOSE -->
+<section class="slide">
+  <div class="kicker">Close</div>
+  <h2>Every enquiry is always in exactly one of seven states.</h2>
+  <div class="fig">
+  <svg viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
+    <rect width="960" height="300" fill="#FAF9F7"/>
+    <rect x="35"  y="60" width="200" height="74" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+    <text x="135" y="90" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">▶️ in progress</text>
+    <text x="135" y="112" text-anchor="middle" fill="#6E6A63" font-size="11.5">moving through the steps</text>
+    <rect x="260" y="60" width="200" height="74" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2"/>
+    <text x="360" y="90" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">✅ sent</text>
+    <text x="360" y="112" text-anchor="middle" fill="#6E6A63" font-size="11.5">human-approved reply</text>
+    <rect x="485" y="60" width="200" height="74" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
+    <text x="585" y="90" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">🗑 discarded</text>
+    <text x="585" y="112" text-anchor="middle" fill="#6E6A63" font-size="11.5">spam &amp; sales pitches</text>
+    <rect x="710" y="60" width="200" height="74" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
+    <text x="810" y="90" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">🚫 rejected</text>
+    <text x="810" y="112" text-anchor="middle" fill="#6E6A63" font-size="11.5">the approver said no</text>
+    <rect x="35"  y="160" width="200" height="74" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
+    <text x="135" y="190" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">🙋 waiting for a human</text>
+    <text x="135" y="212" text-anchor="middle" fill="#6E6A63" font-size="11.5">the AI chose not to guess</text>
+    <rect x="260" y="160" width="200" height="74" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
+    <text x="360" y="190" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">⏸ waiting for setup</text>
+    <text x="360" y="212" text-anchor="middle" fill="#6E6A63" font-size="11.5">resumes automatically</text>
+    <rect x="485" y="160" width="200" height="74" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
+    <text x="585" y="190" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">⚠️ failed + alert</text>
+    <text x="585" y="212" text-anchor="middle" fill="#2E7D53" font-size="12" font-weight="700">current count: 0</text>
+    <g opacity="0.45">
+      <rect x="710" y="160" width="200" height="74" rx="10" fill="none" stroke="#6E6A63" stroke-width="2" stroke-dasharray="7 6"/>
+      <text x="810" y="192" text-anchor="middle" fill="#6E6A63" font-size="14" font-weight="700">an eighth state?</text>
+      <line x1="725" y1="170" x2="895" y2="224" stroke="#B4551D" stroke-width="3"/>
+      <line x1="895" y1="170" x2="725" y2="224" stroke="#B4551D" stroke-width="3"/>
+    </g>
+    <text x="480" y="272" text-anchor="middle" fill="#B4551D" font-size="16" font-style="italic" font-weight="600">There is no eighth state.</text>
+  </svg>
+  </div>
+  <p class="sub">AI speed. Human authority. Every number checkable.</p>
+</section>
+
+<!-- 14 ─ BACKUP: PLAN B -->
+<section class="slide">
+  <div class="kicker">Backup slide — only if needed</div>
+  <h2>If something breaks, the demo continues.</h2>
+</section>
+
+<!-- 15 ─ BACKUP: TECHNICAL QUESTIONS -->
+<section class="slide">
+  <div class="kicker">Backup slide — for technical questions</div>
+  <h2>Deeper proof, on request.</h2>
+</section>
+
+<!-- 16 ─ Q&A -->
+<section class="slide">
+  <div class="kicker">Thank you</div>
+  <h1>Questions?</h1>
+  <p class="sub">Every number you saw — cost, accuracy, speed — comes from database records I can show you.</p>
+</section>
+
+<div class="nav"><button id="prev">‹</button> <span id="ctr">1 / 16</span> <button id="next">›</button></div>
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    document.getElementById('ctr').textContent = (i + 1) + ' / ' + slides.length;
+    document.getElementById('bar').style.width = ((i + 1) / slides.length * 100) + '%';
+  }
+  addEventListener('keydown', e => {
+    if (['ArrowRight','PageDown',' '].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+  document.getElementById('prev').onclick = () => show(i - 1);
+  document.getElementById('next').onclick = () => show(i + 1);
+  show((parseInt(location.hash.slice(1), 10) || 1) - 1);
+</script>
+</body>
+</html>
