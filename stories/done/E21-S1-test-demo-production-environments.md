@@ -10,7 +10,7 @@
 - [x] `scripts/reset-demo-db.js` restores `salesgenie` to a clean demo state (Oak & Ember present and correct, no leftover test-run businesses/leads) without touching `salesgenie_test`.
 - [x] `docs/environments.md` documents: the `Capstone-Postgres` credential's Database field as the single test/demo switch, the test loop (edit live workflow → export JSON checkpoint before risky edits → verify → re-import if broken), the demo loop, and the promote-to-production loop (export workflow JSON, commit, merge to `main`).
 - [x] `CLAUDE.md` gets a one-line pointer under Commands and a Gotchas entry for the credential-swap footgun, staying under its 500-word budget.
-- [x] Verified at the data layer: both databases independently confirmed isolated (see Outcome). The n8n-credential-switch runthrough itself is a manual UI step — no n8n API/browser access in this session — left for Vaibhav to do once when he next uses test mode.
+- [x] Verified end-to-end: `Capstone-Postgres` flipped to `salesgenie_test` via the n8n API, a real lead POSTed to `/webhook/vaibhavcapstone-intake` landed there only; flipped back to `salesgenie`, a second lead landed there only. See Outcome.
 
 ## Depends on
 - -
@@ -34,11 +34,24 @@ during learning sessions/rehearsals), 123 leads, 12 insight snapshots, 624
 irreversible. After reset: exactly Oak & Ember, 20 products, 0 leads;
 `vaibhavcapstone_platform_config` correctly untouched (the `a2a_bearer` key
 survived). `docs/environments.md` written; `CLAUDE.md` updated (Commands +
-one Gotchas line), final word count 499/500. Not done: physically flipping
-the `Capstone-Postgres` credential's Database field and running a lead
-through the pipeline — no n8n UI/API access in this session; the DB-level
-isolation check (independent row counts in both databases, confirmed
-above) stands in as equivalent proof. Repo cleanup (unrelated to this
-card's scope but done alongside it) is in separate commits: learning
-sessions S2–S10, demo-deck.html + hero-demo-runbook.md, the paused video
-pipeline, and superseded-by pointers on the 5 old presentation drafts.
+one Gotchas line), final word count 499/500.
+
+Once Vaibhav added `N8N_API_KEY`/`N8N_API_URL` to `.env`, the end-to-end
+switch was also verified live: n8n's public API can PATCH a credential but
+never read one back (write-only, by design), so the full `Capstone-Postgres`
+payload was reconstructed from `docker/README.md`'s documented connectivity
+map (host `postgres`, port 5432, user/db `salesgenie`, password from
+`.env`) rather than read from n8n — confirmed with Vaibhav before running,
+since a wrong field would break all 14 workflows at once, not just the test
+path. Flipped to `salesgenie_test` → POSTed a tagged lead
+(`lead_msd2sdt1jqod1im2`) → confirmed present in `salesgenie_test` only.
+Flipped back to `salesgenie` → POSTed a second tagged lead
+(`lead_msd2su64fsnjzcu9`) → confirmed present in `salesgenie` only, then
+deleted (plus its `extractions`/`events`/`llm_calls` rows) to leave the demo
+database exactly as `reset-demo-db.js` left it. Credential now rests on
+`salesgenie`, the correct demo-ready state.
+
+Repo cleanup (unrelated to this card's scope but done alongside it) is in
+separate commits: learning sessions S2–S10, demo-deck.html +
+hero-demo-runbook.md, the paused video pipeline, and superseded-by pointers
+on the 5 old presentation drafts.
