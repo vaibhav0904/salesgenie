@@ -1,3 +1,8 @@
+> **Superseded by [../demo-deck-for-presenter.html](../demo-deck-for-presenter.html)**
+> — this was the TTS script for the abandoned AI-narration approach. The
+> spoken lines were adapted into the presenter file's READ blocks where
+> still accurate; kept here for reference, not current instructions.
+
 # SalesGenie demo video — narration script
 
 Fixed, pre-recorded narration (Sarvam TTS, `en-IN`), timed to real measured

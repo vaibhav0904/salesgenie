@@ -1,3 +1,6 @@
+// SUPERSEDED: AI-narration approach abandoned for self-recording in cuts
+// (see ../demo-deck-for-presenter.html). Kept for reference, not run anymore.
+//
 // Generates one narration audio file per SEG-xx block in narration-script.md
 // via the Sarvam TTS SDK, saving to audio/SEG-xx.wav. Key is read from the
 // repo .env opaquely; it is never printed or returned to chat.

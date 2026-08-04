@@ -1,3 +1,9 @@
+> **Superseded by [../demo-deck-for-presenter.html](../demo-deck-for-presenter.html)**
+> and [screenshot-shot-list.md](screenshot-shot-list.md) — this file was
+> built for the AI-narrated/4-take approach, since abandoned in favor of
+> self-recording in cuts. Kept for reference (the Take structure/timings
+> were real, verified footage plans), not current instructions.
+
 # SalesGenie demo video — shot list (record this)
 
 Narration is already recorded (Sarvam TTS, `audio/SEG-*.wav`) with **exact**

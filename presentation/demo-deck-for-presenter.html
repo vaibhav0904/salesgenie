@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SalesGenie — Presenter Copy (DO NOT SCREEN-SHARE)</title>
+<style>
+  :root {
+    --paper:#FAF9F7; --ink:#20242B; --muted:#6E6A63; --line:#E2DFD9;
+    --ember:#B4551D; --ember-soft:#F4E3D7; --steel:#3D6C9E; --steel-soft:#DFE8F2;
+    --good:#2E7D53; --good-soft:#DEEEE5; --card:#FFFFFF; --term-bg:#22262E; --term-ink:#D8DCE3;
+    --warn:#B4551D; --warn-soft:#F4E3D7;
+  }
+  @media (prefers-color-scheme: dark) { :root {
+    --paper:#17191E; --ink:#E9E7E2; --muted:#9A968E; --line:#33373F;
+    --ember:#E08A4C; --ember-soft:#3A2A1E; --steel:#85ABD6; --steel-soft:#212C3A;
+    --good:#66B58C; --good-soft:#1E3229; --card:#1E2127; --term-bg:#22262E; --term-ink:#D8DCE3;
+    --warn:#E08A4C; --warn-soft:#3A2A1E;
+  }}
+  * { box-sizing:border-box; margin:0; }
+  html,body { height:100%; }
+  body { background:var(--paper); color:var(--ink);
+    font-family:"Segoe UI", Arial, sans-serif; overflow:hidden; }
+  .banner { position:fixed; top:0; left:0; right:0; z-index:10; background:var(--warn);
+    color:#fff; text-align:center; font-weight:800; letter-spacing:.05em;
+    font-size:13px; padding:6px 0; }
+  .slide { display:none; height:100vh; padding:44px 40px 56px;
+    flex-direction:column; align-items:center; justify-content:flex-start;
+    gap:10px; overflow-y:auto; }
+  .slide.on { display:flex; }
+  .kicker { color:var(--ember); font-weight:700; letter-spacing:.14em;
+    text-transform:uppercase; font-size:13px; }
+  h1 { font-size:clamp(22px,3.4vw,36px); text-align:center; line-height:1.15; }
+  h2 { font-size:clamp(17px,2.2vw,24px); text-align:center; }
+  .sub { color:var(--muted); font-size:clamp(13px,1.4vw,16px); text-align:center; max-width:860px; }
+  .fig { background:#FAF9F7; border:1px solid var(--line); border-radius:14px;
+    padding:6px; max-width:min(760px,90vw); width:100%; }
+  .fig svg { display:block; width:100%; height:auto; max-height:26vh; }
+  .tiles { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:8px 18px; text-align:center; min-width:140px; }
+  .tile b { display:block; font-size:clamp(18px,2.4vw,26px); }
+  .tile span { color:var(--muted); font-size:12px; }
+  .panel { width:100%; max-width:1000px; background:var(--card);
+    border:1px solid var(--line); border-radius:10px; margin-top:4px; }
+  .panel .head { padding:8px 14px; font-weight:700; font-size:13px;
+    letter-spacing:.04em; text-transform:uppercase; border-bottom:1px solid var(--line); }
+  .panel.say .head { color:var(--ember); background:var(--ember-soft); }
+  .panel.do .head { color:var(--steel); background:var(--steel-soft); }
+  .panel.skip .head { color:var(--muted); background:var(--line); }
+  .panel .body { padding:12px 18px; font-size:14.5px; line-height:1.55; }
+  .panel .body ol { padding-left:20px; } .panel .body li { margin:6px 0; }
+  .panel .body p { margin:5px 0; }
+  .script { font-style:italic; }
+  .panel code { background:var(--term-bg); color:var(--term-ink);
+    border-radius:6px; padding:1px 7px; font-family:Consolas,monospace; font-size:13px; }
+  .shot { display:inline-block; background:var(--good-soft); color:var(--good);
+    border:1px dashed var(--good); border-radius:8px; padding:2px 10px;
+    font-family:Consolas,monospace; font-size:12.5px; }
+  .onscreen { width:100%; max-width:1000px; display:flex; align-items:center; gap:8px;
+    background:var(--good-soft); color:var(--good); border-radius:8px;
+    padding:6px 14px; font-size:13px; font-weight:600; margin-top:2px; }
+  .onscreen b { text-transform:uppercase; letter-spacing:.04em; font-size:11.5px; }
+  .slidenum { background:var(--ink); color:var(--paper); font-weight:800;
+    font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+    border-radius:99px; padding:4px 16px; }
+  .nav { position:fixed; bottom:12px; right:16px; color:var(--muted);
+    font-size:14px; user-select:none; z-index:5; }
+  .nav button { background:var(--card); color:var(--ink); border:1px solid var(--line);
+    border-radius:8px; font-size:16px; padding:2px 12px; cursor:pointer; }
+  .bar { position:fixed; top:26px; left:0; height:3px; background:var(--ember);
+    transition:width .25s; z-index:5; }
+  .pill { display:inline-block; background:var(--good-soft); color:var(--good);
+    border-radius:99px; padding:2px 12px; font-weight:600; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="banner">PRESENTER COPY — DO NOT SCREEN-SHARE — reads from this, shares demo-deck.html</div>
+<div class="bar" id="bar"></div>
+
+<!-- 1 ─ TITLE -->
+<section class="slide on">
+  <div class="slidenum">Public deck — slide 1 of 14</div>
+  <div class="kicker">SalesGenie · Live Demo</div>
+  <h1>A business is born, protected,<br>and proven — live.</h1>
+  <p class="sub">One enquiry handled end to end. A new business set up by chat. Replies sent only after human approval.</p>
+  <p class="pill">Everything in this video is the real system, running live — not a mockup, not staged.</p>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide, static, the whole time you're speaking. Nothing else happens — no cut yet.</div>
+  <div class="panel say"><div class="head">Read (opening line, to camera / over this slide)</div><div class="body">
+    <p class="script">"Hi, I'm Vaibhav. What you're about to watch is SalesGenie — a sales platform any business can join just by talking to it. Everything in this video is the real system, running live on my own machine — not a mockup, not staged. Let's start with the problem."</p>
+  </div></div>
+</section>
+
+<!-- 2 ─ THE PROBLEM -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 2 of 14</div>
+  <div class="kicker">The problem</div>
+  <h2>A small business inbox is one mixed pile — and good buyers get missed.</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="340" fill="#FAF9F7"/>
+  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">The same enquiry, before and after</text>
+  <rect x="40" y="70" width="420" height="230" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="2"/>
+  <text x="250" y="100" text-anchor="middle" fill="#6E6A63" font-size="16" font-weight="700">BEFORE — a person's morning</text>
+  <g fill="#20242B" font-size="13.5">
+    <text x="70" y="132">📧 read the email, decide if it's real</text>
+    <text x="70" y="160">⌨️ type name &amp; company into a spreadsheet</text>
+    <text x="70" y="188">🔍 search the person online</text>
+    <text x="70" y="216">🤔 recommend products from memory</text>
+    <text x="70" y="244">✍️ write the reply — if it isn't forgotten</text>
+  </g>
+  <text x="250" y="282" text-anchor="middle" fill="#B4551D" font-size="14" font-weight="700">hours to days · typos · it depends who answered</text>
+  <rect x="500" y="70" width="420" height="230" rx="10" fill="#FFFFFF" stroke="#2E7D53" stroke-width="2.5"/>
+  <text x="710" y="100" text-anchor="middle" fill="#2E7D53" font-size="16" font-weight="700">AFTER — the person's morning</text>
+  <g fill="#20242B" font-size="13.5">
+    <text x="530" y="140">☕ coffee</text>
+    <text x="530" y="176">📬 an approval request arrives: the enquiry, the facts,</text>
+    <text x="545" y="196">real in-stock products, a drafted reply</text>
+    <text x="530" y="232">👀 read it · ✅ click Approve</text>
+  </g>
+  <text x="710" y="282" text-anchor="middle" fill="#2E7D53" font-size="14" font-weight="700">19-second draft · zero typing · same quality every time</text>
+  </svg></div>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide, static. No live app — you're just talking over the before/after diagram.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"Here's the problem. A small business owner's inbox is one mixed pile of real buyers, spam, and vendor pitches. Today, someone has to read every email, decide if it's real, type the details into a spreadsheet, remember what's in stock, and write a reply — if they remember to at all. That takes hours, sometimes days, and the quality depends entirely on who happened to answer. After SalesGenie: the person's morning is coffee, then an approval request lands with the enquiry, the facts, real in-stock products, and a drafted reply already written. They read it, click Approve. Nineteen seconds of machine work, zero typing, the same quality every time."</p>
+  </div></div>
+</section>
+
+<!-- 3 ─ THE IDEA -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 3 of 14</div>
+  <div class="kicker">The idea</div>
+  <h2>SalesGenie is 14 automated workflows — one for each job.</h2>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 500" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="960" height="500" fill="#FAF9F7"/>
+  <defs><marker id="pf01a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+  <rect x="260" y="28" width="440" height="92" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+  <text x="480" y="58" text-anchor="middle" fill="#3D6C9E" font-size="17" font-weight="700">THE CONTROL ROOM — a chat window</text>
+  <text x="480" y="82" text-anchor="middle" fill="#20242B" font-size="14">the owner sets up and runs everything by talking</text>
+  <text x="480" y="103" text-anchor="middle" fill="#6E6A63" font-size="12.5">"set up my shop" · "what's pending?" · "approve it"</text>
+  <rect x="260" y="168" width="440" height="150" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="2"/>
+  <text x="480" y="198" text-anchor="middle" fill="#20242B" font-size="17" font-weight="700">ONE ASSEMBLY LINE — for every business</text>
+  <text x="480" y="226" text-anchor="middle" fill="#20242B" font-size="14">read → pull out the facts → score → match real stock → draft</text>
+  <text x="480" y="256" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">→ a human clicks Approve → only then it is sent</text>
+  <text x="480" y="286" text-anchor="middle" fill="#6E6A63" font-size="12.5">plus: Monday report · error catcher · AI quality-examiner</text>
+  <rect x="30" y="168" width="190" height="62" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
+  <text x="125" y="194" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">Door 1 · Email</text>
+  <text x="125" y="215" text-anchor="middle" fill="#6E6A63" font-size="12.5">customers write in</text>
+  <rect x="30" y="252" width="190" height="62" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
+  <text x="125" y="278" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">Door 2 · Any channel</text>
+  <text x="125" y="299" text-anchor="middle" fill="#6E6A63" font-size="12.5">website forms, apps…</text>
+  <rect x="740" y="168" width="190" height="150" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
+  <text x="835" y="198" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">Door 3 · Other</text>
+  <text x="835" y="218" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">companies' AIs</text>
+  <text x="835" y="245" text-anchor="middle" fill="#20242B" font-size="12.5">a buyer's AI enquires</text>
+  <text x="835" y="263" text-anchor="middle" fill="#20242B" font-size="12.5">and gets a quote —</text>
+  <text x="835" y="286" text-anchor="middle" fill="#6E6A63" font-size="12">it even sees "a human is</text>
+  <text x="835" y="303" text-anchor="middle" fill="#6E6A63" font-size="12">reviewing your offer"</text>
+  <rect x="260" y="376" width="440" height="84" rx="10" fill="#FFFFFF" stroke="#20242B" stroke-width="2.5"/>
+  <text x="480" y="410" text-anchor="middle" fill="#20242B" font-size="17" font-weight="700">THE DATABASE — everything is written down</text>
+  <text x="480" y="437" text-anchor="middle" fill="#6E6A63" font-size="12.5">every enquiry, decision, AI action, approval — permanent and checkable</text>
+  <line x1="480" y1="120" x2="480" y2="164" stroke="#6E6A63" stroke-width="2" marker-end="url(#pf01a)"/>
+  <line x1="220" y1="199" x2="256" y2="214" stroke="#6E6A63" stroke-width="2" marker-end="url(#pf01a)"/>
+  <line x1="220" y1="283" x2="256" y2="268" stroke="#6E6A63" stroke-width="2" marker-end="url(#pf01a)"/>
+  <line x1="738" y1="243" x2="704" y2="243" stroke="#6E6A63" stroke-width="2" marker-end="url(#pf01a)"/>
+  <line x1="480" y1="318" x2="480" y2="372" stroke="#6E6A63" stroke-width="2" marker-end="url(#pf01a)"/>
+  </svg></div>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide, static. No live app — you're talking over the control-room/assembly-line diagram.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"SalesGenie is fourteen automated workflows, one for each job — like a back office where every role is automated. There's a control room: a chat window where the owner sets up and runs everything by talking. There's one assembly line that every business shares: read the enquiry, pull out the facts, score it, match it against real stock, draft a reply — and a human always clicks Approve before anything is sent. Three doors feed into it: email, any other channel via webhook, and — this is the part I'm most excited about — other companies' AI agents can enquire directly. And everything gets written to one database: every enquiry, every decision, every AI action, every approval, permanent and checkable. Adding business number one hundred needs zero new code."</p>
+  </div></div>
+</section>
+
+<!-- 4 ─ PART 1: ONE ENQUIRY, END TO END -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 4 of 14</div>
+  <div class="kicker">Part 1 · Live · ~3 min</div>
+  <h2>Watch one enquiry become a sale.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read the line below, THEN you cut the recording — next clip is n8n, not this slide.</div>
+  <div class="panel say"><div class="head">Read (before the cut)</div><div class="body">
+    <p class="script">"Let me prove that live. I'm going to replay a real enquiry — someone looking for a leather sofa, budget ninety thousand rupees — into Oak &amp; Ember, a furniture business already set up on the platform. Watch the timestamps."</p>
+  </div></div>
+  <div class="panel do"><div class="head">Then show — cut to n8n</div><div class="body">
+    <ol>
+      <li>Open <b>LearningLab-Replay</b> in n8n.</li>
+      <li>Confirm the <b>Pick Email</b> node's <code>email_number</code> is <b>2</b> (it's the default — no change needed). This is seed email-02: Rahul Sharma, "Looking for a leather sofa - budget 90k", biz_oakember.</li>
+      <li>Click <b>Execute workflow</b>.</li>
+      <li>Switch to the <b>Executions</b> tab (or the Recommender/DraftHITL canvas) while it runs — narrate as it moves. It usually takes 15–25s; say the real number you see, not a fixed "19 seconds."</li>
+      <li>Open Gmail — a new <code>[Approval needed]</code> email should have landed. Open it, scroll through: enquiry → extracted facts → recommended sofa(s) with prices → drafted reply.</li>
+      <li>Your call: click Approve now and show the reply, or leave it pending for continuity — either works. Then cut back to the deck for slide 5.</li>
+    </ol>
+  </div></div>
+</section>
+
+<!-- 5 ─ THE PATH (recap) -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 5 of 14</div>
+  <div class="kicker">What you just watched</div>
+  <h2>Every enquiry follows this path. Nothing skips the approval step.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide, static — you've cut back from n8n/Gmail to the deck for this recap. No live app here.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"That's the whole path: enquiry arrives, facts get pulled out, it gets scored, matched against real stock, a reply gets drafted — all in under twenty seconds. Then everything stops, on purpose. A human reads it and clicks Approve. The draft can sit there for minutes or days if needed — there is no path around that gate."</p>
+  </div></div>
+</section>
+
+<!-- 6 ─ PART 2a: A BUSINESS BORN BY CHAT -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 6 of 14</div>
+  <div class="kicker">Part 2 · Screenshots · ~3.5 min</div>
+  <h2>I create a business by chatting. Its first enquiry arrives too early.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut to a still-image sequence (the 4 screenshots below) — not a live app, not typed live.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"Now let's create a business that doesn't exist yet — by talking to it, in plain English. I'm going to set up Aurora Lamps, a lighting boutique, using nothing but Claude Desktop."</p>
+  </div></div>
+  <div class="panel do"><div class="head">Then show — screenshots, per screenshot-shot-list.md</div><div class="body">
+    <p>Recorded ahead of time, not typed live (Claude Desktop's response timing/ordering isn't reliable enough for a scripted take). Show each still, narrating over it:</p>
+    <ol>
+      <li><span class="shot">part2-01.png</span> — <code>create_business</code> for Aurora Lamps, and its response.</li>
+      <li><span class="shot">part2-02.png</span> — "What's Aurora Lamps' setup status?" → profile ✓, catalog ✗, reviewer ✗.</li>
+      <li><span class="shot">part2-03.png</span> — <code>send_test_lead</code>: 12 pendant lamps for a café, ₹40,000 budget.</li>
+      <li><span class="shot">part2-04.png</span> — "What's the status of that lead?" → <code>AWAITING_SETUP</code>, missing catalog.</li>
+    </ol>
+    <p class="script">"It read everything — the product interest, the budget, the urgency — then it stopped. Not an error: it's holding the enquiry until the shop is actually ready, because it refuses to invent products that don't exist."</p>
+  </div></div>
+</section>
+
+<!-- 7 ─ PART 2b: RESUME + APPROVE FROM CHAT -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 7 of 14</div>
+  <div class="kicker">Part 2 · continued · Screenshots</div>
+  <h2>I add products by chat. The enquiry resumes by itself. This time I approve from chat.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut to the next 5 screenshots (still images, continuing from slide 6's sequence).</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"Now watch it wake itself up. I'm going to add Aurora Lamps' catalog and a reviewer, still just by talking — and nobody tells the system to try that enquiry again."</p>
+  </div></div>
+  <div class="panel do"><div class="head">Then show — screenshots, per screenshot-shot-list.md</div><div class="body">
+    <ol start="5">
+      <li><span class="shot">part2-05.png</span> — catalog-upload message (3 lamps).</li>
+      <li><span class="shot">part2-06.png</span> — asking the lead's status again: woke on its own, matched real products, parked again (missing reviewer).</li>
+      <li><span class="shot">part2-07.png</span> — "Set the reviewer to ___" message.</li>
+      <li><span class="shot">part2-08.png</span> — "Show me what's waiting for approval" — the drafted reply appears.</li>
+      <li><span class="shot">part2-09.png</span> — "Approve it." confirmation.</li>
+    </ol>
+    <p class="script">"Parked twice, self-resumed twice, approved once from chat — and I never opened the engine room."</p>
+  </div></div>
+</section>
+
+<!-- 8 ─ PART 3: TRY TO BREAK IT -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 8 of 14</div>
+  <div class="kicker">Part 3 · Live · ~2 min</div>
+  <h2>Now I try to make it lie.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut to n8n — live, LearningLab-Replay.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"Let's try to break it. I'm going to ask for something that's out of stock, and then send it pure spam, and watch what happens to both."</p>
+  </div></div>
+  <div class="panel do"><div class="head">Then show — cut to n8n (LearningLab-Replay)</div><div class="body">
+    <ol>
+      <li>Set <code>email_number: 6</code>, Execute. (Rosewood King Bed enquiry — planted out of stock.)</li>
+      <li>Check the result (<code>get_lead_status</code> or the approval email): it offers the in-stock <b>Oakhaven Queen Bed</b> instead — the Rosewood appears nowhere.</li>
+      <li>Set <code>email_number: 9</code>, Execute. (Lottery spam.)</li>
+      <li>Show it lands in <code>DISCARDED_SPAM</code> within seconds — never reaches a human.</li>
+    </ol>
+    <p class="script">"It never lies about the shelf. The AI is never asked 'what should we recommend' — only 'which of these real items fits.' And the noise never reaches a human."</p>
+  </div></div>
+</section>
+
+<!-- 9 ─ PART 4: THE REPORT -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 9 of 14</div>
+  <div class="kicker">Part 4 · Live · ~1.5 min</div>
+  <h2>Every Monday the report lands in the inbox — and lives at a link.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut to your browser — live, the insights URL.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"Every business also gets this automatically, every Monday: a report on its funnel, its lead quality, and — this is the part I'm proud of — exactly what the AI itself is costing, measured from the token counts, not estimated."</p>
+  </div></div>
+  <div class="panel do"><div class="head">Then show — cut to browser</div><div class="body">
+    <ol>
+      <li>Open <code>http://localhost:5678/webhook/vaibhavcapstone-insights-latest?business_id=biz_oakember</code></li>
+      <li>Scroll: funnel numbers → hot-lead mix → approval rate → the AI-health box (cost per lead, answer speed, the cross-vendor audit score).</li>
+    </ol>
+    <p class="script">"Cost per lead: sixty-two paise — well under a US cent, and exact, from the provider's own token counts, not estimated. And this line — a different company's AI re-reads every piece of our AI's work checking for invented facts. If a number can't be traced back to a database row, it doesn't ship."</p>
+  </div></div>
+</section>
+
+<!-- 10 ─ PART 5: THE FINALE -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 10 of 14</div>
+  <div class="kicker">Part 5 · Live · ~2.5 min</div>
+  <h2>Another company's software buys from us — and is told: "a human is deciding."</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut to your terminal (live), then Claude Desktop/Gmail (live), then back to the terminal.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"For the finale — another company's own AI, buying from us. It's never seen our system before."</p>
+  </div></div>
+  <div class="panel do"><div class="head">Then show — cut to terminal, then Claude Desktop/Gmail, then back to terminal</div><div class="body">
+    <ol>
+      <li>Run <code>node scripts/buyer-agent-demo.js</code> (defaults: biz_oakember, 25-chair enquiry).</li>
+      <li>Let it print through agent-card discovery, <code>message/send</code>, a couple of "working" polls.</li>
+      <li>Hold on the <code>input-required</code> line when it prints.</li>
+      <li>Cut to Claude Desktop/Gmail: approve the pending draft — live is fine here (one short line), or use a screenshot if you'd rather. Your call in the moment.</li>
+      <li>Cut back to the terminal: the next poll prints <code>completed</code> with the structured offer + real products.</li>
+    </ol>
+    <p class="script">"The robot has just been told, in protocol language: a human is deciding. No approval, no offer. The rule survives even when the customer is a machine."</p>
+  </div></div>
+</section>
+
+<!-- 11 ─ SAFETY CHECKS -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 11 of 14</div>
+  <div class="kicker">Why you can trust it</div>
+  <h2>Three separate checks stand before the Send button.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide, static. No live app.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"Why can you trust any of this? Three separate checks. The flow itself: the send step only runs after an approval click. No double-send: approval only counts while the draft is still waiting. And the database itself refuses illegal shortcuts — a draft can never jump from written straight to sent, no matter what code runs."</p>
+  </div></div>
+</section>
+
+<!-- 12 ─ TEST RESULTS -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 12 of 14</div>
+  <div class="kicker">The test results</div>
+  <h2>Tested against a fixed answer key — written before any tuning.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide, static. No live app.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"None of this is self-reported. Ten out of ten emails correctly classified, spam never slipped through. Ninety-five percent-plus of facts captured correctly, zero ever invented. One hundred percent of recommendations real — thirty-nine of thirty-nine, verified in live stock. Eighty-six percent of drafts approved by humans — real clicks. And sixty-two paise, exact to the token, per enquiry."</p>
+  </div></div>
+</section>
+
+<!-- 13 ─ CLOSE -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 13 of 14</div>
+  <div class="kicker">Close</div>
+  <h2>Every enquiry is always in exactly one of seven states.</h2>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide, static — closing thought before the final CTA slide.</div>
+  <div class="panel say"><div class="head">Read</div><div class="body">
+    <p class="script">"Every enquiry is always in exactly one of seven places: moving through the pipeline, sent, discarded, rejected, waiting for a human, waiting for setup, or failed with an alert. There is no eighth state. That's the product: AI speed, human authority, and every number checkable."</p>
+  </div></div>
+</section>
+
+<!-- 14 ─ CLOSE: CTA -->
+<section class="slide">
+  <div class="slidenum">Public deck — slide 14 of 14</div>
+  <div class="kicker">Thanks for watching</div>
+  <h1>The code, the numbers,<br>the receipts — all public.</h1>
+  <p class="sub">Every figure in this video traces back to a database row you can query yourself. Full source, architecture docs, and eval results back every claim you just saw.</p>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide, static — closing line, then stop recording.</div>
+  <div class="panel say"><div class="head">Read (closing line, to camera)</div><div class="body">
+    <p class="script">"Every number in this video traces back to a database row — nothing here is self-reported. The full source, the architecture docs, and every eval result back it all up. Thanks for watching."</p>
+  </div></div>
+</section>
+
+<div class="nav"><button id="prev">‹</button> <span id="ctr">1 / 14</span> <button id="next">›</button></div>
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  let i = 0;
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    document.getElementById('ctr').textContent = (i + 1) + ' / ' + slides.length;
+    document.getElementById('bar').style.width = ((i + 1) / slides.length * 100) + '%';
+  }
+  addEventListener('keydown', e => {
+    if (['ArrowRight','PageDown',' '].includes(e.key)) { e.preventDefault(); show(i + 1); }
+    if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+  document.getElementById('prev').onclick = () => show(i - 1);
+  document.getElementById('next').onclick = () => show(i + 1);
+  show((parseInt(location.hash.slice(1), 10) || 1) - 1);
+</script>
+</body>
+</html>

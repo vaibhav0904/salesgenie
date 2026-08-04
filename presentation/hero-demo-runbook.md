@@ -100,7 +100,7 @@ Show the n8n workflow list (14 `VaibhavCapstone-*` workflows).
 Open `http://localhost:5678/webhook/vaibhavcapstone-insights-latest?business_id=biz_oakember`
 
 > "Every Monday each shop gets this. Funnel, hot-lead mix, approval rate — and
-> the AI-health box: cost per lead (~2.6 cents), answer speed, and this line —
+> the AI-health box: cost per lead (~$0.0074, ₹0.62), answer speed, and this line —
 > a DIFFERENT company's AI re-reads every piece of work checking for invented
 > facts: average ~5 out of 5, zero violations, across hundreds of checks.
 > House rule: if a number can't be traced back to database rows, it doesn't

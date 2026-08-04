@@ -1,4 +1,4 @@
-# Status — last updated 2026-08-03 by Claude
+# Status — last updated 2026-08-04 by Claude
 
 The live dashboard. `stories/README.md` is the (static) process description —
 this file is the current state. Updated at every `/prd`, `/story`,
@@ -11,6 +11,7 @@ of band without also fixing the folder it disagrees with.
 |---|---|---|
 | `PRD-E22-multi-turn-conversations` | Approved | E22-S1, E22-S2, E22-S3 (all backlog) |
 | `PRD-E23-returning-customer-detection` | Approved | E23-S1, E23-S2 (all backlog) |
+| `PRD-E24-self-recorded-demo-video` | Approved | E24-S1 (done) |
 
 ## Backlog (priority order, top = next — set together, re-order anytime)
 
@@ -29,10 +30,12 @@ Next `/story` run should confirm real order with Vaibhav before picking one.
 
 ## In progress
 
-None.
+Nothing in progress — next `/story` run should confirm priority order
+with Vaibhav from the backlog below.
 
 ## Recently done
 
+- `E24-S1` — presenter deck + demo setup, verified environment (2026-08-04)
 - `E21-S1` — test/demo/production environments (2026-08-03)
 - `E19-S1` — read the canvas without opening a node
 - `E18-S1` — custom test leads from chat

@@ -1,3 +1,6 @@
+// SUPERSEDED: AI-narration approach abandoned for self-recording in cuts
+// (see ../demo-deck-for-presenter.html). Kept for reference, not run anymore.
+//
 // Round-trips generated narration wavs through Sarvam STT and diffs against
 // the intended text — an objective check for mispronunciation/clarity, since
 // I cannot literally listen to audio.
