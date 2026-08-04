@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # SalesGenie v2
 
 Headless, multi-tenant agentic sales platform (capstone): businesses onboard in natural language over MCP, get lead qualification, grounded recommendations, weekly insights. Oak & Ember is tenant #1.
@@ -5,8 +9,19 @@ Headless, multi-tenant agentic sales platform (capstone): businesses onboard in 
 ## Tech stack
 n8n (Docker, authored via REST API) · Postgres (compose) · Gemini 2.5 Flash (pipeline; gpt-4o-mini fallback) · OpenAI gpt-4o (judge) · Langfuse self-hosted :3100 (LLM traces) · QuickChart · Gmail. All free-tier, local.
 
+## Architecture
+Three intake doors → one pipeline, per `docs/architecture.md`:
+```
+Email/Webhook/MCP chat/A2A → 01-Intake → 03-ClassifyExtract → 04-Qualifier
+  → 05-Recommender → 06-DraftHITL → 🧑 approve → send
+```
+14 workflows total; the rest (00 ErrorHandler, 07 WeeklyInsights, 08/09 MCP
+servers, 10 ResumeParked, 11 NeedsReviewNotify, 12 LLMJudge, 13 A2AServer)
+hang off this spine, all reading/writing `vaibhavcapstone_*` Postgres tables
+keyed by `business_id` (see Gotchas for why that matters).
+
 ## Where things live
-- `docs/architecture.md` — picture; `docs/contracts.md` — Envelope, payloads, state machines; `docs/traceability.md` — LLM observability
+- `docs/architecture.md` — picture; `docs/contracts.md` — Envelope, payloads, state machines; `docs/scoring.md` — rubric + reweight recipes; `docs/traceability.md` — LLM observability
 - `docs/adr/` — decisions; `docs/domain.md` — vocabulary; `docs/assumptions.md` + `docs/metrics.md` — limits & KPIs
 - `stories/backlog|in-progress|done/` — all work; `stories/README.md` — lifecycle; `stories/STATUS.md` — live dashboard; `prds/` — one PRD per epic; `evals/` — dataset, cases, results
 - `db/` — migrations/seeds; `data/` — seed emails + catalogs; `n8n/workflows/` — exports + import guide; `docker/` — compose
@@ -38,6 +53,7 @@ n8n (Docker, authored via REST API) · Postgres (compose) · Gemini 2.5 Flash (p
 - n8n's Gemini node strips `usageMetadata` — call sites use HTTP `generateContent` (thinking tokens made estimates 36× low).
 - In `splitInBatches` loops, `$('X').first()` repeats iteration 1 — use `.item`.
 - Test/demo share one credential (`Capstone-Postgres`) — its Database field is the switch.
+- The intake webhook is unauthenticated by design (MVP posture) — MCP endpoints require a bearer token, this one doesn't; production needs per-tenant keys (`docs/assumptions.md`).
 
 ## Hard rules
 - No customer-facing send without human approval; send node reachable only from APPROVED.
@@ -46,4 +62,4 @@ n8n (Docker, authored via REST API) · Postgres (compose) · Gemini 2.5 Flash (p
 - No PII in prompts beyond what's needed; none in chart URLs. Never tune labels to match output.
 
 ## Self-improvement
-Living file — update in the same story when conventions/gotchas/commands change; keep under 500 words.
+Living file — update in the same story when conventions/gotchas/commands change; keep under 650 words (raised from 500 when the mandatory Claude Code header + Architecture section were added).
