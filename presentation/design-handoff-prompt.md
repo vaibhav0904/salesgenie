@@ -47,9 +47,52 @@ project.
 > emphasis) but the substance must stay word-for-word identical. Don't
 > paraphrase or "improve" the copy.
 >
+> **One specific trap on slide 9 (Part 4 — the weekly report).** That slide
+> deliberately carries two *different* cost figures, and they are both
+> correct:
+> - the bar chart reads **$0.0002 vs $0.0074, "36× off"** — a fixed
+>   historical finding about estimated vs metered cost. Those three numbers
+>   are a matched set; changing any one makes the "36×" wrong.
+> - the tile below reads **$0.0066 — "AI cost per enquiry this week"** —
+>   the current week's live measurement, which must stay identical to a
+>   live report page the viewer sees seconds later in the video.
+>
+> Do **not** reconcile, average, or unify these. They measure different
+> things over different periods. Same for the tiles `4.2 s` and `5.0 / 5` —
+> they mirror a live page exactly.
+>
 > Please return a complete, updated `demo-deck.html`.
 
 ---
+
+## Slide inventory (what each of the 14 slides is for)
+
+Useful to paste alongside the prompt — it tells the designer which slides
+carry weight and which are quick transitions.
+
+| # | Slide | Content type |
+|---|---|---|
+| 1 | Title — "A business is born, protected, and proven" | title + pill |
+| 2 | The problem — mixed inbox | full-width SVG (before/after) |
+| 3 | The idea — 14 workflows | full-width SVG (control room) |
+| 4 | Part 1 intro — watch one enquiry | SVG timeline (~19 seconds) |
+| 5 | What you just watched — the path | SVG pipeline recap |
+| 6 | Part 2 — business born by chat | SVG (Aurora Lamps chat) |
+| 7 | Part 2 continued — catalog, self-resume | SVG |
+| 8 | Part 3 — trying to make it lie | SVG (out-of-stock + spam) |
+| 9 | Part 4 — the weekly report | SVG bar chart **+ 3 number tiles** ⚠ see trap above |
+| 10 | Part 5 — another company's AI buys | SVG (A2A handshake) |
+| 11 | Why you can trust it — three checks | SVG |
+| 12 | The test results — fixed answer key | number-heavy |
+| 13 | Close — seven states | SVG / text |
+| 14 | Thanks for watching | text only |
+
+Slides 4, 6, 7, 8, 9, 10 are immediately followed in the recording by a cut
+to a live application, so they read for only ~15–30 seconds each — they need
+to land fast. Slides 2, 3, 11, 12, 13 are held longer while narrating.
+
+Note the bottom-right slide counter and top progress bar **are visible in
+the recording**. Restyle them if you like, but they should stay unobtrusive.
 
 ## Current visual system (for reference, in case it's useful context)
 

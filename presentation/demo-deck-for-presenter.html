@@ -182,7 +182,7 @@
   <div class="panel do"><div class="head">Then show — cut to n8n</div><div class="body">
     <ol>
       <li>Open <b>LearningLab-Replay</b> in n8n.</li>
-      <li>Confirm the <b>Pick Email</b> node's <code>email_number</code> is <b>2</b> (it's the default — no change needed). This is seed email-02: Rahul Sharma, "Looking for a leather sofa - budget 90k", biz_oakember.</li>
+      <li><b>Set</b> the <b>Pick Email</b> node's <code>email_number</code> to <b>2</b> — check it every time, it is <i>not</i> a reliable default: the node keeps whatever ran last, and Part 3 below leaves it on 9. This is seed email-02: Rahul Sharma, "Looking for a leather sofa - budget 90k", biz_oakember.</li>
       <li>Click <b>Execute workflow</b>.</li>
       <li>Switch to the <b>Executions</b> tab (or the Recommender/DraftHITL canvas) while it runs — narrate as it moves. It usually takes 15–25s; say the real number you see, not a fixed "19 seconds."</li>
       <li>Open Gmail — a new <code>[Approval needed]</code> email should have landed. Open it, scroll through: enquiry → extracted facts → recommended sofa(s) with prices → drafted reply.</li>
@@ -205,19 +205,19 @@
 <!-- 6 ─ PART 2a: A BUSINESS BORN BY CHAT -->
 <section class="slide">
   <div class="slidenum">Public deck — slide 6 of 14</div>
-  <div class="kicker">Part 2 · Screenshots · ~3.5 min</div>
+  <div class="kicker">Part 2 · Live · ~3.5 min</div>
   <h2>I create a business by chatting. Its first enquiry arrives too early.</h2>
-  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut to a still-image sequence (the 4 screenshots below) — not a live app, not typed live.</div>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut to Claude Desktop — live, typing prompts 1–4.</div>
   <div class="panel say"><div class="head">Read</div><div class="body">
-    <p class="script">"Now let's create a business that doesn't exist yet — by talking to it, in plain English. I'm going to set up Aurora Lamps, a lighting boutique, using nothing but Claude Desktop."</p>
+    <p class="script">"Now let's create a business that doesn't exist yet — live, by talking to it in plain English. I'm going to set up Aurora Lamps, a lighting boutique, using nothing but Claude Desktop."</p>
   </div></div>
-  <div class="panel do"><div class="head">Then show — screenshots, per screenshot-shot-list.md</div><div class="body">
-    <p>Recorded ahead of time, not typed live (Claude Desktop's response timing/ordering isn't reliable enough for a scripted take). Show each still, narrating over it:</p>
+  <div class="panel do"><div class="head">Then show — cut to Claude Desktop (live), per part2-recording-script.md</div><div class="body">
+    <p>Type each prompt and let the real response finish before the next. Take a cut between prompts if you want — this doesn't have to be one take. <b>"Aurora Lamps" must be unused</b>: the first time you say it is the only clean take, so rehearse with a throwaway name.</p>
     <ol>
-      <li><span class="shot">part2-01.png</span> — <code>create_business</code> for Aurora Lamps, and its response.</li>
-      <li><span class="shot">part2-02.png</span> — "What's Aurora Lamps' setup status?" → profile ✓, catalog ✗, reviewer ✗.</li>
-      <li><span class="shot">part2-03.png</span> — <code>send_test_lead</code>: 12 pendant lamps for a café, ₹40,000 budget.</li>
-      <li><span class="shot">part2-04.png</span> — "What's the status of that lead?" → <code>AWAITING_SETUP</code>, missing catalog.</li>
+      <li>"Create a new business on SalesGenie: <b>Aurora Lamps</b>, a lighting boutique. Warm, helpful tone, INR." → new <code>biz_</code> id + intake address.</li>
+      <li>"What's Aurora Lamps' setup status?" → profile ✓, catalog ✗, reviewer ✗.</li>
+      <li>"Send Aurora Lamps a test lead: someone furnishing a café who needs 12 pendant lamps, budget ₹40,000." → lead accepted.</li>
+      <li>"What's the status of that lead?" → <code>AWAITING_SETUP</code>, missing catalog. <b>Give this one room</b> — it's the point of the segment.</li>
     </ol>
     <p class="script">"It read everything — the product interest, the budget, the urgency — then it stopped. Not an error: it's holding the enquiry until the shop is actually ready, because it refuses to invent products that don't exist."</p>
   </div></div>
@@ -226,19 +226,19 @@
 <!-- 7 ─ PART 2b: RESUME + APPROVE FROM CHAT -->
 <section class="slide">
   <div class="slidenum">Public deck — slide 7 of 14</div>
-  <div class="kicker">Part 2 · continued · Screenshots</div>
+  <div class="kicker">Part 2 · continued · Live</div>
   <h2>I add products by chat. The enquiry resumes by itself. This time I approve from chat.</h2>
-  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut to the next 5 screenshots (still images, continuing from slide 6's sequence).</div>
+  <div class="onscreen">🖥️ <b>On screen:</b> this slide while you read, THEN cut back to Claude Desktop — live, same chat, prompts 5–9.</div>
   <div class="panel say"><div class="head">Read</div><div class="body">
     <p class="script">"Now watch it wake itself up. I'm going to add Aurora Lamps' catalog and a reviewer, still just by talking — and nobody tells the system to try that enquiry again."</p>
   </div></div>
-  <div class="panel do"><div class="head">Then show — screenshots, per screenshot-shot-list.md</div><div class="body">
+  <div class="panel do"><div class="head">Then show — cut to Claude Desktop (live), same chat, per part2-recording-script.md</div><div class="body">
     <ol start="5">
-      <li><span class="shot">part2-05.png</span> — catalog-upload message (3 lamps).</li>
-      <li><span class="shot">part2-06.png</span> — asking the lead's status again: woke on its own, matched real products, parked again (missing reviewer).</li>
-      <li><span class="shot">part2-07.png</span> — "Set the reviewer to ___" message.</li>
-      <li><span class="shot">part2-08.png</span> — "Show me what's waiting for approval" — the drafted reply appears.</li>
-      <li><span class="shot">part2-09.png</span> — "Approve it." confirmation.</li>
+      <li>"Upload this catalog for Aurora Lamps: Brass Pendant Lamp, lamps, 2999, 30 in stock; Rattan Hanging Light, lamps, 1899, 45; Smoked Glass Globe, lamps, 3499, 12." → 3 products loaded.</li>
+      <li>"And what's that lead's status now?" → woke on its own, real recommendations, parked again (missing reviewer). <b>The money shot — let it land.</b></li>
+      <li>"Set Aurora Lamps' reviewer to vaibhav0904@gmail.com." → status becomes <code>PENDING_APPROVAL</code>.</li>
+      <li>"Show me what's waiting for approval for Aurora Lamps." → the drafted reply, in its warm tone.</li>
+      <li>"Approve it." → confirmation it was approved and sent.</li>
     </ol>
     <p class="script">"Parked twice, self-resumed twice, approved once from chat — and I never opened the engine room."</p>
   </div></div>
@@ -276,9 +276,10 @@
   <div class="panel do"><div class="head">Then show — cut to browser</div><div class="body">
     <ol>
       <li>Open <code>http://localhost:5678/webhook/vaibhavcapstone-insights-latest?business_id=biz_oakember</code></li>
-      <li>Scroll: funnel numbers → hot-lead mix → approval rate → the AI-health box (cost per lead, answer speed, the cross-vendor audit score).</li>
+      <li>Scroll: funnel numbers (7 enquiries, 2 sent) → lead quality (1 HOT / 4 WARM) → approval rate (67%, 2 approved / 1 rejected) → the AI-health box ($0.00664 cost per lead, 4216 / 10224 ms latency, 100% schema-valid). Note: the judge/audit score is <i>not</i> a visible row on this page — don't point at one.</li>
+      <li><b>Do not re-run the insights job before recording.</b> Each run's own summarising call adds to the week's AI spend, which nudges cost-per-lead up and puts slide 9's tile out of step with the page.</li>
     </ol>
-    <p class="script">"Cost per lead: sixty-two paise — well under a US cent, and exact, from the provider's own token counts, not estimated. And this line — a different company's AI re-reads every piece of our AI's work checking for invented facts. If a number can't be traced back to a database row, it doesn't ship."</p>
+    <p class="script">"Cost per lead: well under a US cent — and exact, from the provider's own token counts, not estimated. Every one of those AI outputs is also independently re-read by a different company's model, checking for invented facts — that's in the data behind this page. If a number can't be traced back to a database row, it doesn't ship."</p>
   </div></div>
 </section>
 
@@ -296,7 +297,7 @@
       <li>Run <code>node scripts/buyer-agent-demo.js</code> (defaults: biz_oakember, 25-chair enquiry).</li>
       <li>Let it print through agent-card discovery, <code>message/send</code>, a couple of "working" polls.</li>
       <li>Hold on the <code>input-required</code> line when it prints.</li>
-      <li>Cut to Claude Desktop/Gmail: approve the pending draft — live is fine here (one short line), or use a screenshot if you'd rather. Your call in the moment.</li>
+      <li>Cut to Claude Desktop/Gmail: approve the pending draft — live, one short line. (Approving from Gmail works now too: Oak &amp; Ember's reviewer is your real inbox.)</li>
       <li>Cut back to the terminal: the next poll prints <code>completed</code> with the structured offer + real products.</li>
     </ol>
     <p class="script">"The robot has just been told, in protocol language: a human is deciding. No approval, no offer. The rule survives even when the customer is a machine."</p>
@@ -321,7 +322,7 @@
   <h2>Tested against a fixed answer key — written before any tuning.</h2>
   <div class="onscreen">🖥️ <b>On screen:</b> this slide, static. No live app.</div>
   <div class="panel say"><div class="head">Read</div><div class="body">
-    <p class="script">"None of this is self-reported. Ten out of ten emails correctly classified, spam never slipped through. Ninety-five percent-plus of facts captured correctly, zero ever invented. One hundred percent of recommendations real — thirty-nine of thirty-nine, verified in live stock. Eighty-six percent of drafts approved by humans — real clicks. And sixty-two paise, exact to the token, per enquiry."</p>
+    <p class="script">"None of this is self-reported. Ten out of ten emails correctly classified, spam never slipped through. Ninety-five percent-plus of facts captured correctly, zero ever invented. One hundred percent of recommendations real — thirty-nine of thirty-nine, verified in live stock. Eighty-six percent of drafts approved by humans — real clicks. And well under a US cent per enquiry, exact to the token."</p>
   </div></div>
 </section>
 
