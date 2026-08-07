@@ -295,8 +295,11 @@
   <div class="panel do"><div class="head">Then show — cut to terminal, then Claude Desktop/Gmail, then back to terminal</div><div class="body">
     <ol>
       <li>Run <code>node scripts/buyer-agent-demo.js</code> (defaults: biz_oakember, 25-chair enquiry).</li>
-      <li>Let it print through agent-card discovery, <code>message/send</code>, a couple of "working" polls.</li>
-      <li>Hold on the <code>input-required</code> line when it prints.</li>
+      <li><b>Now do nothing — just narrate.</b> It prints four numbered stages by itself:<br>
+        <b>[1/4]</b> it asks our system who it is and what it sells, and gets a public profile back — no password needed, like reading a shop's sign from the street (engineers call this the <i>agent card</i>).<br>
+        <b>[2/4]</b> it sends the 25-chair enquiry and gets back a task number.<br>
+        <b>[3/4]</b> every 10 seconds it asks "done yet?" and prints <code>state: working</code> — it cannot see inside our system, only the status.</li>
+      <li><b>Hold here.</b> Wait for <code>state: input-required</code> and the two <code>&gt;&gt;&gt; THE HUMAN GATE</code> lines beneath it. That is the moment this whole part exists for — let it sit on screen while you say the line below.</li>
       <li>Cut to Claude Desktop/Gmail: approve the pending draft — live, one short line. (Approving from Gmail works now too: Oak &amp; Ember's reviewer is your real inbox.)</li>
       <li>Cut back to the terminal: the next poll prints <code>completed</code> with the structured offer + real products.</li>
     </ol>
