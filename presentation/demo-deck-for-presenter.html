@@ -182,7 +182,7 @@
   <div class="panel do"><div class="head">Then show — cut to n8n</div><div class="body">
     <ol>
       <li>Open <b>LearningLab-Replay</b> in n8n.</li>
-      <li><b>Set</b> the <b>Pick Email</b> node's <code>email_number</code> to <b>2</b> — check it every time, it is <i>not</i> a reliable default: the node keeps whatever ran last, and Part 3 below leaves it on 9. This is seed email-02: Rahul Sharma, "Looking for a leather sofa - budget 90k", biz_oakember.</li>
+      <li><b>Set</b> the <b>Pick Email</b> node's <code>email_number</code> to <b>11</b> — check it every time, it is <i>not</i> a reliable default: the node keeps whatever ran last, and Part 3 below leaves it on 9. (It is pre-set to 11 now.) Seed 11 is the demo-take sofa enquiry: Rahul Sharma, "Looking for a leather sofa - budget 90k", biz_oakember — same story as seed 2 but a fresh sender and no baked-in date, so it arrives <i>now</i> and reads as a live enquiry. Verified: HOT, score 95, grounded to the in-stock Ember Chesterfield Leather Sofa.</li>
       <li>Click <b>Execute workflow</b>.</li>
       <li>Switch to the <b>Executions</b> tab (or the Recommender/DraftHITL canvas) while it runs — narrate as it moves. It usually takes 15–25s; say the real number you see, not a fixed "19 seconds."</li>
       <li>Open Gmail — a new <code>[Approval needed]</code> email should have landed. Open it, scroll through: enquiry → extracted facts → recommended sofa(s) with prices → drafted reply.</li>
