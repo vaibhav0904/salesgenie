@@ -1,339 +1,541 @@
-<!doctype html>
-<html lang="en">
-<head>
+<!DOCTYPE html>
+<html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SalesGenie — Live Demo</title>
 <style>
+  /* ── Nocturne tokens ─────────────────────────────── */
   :root {
-    --paper:#FAF9F7; --ink:#20242B; --muted:#6E6A63; --line:#E2DFD9;
-    --ember:#B4551D; --ember-soft:#F4E3D7; --steel:#3D6C9E; --steel-soft:#DFE8F2;
-    --good:#2E7D53; --good-soft:#DEEEE5; --card:#FFFFFF; --term-bg:#22262E; --term-ink:#D8DCE3;
+    --paper:#f6f6f9; --ink:#232530; --muted:#6d6c7a; --line:#dcdce6;
+    --card:#ffffff; --card2:#f0eff6;
+    --accent:#6a5cc4; --accent-ink:#584aad; --accent-soft:#edeafa;
+    --steel:#5570a0; --steel-soft:#e6ebf4;
+    --good:#3c7f5f; --good-soft:#e2efe8;
+    --section:#e9e6f8; --section-ink:#282440; --section-muted:#625d84; --section-accent:#584aad;
+    --section-glow1:rgba(106,92,196,.14); --section-glow2:rgba(106,92,196,.10);
+    --term-bg:#22242f; --term-ink:#d5d8e3;
+    --shadow:0 1px 2px rgba(20,20,35,.06), 0 8px 24px rgba(20,20,35,.07);
   }
   @media (prefers-color-scheme: dark) { :root {
-    --paper:#17191E; --ink:#E9E7E2; --muted:#9A968E; --line:#33373F;
-    --ember:#E08A4C; --ember-soft:#3A2A1E; --steel:#85ABD6; --steel-soft:#212C3A;
-    --good:#66B58C; --good-soft:#1E3229; --card:#1E2127; --term-bg:#22262E; --term-ink:#D8DCE3;
+    --paper:#161826; --ink:#e9e9ed; --muted:#9a97a8; --line:#2d3143;
+    --card:#1d2030; --card2:#232637;
+    --accent:#9184d9; --accent-ink:#b3a9e6; --accent-soft:#272346;
+    --steel:#7d92b8; --steel-soft:#1f2637;
+    --good:#6fae90; --good-soft:#1d2f27;
+    --section:#232052; --section-ink:#ecebf6; --section-muted:#aca8ce; --section-accent:#a99ede;
+    --section-glow1:rgba(145,132,217,.20); --section-glow2:rgba(145,132,217,.12);
+    --term-bg:#12141f; --term-ink:#c9ccdb;
+    --shadow:0 1px 0 rgba(0,0,0,.25), 0 10px 28px rgba(0,0,0,.32);
   }}
+  html[data-theme="light"] {
+    --paper:#f6f6f9; --ink:#232530; --muted:#6d6c7a; --line:#dcdce6;
+    --card:#ffffff; --card2:#f0eff6;
+    --accent:#6a5cc4; --accent-ink:#584aad; --accent-soft:#edeafa;
+    --steel:#5570a0; --steel-soft:#e6ebf4;
+    --good:#3c7f5f; --good-soft:#e2efe8;
+    --section:#e9e6f8; --section-ink:#282440; --section-muted:#625d84; --section-accent:#584aad;
+    --section-glow1:rgba(106,92,196,.14); --section-glow2:rgba(106,92,196,.10);
+    --term-bg:#22242f; --term-ink:#d5d8e3;
+    --shadow:0 1px 2px rgba(20,20,35,.06), 0 8px 24px rgba(20,20,35,.07);
+  }
+  html[data-theme="dark"] {
+    --paper:#161826; --ink:#e9e9ed; --muted:#9a97a8; --line:#2d3143;
+    --card:#1d2030; --card2:#232637;
+    --accent:#9184d9; --accent-ink:#b3a9e6; --accent-soft:#272346;
+    --steel:#7d92b8; --steel-soft:#1f2637;
+    --good:#6fae90; --good-soft:#1d2f27;
+    --section:#232052; --section-ink:#ecebf6; --section-muted:#aca8ce; --section-accent:#a99ede;
+    --section-glow1:rgba(145,132,217,.20); --section-glow2:rgba(145,132,217,.12);
+    --term-bg:#12141f; --term-ink:#c9ccdb;
+    --shadow:0 1px 0 rgba(0,0,0,.25), 0 10px 28px rgba(0,0,0,.32);
+  }
+
   * { box-sizing:border-box; margin:0; }
   html,body { height:100%; }
-  body { background:var(--paper); color:var(--ink);
-    font-family:"Segoe UI", Arial, sans-serif; overflow:hidden; }
-  .slide { display:none; height:100vh; padding:32px 48px 56px;
-    flex-direction:column; align-items:center; justify-content:flex-start;
-    gap:12px; overflow-y:auto; }
+  body {
+    background:var(--paper); color:var(--ink); overflow:hidden;
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+    font-size:16px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection { background:var(--accent-soft); color:var(--ink); }
+  a { color:var(--accent-ink); } a:hover { color:var(--accent); }
+
+  /* ── Slides ──────────────────────────────────────── */
+  .slide { display:none; height:100vh; padding:52px 64px 64px;
+    flex-direction:column; align-items:center; justify-content:center;
+    justify-content:safe center;
+    gap:20px; overflow-y:auto; position:relative;
+    background:
+      radial-gradient(1100px 500px at 12% -10%, var(--card2), transparent 65%),
+      var(--paper);
+  }
+  .slide::before { content:""; position:absolute; inset:0; pointer-events:none;
+    background-image:radial-gradient(var(--line) 1px, transparent 1.4px);
+    background-size:30px 30px; opacity:.32;
+    -webkit-mask-image:radial-gradient(700px 420px at 16% 8%, #000, transparent 75%);
+    mask-image:radial-gradient(700px 420px at 16% 8%, #000, transparent 75%);
+  }
   .slide.on { display:flex; }
-  .kicker { color:var(--ember); font-weight:700; letter-spacing:.14em;
-    text-transform:uppercase; font-size:13px; }
-  h1 { font-size:clamp(26px,4.2vw,44px); text-align:center; line-height:1.15; }
-  h2 { font-size:clamp(20px,2.8vw,30px); text-align:center; }
-  .sub { color:var(--muted); font-size:clamp(14px,1.6vw,18px); text-align:center; max-width:860px; }
-  .fig { background:#FAF9F7; border:1px solid var(--line); border-radius:14px;
-    padding:10px; max-width:min(1060px,94vw); width:100%; }
-  .fig svg { display:block; width:100%; height:auto; max-height:50vh; }
-  .oneliner { position:absolute; bottom:14px; left:0; right:0; text-align:center;
+  .slide.on > * { animation:rise .55s cubic-bezier(.22,.61,.36,1) both; }
+  .slide.on > *:nth-child(2) { animation-delay:.08s; }
+  .slide.on > *:nth-child(3) { animation-delay:.16s; }
+  .slide.on > *:nth-child(4) { animation-delay:.24s; }
+  @keyframes rise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+
+  .slide > * { width:min(1100px, 100%); flex:none; position:relative; }
+  header.head { display:flex; flex-direction:column; gap:8px; }
+  .kicker { color:var(--accent-ink); font-weight:500; letter-spacing:.18em;
+    text-transform:uppercase; font-size:12.5px; display:flex; align-items:center; gap:12px; }
+  .kicker::before { content:""; width:26px; height:2px; background:var(--accent); flex:none; }
+  h1 { font-size:clamp(30px,4.6vw,54px); font-weight:500; line-height:1.12;
+    letter-spacing:-0.015em; text-wrap:balance; }
+  h2 { font-size:clamp(22px,2.9vw,33px); font-weight:500; line-height:1.2;
+    letter-spacing:-0.01em; text-wrap:balance; }
+  .rule { height:1px; border:0; margin:2px 0 0;
+    background:linear-gradient(90deg, var(--accent) 0, var(--accent) 26px, transparent 26px, var(--line) 27px, var(--line) 45%, transparent 100%); }
+  .sub { color:var(--muted); font-size:clamp(14px,1.6vw,17.5px); max-width:62ch; text-wrap:pretty; }
+  .slide > .sub, .slide > .pill { width:fit-content; align-self:flex-start;
+    margin-left:max(0px, calc((100% - 1100px) / 2)); }
+
+  /* divider slides (title + close) */
+  .divider { justify-content:center; gap:26px;
+    --ink:var(--section-ink); --muted:var(--section-muted);
+    --accent-ink:var(--section-accent); --accent:var(--section-accent);
+    color:var(--section-ink);
+    background:
+      radial-gradient(900px 520px at 18% 20%, var(--section-glow1), transparent 60%),
+      radial-gradient(1200px 700px at 85% 100%, var(--section-glow2), transparent 60%),
+      var(--section);
+  }
+  .divider::before { background-image:none;
+    background:radial-gradient(620px 420px at 78% 12%, var(--section-glow1), transparent 70%);
+    opacity:1; animation:breathe 9s ease-in-out infinite alternate;
+    -webkit-mask-image:none; mask-image:none;
+  }
+  @keyframes breathe { from { opacity:.35; transform:translateY(0); }
+    to { opacity:1; transform:translateY(26px); } }
+  .divider .sub { color:var(--section-muted); }
+
+  /* ── Figure / diagrams ───────────────────────────── */
+  .fig { flex:0 1 auto; min-height:clamp(160px, 30vh, 300px); display:flex; justify-content:center; align-items:center; }
+  .fig svg { display:block; width:100%; height:auto; max-height:56vh; font-family:inherit; }
+  svg text { fill:var(--ink); font-weight:400; }
+  svg .tt { font-weight:500; }
+  svg .tm { fill:var(--muted); }
+  svg .ta { fill:var(--accent-ink); } svg .taw { fill:var(--accent-ink); font-weight:500; }
+  svg .tg { fill:var(--good); } svg .tgw { fill:var(--good); font-weight:500; }
+  svg .ts { fill:var(--steel); } svg .tsw { fill:var(--steel); font-weight:500; }
+  svg .num { font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+  svg .bx  { fill:var(--card);        stroke:var(--line);   stroke-width:1.25; }
+  svg .bxa { fill:var(--accent-soft); stroke:var(--accent); stroke-width:1.25; }
+  svg .bxg { fill:var(--good-soft);   stroke:var(--good);   stroke-width:1.25; }
+  svg .bxs { fill:var(--steel-soft);  stroke:var(--steel);  stroke-width:1.25; }
+  svg .ar  { stroke:var(--muted); stroke-width:1.5; fill:none; }
+  svg .arA { stroke:var(--accent); stroke-width:1.75; fill:none; }
+  svg .arG { stroke:var(--good); stroke-width:1.75; fill:none; }
+  svg .mk  { fill:var(--muted); } svg .mkA { fill:var(--accent); } svg .mkG { fill:var(--good); }
+  svg .spine { stroke:var(--line); stroke-width:2; }
+  svg .dotA { fill:var(--accent); }
+  svg .barM { fill:var(--muted); } svg .barA { fill:var(--accent); }
+  /* stroke icon glyphs */
+  svg .ic { fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  svg .icI { stroke:var(--ink); }   svg .icM { stroke:var(--muted); }
+  svg .icA { stroke:var(--accent-ink); } svg .icG { stroke:var(--good); } svg .icS { stroke:var(--steel); }
+  .ih { fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round;
+    stroke-linejoin:round; vertical-align:-2px; }
+
+  .oneliner { position:absolute; bottom:20px; left:0; right:0; width:100%; text-align:center;
     color:var(--muted); font-style:italic; font-size:14px; pointer-events:none; }
-  .tiles { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
-  .tile { background:var(--card); border:1px solid var(--line); border-radius:12px;
-    padding:12px 22px; text-align:center; min-width:170px; }
-  .tile b { display:block; font-size:clamp(22px,3vw,32px); }
-  .tile span { color:var(--muted); font-size:13px; }
-  details { width:100%; max-width:1000px; background:var(--card);
-    border:1px solid var(--line); border-radius:10px; }
-  details summary { cursor:pointer; padding:8px 14px; font-weight:600; user-select:none; }
-  details.say summary { color:var(--ember); }
-  details.do summary { color:var(--steel); }
-  details[open] summary { border-bottom:1px solid var(--line); }
-  .notes { padding:11px 18px; font-size:14.5px; line-height:1.55; }
-  .notes ol { padding-left:20px; } .notes li { margin:6px 0; }
-  .notes p { margin:5px 0; }
-  .notes .cue { color:var(--good); font-weight:600; }
-  .notes code, .chat { background:var(--term-bg); color:var(--term-ink);
-    border-radius:6px; padding:1px 7px; font-family:Consolas,monospace; font-size:13px; }
-  .chat { display:block; padding:7px 10px; margin:4px 0; white-space:pre-wrap; }
-  .convo { display:grid; grid-template-columns:1fr 1fr; gap:10px;
-    max-width:1000px; width:100%; font-size:14px; }
-  .convo .col h3 { font-size:14px; margin-bottom:6px; text-align:center; }
-  .buyer h3 { color:var(--steel); } .seller h3 { color:var(--ember); }
-  .msg { border:1px solid var(--line); background:var(--card); border-radius:10px;
-    padding:8px 11px; margin:6px 0; }
+
+  /* ── Tiles ───────────────────────────────────────── */
+  .tiles { display:flex; gap:14px; flex-wrap:wrap; justify-content:flex-start; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:8px;
+    padding:16px 24px 16px 22px; flex:1 1 0; min-width:190px; box-shadow:var(--shadow);
+    border-top:2px solid var(--accent); }
+  .tile b { display:block; font-size:clamp(24px,3vw,34px); font-weight:500;
+    font-variant-numeric:tabular-nums; letter-spacing:-.015em; color:var(--accent-ink); }
+  .tile span { color:var(--muted); font-size:13px; line-height:1.4; display:block; margin-top:4px; }
+
+  .pill { background:transparent; color:var(--good);
+    border:1px solid var(--good); border-radius:99px; padding:5px 16px;
+    font-weight:500; font-size:13.5px;
+    width:fit-content !important; line-height:1.45; }
+
+  /* ── Conversation (slide 10) ─────────────────────── */
+  .convo { display:grid; grid-template-columns:1fr 1fr; gap:14px; font-size:14px; }
+  .convo .col h3 { font-size:13px; margin-bottom:8px; font-weight:500;
+    letter-spacing:.06em; text-transform:uppercase; display:flex; align-items:center; gap:7px; }
+  .buyer h3 { color:var(--steel); } .seller h3 { color:var(--accent-ink); }
+  .msg { border:1px solid var(--line); background:var(--card); border-radius:8px;
+    padding:9px 13px; margin:8px 0; box-shadow:var(--shadow); }
   .msg small { color:var(--muted); display:block; margin-top:3px; }
-  .hl { background:var(--ember-soft); border-color:var(--ember); }
-  .nav { position:fixed; bottom:12px; right:16px; color:var(--muted);
-    font-size:14px; user-select:none; z-index:5; }
-  .nav button { background:var(--card); color:var(--ink); border:1px solid var(--line);
-    border-radius:8px; font-size:16px; padding:2px 12px; cursor:pointer; }
-  .bar { position:fixed; top:0; left:0; height:3px; background:var(--ember);
-    transition:width .25s; z-index:5; }
-  .pill { display:inline-block; background:var(--good-soft); color:var(--good);
-    border-radius:99px; padding:2px 12px; font-weight:600; font-size:13px; }
+  .hl { background:var(--accent-soft); border-color:var(--accent); }
+  code, .chat { background:var(--term-bg); color:var(--term-ink);
+    border-radius:6px; padding:1px 7px;
+    font-family:"Cascadia Code",Consolas,"SF Mono",monospace; font-size:12.5px; }
+
+  /* ── Chrome ──────────────────────────────────────── */
+  .nav { position:fixed; bottom:16px; right:20px; color:var(--muted);
+    font-size:13px; user-select:none; z-index:5; display:flex; align-items:center; gap:8px;
+    font-variant-numeric:tabular-nums; }
+  .nav button { background:transparent; color:var(--muted); border:1px solid var(--line);
+    border-radius:8px; font-size:15px; line-height:1; padding:5px 12px; cursor:pointer;
+    transition:color .15s, border-color .15s; font-family:inherit; }
+  .nav button:hover { color:var(--accent-ink); border-color:var(--accent); }
+  .nav button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .bar { position:fixed; top:0; left:0; height:2px; z-index:6;
+    background:linear-gradient(90deg, var(--accent-ink), var(--accent));
+    box-shadow:0 0 10px var(--accent); transition:width .3s ease; }
 </style>
 </head>
 <body>
 <div class="bar" id="bar"></div>
 
+<!-- shared icon library (referenced from every slide via <use>) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <g id="i-mail"><rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect><path d="M3 7l9 6.4L21 7"></path></g>
+    <g id="i-keyboard"><rect x="2.5" y="6" width="19" height="12" rx="2.5"></rect><path d="M6.5 10h.01M10.2 10h.01M13.8 10h.01M17.5 10h.01M7.5 14h9"></path></g>
+    <g id="i-search"><circle cx="10.5" cy="10.5" r="6.2"></circle><path d="M15.2 15.2L21 21"></path></g>
+    <g id="i-question"><circle cx="12" cy="12" r="8.6"></circle><path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.7"></path><path d="M12 17h.01"></path></g>
+    <g id="i-pen"><path d="M4 20l3.5-.8L20 6.7a2 2 0 0 0-2.8-2.8L4.7 16.4 4 20z"></path></g>
+    <g id="i-coffee"><path d="M5 9h11v5.5A4.5 4.5 0 0 1 11.5 19h-2A4.5 4.5 0 0 1 5 14.5V9z"></path><path d="M16 10.5h1.6a2.4 2.4 0 0 1 0 4.8H16"></path><path d="M8.2 5.6c0-1 .8-1 .8-2.1M11.8 5.6c0-1 .8-1 .8-2.1"></path></g>
+    <g id="i-tray"><path d="M4.8 5h14.4l1.8 7.6V19H3v-6.4L4.8 5z"></path><path d="M3 12.6h5.6l1.5 2.6h3.8l1.5-2.6H21"></path></g>
+    <g id="i-eye"><path d="M2.5 12S6 6.4 12 6.4 21.5 12 21.5 12 18 17.6 12 17.6 2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="2.5"></circle></g>
+    <g id="i-check"><circle cx="12" cy="12" r="8.6"></circle><path d="M8.2 12.4l2.6 2.6 5-5.6"></path></g>
+    <g id="i-robot"><rect x="4" y="8.5" width="16" height="10.5" rx="3"></rect><path d="M12 8.5V5.4"></path><circle cx="12" cy="4.2" r="1.1"></circle><path d="M9 13.5h.01M15 13.5h.01"></path><path d="M9.5 16.5h5"></path></g>
+    <g id="i-chat"><path d="M12 4.2c4.7 0 8.5 3 8.5 6.8s-3.8 6.8-8.5 6.8c-1 0-2-.1-2.9-.4L4.5 19.5l1.4-3.3a6.4 6.4 0 0 1-2.4-5.2c0-3.8 3.8-6.8 8.5-6.8z"></path></g>
+    <g id="i-lock"><rect x="5.5" y="10.5" width="13" height="9.5" rx="2.2"></rect><path d="M8.5 10.5V7.6a3.5 3.5 0 0 1 7 0v2.9"></path><path d="M12 14.4v2"></path></g>
+    <g id="i-pause"><circle cx="12" cy="12" r="8.6"></circle><path d="M9.8 8.8v6.4M14.2 8.8v6.4"></path></g>
+    <g id="i-bolt"><path d="M13 3L5.5 13.5h5.2L10 21l7.7-11h-5.4L13 3z"></path></g>
+    <g id="i-store"><path d="M4.5 9L6 4.5h12L19.5 9"></path><path d="M5 11.6V20h14v-8.4"></path><path d="M4.5 9c0 1.4 1.2 2.6 2.7 2.6S9.9 10.4 9.9 9c0 1.4 1.2 2.6 2.7 2.6S15.3 10.4 15.3 9c0 1.4 1.2 2.6 2.7 2.6s1.5-1.2 1.5-2.6"></path><path d="M9.5 20v-5h5v5"></path></g>
+    <g id="i-building"><rect x="5.5" y="3.5" width="13" height="17"></rect><path d="M9.5 7.5h.01M14.5 7.5h.01M9.5 11.5h.01M14.5 11.5h.01M9.5 15.5h.01M14.5 15.5h.01"></path><path d="M10.5 20.5v-2.6h3v2.6"></path></g>
+    <g id="i-trash"><path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l1 13h9l1-13"></path><path d="M10.3 11v5M13.7 11v5"></path></g>
+    <g id="i-prohibit"><circle cx="12" cy="12" r="8.6"></circle><path d="M6 6l12 12"></path></g>
+    <g id="i-person"><circle cx="12" cy="7.5" r="3.4"></circle><path d="M5.5 20.5a6.5 6.5 0 0 1 13 0"></path></g>
+    <g id="i-warning"><path d="M12 3.6L2.8 20.4h18.4L12 3.6z"></path><path d="M12 10v4.2M12 17.4h.01"></path></g>
+    <g id="i-play"><circle cx="12" cy="12" r="8.6"></circle><path d="M10 8.6l5.4 3.4L10 15.4V8.6z"></path></g>
+    <g id="i-plane"><path d="M21 3L10.4 13.6M21 3l-6.8 17.4-3.8-6.8-6.8-3.8L21 3z"></path></g>
+  </defs>
+</svg>
+
 <!-- 1 ─ TITLE -->
-<section class="slide on">
-  <div class="kicker">SalesGenie · Live Demo</div>
-  <h1>A business is born, protected,<br>and proven — live.</h1>
+<section class="slide divider on">
+  <header class="head">
+    <div class="kicker">SalesGenie · Live Demo</div>
+    <h1>A business is born, protected,<br>and proven — live.</h1>
+  </header>
   <p class="sub">One enquiry handled end to end. A new business set up by chat. Replies sent only after human approval.</p>
   <p class="pill">Everything in this video is the real system, running live — not a mockup, not staged.</p>
 </section>
 
 <!-- 2 ─ THE PROBLEM -->
 <section class="slide">
-  <div class="kicker">The problem</div>
-  <h2>A small business inbox is one mixed pile — and good buyers get missed.</h2>
-  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" font-family="Segoe UI, Arial, sans-serif">
-  <rect width="960" height="340" fill="#FAF9F7"/>
-  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">The same enquiry, before and after</text>
+  <header class="head">
+    <div class="kicker">The problem</div>
+    <h2>A small business inbox is one mixed pile — and good buyers get missed.</h2>
+    <hr class="rule">
+  </header>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 330">
+  <text x="480" y="34" text-anchor="middle" font-size="19" class="tt">The same enquiry, before and after</text>
   <!-- before -->
-  <rect x="40" y="70" width="420" height="230" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="2"/>
-  <text x="250" y="100" text-anchor="middle" fill="#6E6A63" font-size="16" font-weight="700">BEFORE — a person’s morning</text>
-  <g fill="#20242B" font-size="13.5">
-    <text x="70" y="132">📧 read the email, decide if it’s real</text>
-    <text x="70" y="160">⌨️ type name &amp; company into a spreadsheet</text>
-    <text x="70" y="188">🔍 search the person online</text>
-    <text x="70" y="216">🤔 recommend products from memory</text>
-    <text x="70" y="244">✍️ write the reply — if it isn’t forgotten</text>
+  <rect x="40" y="64" width="420" height="234" rx="8" class="bx"></rect>
+  <rect x="40" y="64" width="420" height="36" rx="8" fill="var(--card2)" stroke="var(--line)" stroke-width="1.25"></rect>
+  <text x="250" y="88" text-anchor="middle" font-size="13.5" class="tm tt" letter-spacing=".08em">BEFORE — a person’s morning</text>
+  <g class="ic icM">
+    <use href="#i-mail" transform="translate(64,120) scale(.62)"></use>
+    <use href="#i-keyboard" transform="translate(64,148) scale(.62)"></use>
+    <use href="#i-search" transform="translate(64,176) scale(.62)"></use>
+    <use href="#i-question" transform="translate(64,204) scale(.62)"></use>
+    <use href="#i-pen" transform="translate(64,232) scale(.62)"></use>
   </g>
-  <text x="250" y="282" text-anchor="middle" fill="#B4551D" font-size="14" font-weight="700">hours to days · typos · it depends who answered</text>
+  <g font-size="13.5">
+    <text x="90" y="132">read the email, decide if it’s real</text>
+    <text x="90" y="160">type name &amp; company into a spreadsheet</text>
+    <text x="90" y="188">search the person online</text>
+    <text x="90" y="216">recommend products from memory</text>
+    <text x="90" y="244">write the reply — if it isn’t forgotten</text>
+  </g>
+  <line x1="64" y1="262" x2="300" y2="262" stroke="var(--line)" stroke-width="1"></line>
+  <text x="250" y="284" text-anchor="middle" font-size="13.5" class="taw">hours to days · typos · it depends who answered</text>
   <!-- after -->
-  <rect x="500" y="70" width="420" height="230" rx="10" fill="#FFFFFF" stroke="#2E7D53" stroke-width="2.5"/>
-  <text x="710" y="100" text-anchor="middle" fill="#2E7D53" font-size="16" font-weight="700">AFTER — the person’s morning</text>
-  <g fill="#20242B" font-size="13.5">
-    <text x="530" y="140">☕ coffee</text>
-    <text x="530" y="176">📬 an approval request arrives: the enquiry, the facts,</text>
-    <text x="545" y="196">real in-stock products, a drafted reply</text>
-    <text x="530" y="232">👀 read it · ✅ click Approve</text>
+  <rect x="500" y="64" width="420" height="234" rx="8" class="bxg"></rect>
+  <text x="710" y="92" text-anchor="middle" font-size="13.5" class="tgw" letter-spacing=".08em">AFTER — the person’s morning</text>
+  <g class="ic icG">
+    <use href="#i-coffee" transform="translate(524,124) scale(.62)"></use>
+    <use href="#i-tray" transform="translate(524,160) scale(.62)"></use>
+    <use href="#i-eye" transform="translate(524,216) scale(.62)"></use>
+    <use href="#i-check" transform="translate(544,216) scale(.62)"></use>
   </g>
-  <text x="710" y="282" text-anchor="middle" fill="#2E7D53" font-size="14" font-weight="700">19-second draft · zero typing · same quality every time</text>
+  <g font-size="13.5">
+    <text x="550" y="136">coffee</text>
+    <text x="550" y="172">an approval request arrives: the enquiry, the facts,</text>
+    <text x="550" y="192">real in-stock products, a drafted reply</text>
+    <text x="570" y="228">read it · click Approve</text>
+  </g>
+  <line x1="524" y1="252" x2="760" y2="252" stroke="var(--good)" stroke-opacity=".35" stroke-width="1"></line>
+  <text x="710" y="284" text-anchor="middle" font-size="13.5" class="tgw">19-second draft · zero typing · same quality every time</text>
 </svg></div>
 </section>
 
 <!-- 3 ─ THE IDEA -->
 <section class="slide">
-  <div class="kicker">The idea</div>
-  <h2>SalesGenie is 14 automated workflows — one for each job.</h2>
-  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 500" font-family="Segoe UI, Arial, sans-serif">
-  <rect width="960" height="500" fill="#FAF9F7"/>
-  <defs><marker id="f01a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
+  <header class="head">
+    <div class="kicker">The idea</div>
+    <h2>SalesGenie is 14 automated workflows — one for each job.</h2>
+    <hr class="rule">
+  </header>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 500">
+  <defs><marker id="f01a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mk"></path></marker></defs>
   <!-- control room -->
-  <rect x="260" y="28" width="440" height="92" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
-  <text x="480" y="58" text-anchor="middle" fill="#3D6C9E" font-size="17" font-weight="700">THE CONTROL ROOM — a chat window</text>
-  <text x="480" y="82" text-anchor="middle" fill="#20242B" font-size="14">the owner sets up and runs everything by talking</text>
-  <text x="480" y="103" text-anchor="middle" fill="#6E6A63" font-size="12.5">“set up my shop” · “what’s pending?” · “approve it”</text>
+  <rect x="260" y="28" width="440" height="92" rx="8" class="bxs"></rect>
+  <g class="ic icS"><use href="#i-chat" transform="translate(280,42) scale(.75)"></use></g>
+  <text x="480" y="58" text-anchor="middle" font-size="16" class="tsw" letter-spacing=".05em">THE CONTROL ROOM — a chat window</text>
+  <text x="480" y="82" text-anchor="middle" font-size="14">the owner sets up and runs everything by talking</text>
+  <text x="480" y="103" text-anchor="middle" font-size="12.5" class="tm">“set up my shop” · “what’s pending?” · “approve it”</text>
   <!-- assembly line -->
-  <rect x="260" y="168" width="440" height="150" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="2"/>
-  <text x="480" y="198" text-anchor="middle" fill="#20242B" font-size="17" font-weight="700">ONE ASSEMBLY LINE — for every business</text>
-  <text x="480" y="226" text-anchor="middle" fill="#20242B" font-size="14">read → pull out the facts → score → match real stock → draft</text>
-  <text x="480" y="256" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">→ a human clicks Approve → only then it is sent</text>
-  <text x="480" y="286" text-anchor="middle" fill="#6E6A63" font-size="12.5">plus: Monday report · error catcher · AI quality-examiner</text>
+  <rect x="260" y="168" width="440" height="150" rx="8" class="bx"></rect>
+  <text x="480" y="198" text-anchor="middle" font-size="16" class="tt" letter-spacing=".05em">ONE ASSEMBLY LINE — for every business</text>
+  <text x="480" y="226" text-anchor="middle" font-size="14">read → pull out the facts → score → match real stock → draft</text>
+  <text x="480" y="256" text-anchor="middle" font-size="14.5" class="taw">→ a human clicks Approve → only then it is sent</text>
+  <text x="480" y="286" text-anchor="middle" font-size="12.5" class="tm">plus: Monday report · error catcher · AI quality-examiner</text>
   <!-- doors -->
-  <rect x="30" y="168" width="190" height="62" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
-  <text x="125" y="194" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">Door 1 · Email</text>
-  <text x="125" y="215" text-anchor="middle" fill="#6E6A63" font-size="12.5">customers write in</text>
-  <rect x="30" y="252" width="190" height="62" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
-  <text x="125" y="278" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">Door 2 · Any channel</text>
-  <text x="125" y="299" text-anchor="middle" fill="#6E6A63" font-size="12.5">website forms, apps…</text>
-  <rect x="740" y="168" width="190" height="150" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
-  <text x="835" y="198" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">Door 3 · Other</text>
-  <text x="835" y="218" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">companies’ AIs</text>
-  <text x="835" y="245" text-anchor="middle" fill="#20242B" font-size="12.5">a buyer’s AI enquires</text>
-  <text x="835" y="263" text-anchor="middle" fill="#20242B" font-size="12.5">and gets a quote —</text>
-  <text x="835" y="286" text-anchor="middle" fill="#6E6A63" font-size="12">it even sees “a human is</text>
-  <text x="835" y="303" text-anchor="middle" fill="#6E6A63" font-size="12">reviewing your offer”</text>
+  <rect x="30" y="168" width="190" height="62" rx="8" class="bxa"></rect>
+  <g class="ic icA"><use href="#i-mail" transform="translate(44,186) scale(.62)"></use></g>
+  <text x="132" y="194" text-anchor="middle" font-size="14.5" class="taw">Door 1 · Email</text>
+  <text x="132" y="215" text-anchor="middle" font-size="12.5" class="tm">customers write in</text>
+  <rect x="30" y="252" width="190" height="62" rx="8" class="bxa"></rect>
+  <g class="ic icA"><use href="#i-bolt" transform="translate(44,270) scale(.62)"></use></g>
+  <text x="132" y="278" text-anchor="middle" font-size="14.5" class="taw">Door 2 · Any channel</text>
+  <text x="132" y="299" text-anchor="middle" font-size="12.5" class="tm">website forms, apps…</text>
+  <rect x="740" y="168" width="190" height="150" rx="8" class="bxs"></rect>
+  <g class="ic icS"><use href="#i-robot" transform="translate(754,180) scale(.62)"></use></g>
+  <text x="842" y="198" text-anchor="middle" font-size="14.5" class="tsw">Door 3 · Other</text>
+  <text x="842" y="218" text-anchor="middle" font-size="14.5" class="tsw">companies’ AIs</text>
+  <text x="835" y="245" text-anchor="middle" font-size="12.5">a buyer’s AI enquires</text>
+  <text x="835" y="263" text-anchor="middle" font-size="12.5">and gets a quote —</text>
+  <text x="835" y="286" text-anchor="middle" font-size="12" class="tm">it even sees “a human is</text>
+  <text x="835" y="303" text-anchor="middle" font-size="12" class="tm">reviewing your offer”</text>
   <!-- database -->
-  <rect x="260" y="376" width="440" height="84" rx="10" fill="#FFFFFF" stroke="#20242B" stroke-width="2.5"/>
-  <text x="480" y="410" text-anchor="middle" fill="#20242B" font-size="17" font-weight="700">THE DATABASE — everything is written down</text>
-  <text x="480" y="437" text-anchor="middle" fill="#6E6A63" font-size="12.5">every enquiry, decision, AI action, approval — permanent and checkable</text>
+  <rect x="260" y="376" width="440" height="84" rx="8" fill="var(--card2)" stroke="var(--muted)" stroke-width="1.5"></rect>
+  <text x="480" y="410" text-anchor="middle" font-size="16" class="tt" letter-spacing=".05em">THE DATABASE — everything is written down</text>
+  <text x="480" y="437" text-anchor="middle" font-size="12.5" class="tm">every enquiry, decision, AI action, approval — permanent and checkable</text>
   <!-- arrows -->
-  <line x1="480" y1="120" x2="480" y2="164" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
-  <line x1="220" y1="199" x2="256" y2="214" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
-  <line x1="220" y1="283" x2="256" y2="268" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
-  <line x1="738" y1="243" x2="704" y2="243" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
-  <line x1="480" y1="318" x2="480" y2="372" stroke="#6E6A63" stroke-width="2" marker-end="url(#f01a)"/>
+  <line x1="480" y1="120" x2="480" y2="162" class="ar" marker-end="url(#f01a)"></line>
+  <line x1="220" y1="199" x2="254" y2="213" class="ar" marker-end="url(#f01a)"></line>
+  <line x1="220" y1="283" x2="254" y2="269" class="ar" marker-end="url(#f01a)"></line>
+  <line x1="738" y1="243" x2="706" y2="243" class="ar" marker-end="url(#f01a)"></line>
+  <line x1="480" y1="318" x2="480" y2="370" class="ar" marker-end="url(#f01a)"></line>
 </svg></div>
   <div class="oneliner">“Adding business #100 needs zero new code.”</div>
 </section>
 
 <!-- 4 ─ PART 1: ONE ENQUIRY, END TO END -->
 <section class="slide">
-  <div class="kicker">Part 1 · Live · ~3 min</div>
-  <h2>Watch one enquiry become a sale.</h2>
+  <header class="head">
+    <div class="kicker">Part 1 · Live · ~3 min</div>
+    <h2>Watch one enquiry become a sale.</h2>
+    <hr class="rule">
+  </header>
   <div class="fig">
-  <svg viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
-    <rect width="960" height="300" fill="#FAF9F7"/>
-    <defs><marker id="p1a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
-    <rect x="20" y="90" width="168" height="96" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
-    <text x="104" y="122" text-anchor="middle" fill="#20242B" font-size="14.5" font-weight="700">✉️ An enquiry</text>
-    <text x="104" y="146" text-anchor="middle" fill="#20242B" font-size="12">“a leather sofa,</text>
-    <text x="104" y="163" text-anchor="middle" fill="#20242B" font-size="12">budget ₹90,000”</text>
-    <line x1="190" y1="138" x2="228" y2="138" stroke="#6E6A63" stroke-width="2" marker-end="url(#p1a)"/>
-    <rect x="232" y="90" width="196" height="96" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
-    <text x="330" y="118" text-anchor="middle" fill="#3D6C9E" font-size="14.5" font-weight="700">🤖 Automatic steps</text>
-    <text x="330" y="140" text-anchor="middle" fill="#20242B" font-size="11.5">read · pull out facts · score</text>
-    <text x="330" y="156" text-anchor="middle" fill="#20242B" font-size="11.5">match in-stock products · draft</text>
-    <text x="330" y="174" text-anchor="middle" fill="#6E6A63" font-size="11.5">≈ 19 seconds</text>
-    <line x1="430" y1="138" x2="468" y2="138" stroke="#6E6A63" stroke-width="2" marker-end="url(#p1a)"/>
-    <rect x="472" y="80" width="196" height="116" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2.5"/>
-    <text x="570" y="110" text-anchor="middle" fill="#B4551D" font-size="14.5" font-weight="700">📬 Approval email</text>
-    <text x="570" y="132" text-anchor="middle" fill="#20242B" font-size="12">lands in MY inbox with</text>
-    <text x="570" y="149" text-anchor="middle" fill="#20242B" font-size="12">Approve / Reject buttons</text>
-    <text x="570" y="171" text-anchor="middle" fill="#B4551D" font-size="11.5" font-weight="600">…and everything waits</text>
-    <line x1="670" y1="138" x2="708" y2="138" stroke="#6E6A63" stroke-width="2" marker-end="url(#p1a)"/>
-    <rect x="712" y="90" width="110" height="96" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2.5"/>
-    <text x="767" y="128" text-anchor="middle" fill="#2E7D53" font-size="14.5" font-weight="700">✅ I click</text>
-    <text x="767" y="150" text-anchor="middle" fill="#2E7D53" font-size="14.5" font-weight="700">Approve</text>
-    <line x1="824" y1="138" x2="856" y2="138" stroke="#6E6A63" stroke-width="2" marker-end="url(#p1a)"/>
-    <rect x="860" y="90" width="86" height="96" rx="10" fill="#FFFFFF" stroke="#2E7D53" stroke-width="2"/>
-    <text x="903" y="126" text-anchor="middle" font-size="20">📨</text>
-    <text x="903" y="150" text-anchor="middle" fill="#20242B" font-size="11.5">customer</text>
-    <text x="903" y="166" text-anchor="middle" fill="#20242B" font-size="11.5">gets the reply</text>
-    <text x="480" y="245" text-anchor="middle" fill="#6E6A63" font-size="14" font-style="italic">Then one click shows the enquiry's full history — every step, timestamped.</text>
+  <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="p1a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mk"></path></marker></defs>
+    <rect x="20" y="90" width="168" height="96" rx="8" class="bx"></rect>
+    <g class="ic icM"><use href="#i-mail" transform="translate(32,100) scale(.6)"></use></g>
+    <text x="104" y="122" text-anchor="middle" font-size="14.5" class="tt">An enquiry</text>
+    <text x="104" y="146" text-anchor="middle" font-size="12" class="tm">“a leather sofa,</text>
+    <text x="104" y="163" text-anchor="middle" font-size="12" class="tm">budget ₹90,000”</text>
+    <line x1="192" y1="138" x2="228" y2="138" class="ar" marker-end="url(#p1a)"></line>
+    <rect x="232" y="90" width="196" height="96" rx="8" class="bxs"></rect>
+    <g class="ic icS"><use href="#i-robot" transform="translate(244,100) scale(.6)"></use></g>
+    <text x="330" y="118" text-anchor="middle" font-size="14.5" class="tsw">Automatic steps</text>
+    <text x="330" y="140" text-anchor="middle" font-size="11.5">read · pull out facts · score</text>
+    <text x="330" y="156" text-anchor="middle" font-size="11.5">match in-stock products · draft</text>
+    <text x="330" y="174" text-anchor="middle" font-size="11.5" class="tm">≈ 19 seconds</text>
+    <line x1="432" y1="138" x2="468" y2="138" class="ar" marker-end="url(#p1a)"></line>
+    <rect x="472" y="80" width="196" height="116" rx="8" class="bxa"></rect>
+    <g class="ic icA"><use href="#i-tray" transform="translate(484,90) scale(.6)"></use></g>
+    <text x="570" y="110" text-anchor="middle" font-size="14.5" class="taw">Approval email</text>
+    <text x="570" y="132" text-anchor="middle" font-size="12">lands in MY inbox with</text>
+    <text x="570" y="149" text-anchor="middle" font-size="12">Approve / Reject buttons</text>
+    <text x="570" y="171" text-anchor="middle" font-size="11.5" class="taw">…and everything waits</text>
+    <line x1="672" y1="138" x2="708" y2="138" class="ar" marker-end="url(#p1a)"></line>
+    <rect x="712" y="90" width="110" height="96" rx="8" class="bxg"></rect>
+    <g class="ic icG"><use href="#i-check" transform="translate(756,104) scale(.75)"></use></g>
+    <text x="767" y="148" text-anchor="middle" font-size="14.5" class="tgw">I click</text>
+    <text x="767" y="168" text-anchor="middle" font-size="14.5" class="tgw">Approve</text>
+    <line x1="826" y1="138" x2="856" y2="138" class="ar" marker-end="url(#p1a)"></line>
+    <rect x="860" y="90" width="86" height="96" rx="8" class="bx"></rect>
+    <g class="ic icM"><use href="#i-plane" transform="translate(892,104) scale(.75)"></use></g>
+    <text x="903" y="150" text-anchor="middle" font-size="11.5" class="tm">customer</text>
+    <text x="903" y="166" text-anchor="middle" font-size="11.5" class="tm">gets the reply</text>
+    <text x="480" y="245" text-anchor="middle" font-size="14" font-style="italic" class="tm">Then one click shows the enquiry's full history — every step, timestamped.</text>
   </svg>
   </div>
 </section>
 
 <!-- 5 ─ THE PATH (recap) -->
 <section class="slide">
-  <div class="kicker">What you just watched</div>
-  <h2>Every enquiry follows this path. Nothing skips the approval step.</h2>
-  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
-  <rect width="960" height="300" fill="#FAF9F7"/>
-  <defs><marker id="f02a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
-  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">One enquiry, nineteen seconds — then everything stops, on purpose</text>
-  <!-- timeline base -->
-  <line x1="60" y1="150" x2="640" y2="150" stroke="#C9C5BD" stroke-width="3"/>
-  <!-- steps -->
+  <header class="head">
+    <div class="kicker">What you just watched</div>
+    <h2>Every enquiry follows this path. Nothing skips the approval step.</h2>
+    <hr class="rule">
+  </header>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 310">
+  <defs>
+    <marker id="f02a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mk"></path></marker>
+    <linearGradient id="f02fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="var(--accent)" stop-opacity="0"></stop>
+      <stop offset=".12" stop-color="var(--accent)"></stop>
+      <stop offset="1" stop-color="var(--accent)"></stop>
+    </linearGradient>
+  </defs>
+  <text x="480" y="36" text-anchor="middle" font-size="19" class="tt">One enquiry, nineteen seconds — then everything stops, on purpose</text>
+  <line x1="46" y1="150" x2="640" y2="150" stroke="url(#f02fade)" stroke-width="2.5"></line>
   <g text-anchor="middle" font-size="13">
-    <circle cx="80" cy="150" r="9" fill="#B4551D"/>
-    <text x="80" y="120" fill="#20242B" font-weight="700">0s</text><text x="80" y="185" fill="#20242B">email</text><text x="80" y="202" fill="#20242B">arrives</text>
-    <circle cx="200" cy="150" r="9" fill="#B4551D"/>
-    <text x="200" y="120" fill="#20242B" font-weight="700">~4s</text><text x="200" y="185" fill="#20242B">facts pulled out</text><text x="200" y="202" fill="#6E6A63">(blank beats a guess)</text>
-    <circle cx="330" cy="150" r="9" fill="#B4551D"/>
-    <text x="330" y="120" fill="#20242B" font-weight="700">~9s</text><text x="330" y="185" fill="#20242B">scored HOT</text><text x="330" y="202" fill="#6E6A63">(open arithmetic)</text>
-    <circle cx="470" cy="150" r="9" fill="#B4551D"/>
-    <text x="470" y="120" fill="#20242B" font-weight="700">~14s</text><text x="470" y="185" fill="#20242B">matched to</text><text x="470" y="202" fill="#20242B">real stock only</text>
-    <circle cx="600" cy="150" r="9" fill="#B4551D"/>
-    <text x="600" y="120" fill="#20242B" font-weight="700">~19s</text><text x="600" y="185" fill="#20242B">reply drafted</text><text x="600" y="202" fill="#6E6A63">(in your voice)</text>
+    <circle cx="80" cy="150" r="7" class="dotA"></circle><circle cx="80" cy="150" r="12" fill="none" stroke="var(--accent)" stroke-opacity=".35"></circle>
+    <text x="80" y="122" class="num" font-size="14">0s</text><text x="80" y="185">email</text><text x="80" y="203">arrives</text>
+    <circle cx="200" cy="150" r="7" class="dotA"></circle>
+    <text x="200" y="122" class="num" font-size="14">~4s</text><text x="200" y="185">facts pulled out</text><text x="200" y="203" class="tm">(blank beats a guess)</text>
+    <circle cx="330" cy="150" r="7" class="dotA"></circle>
+    <text x="330" y="122" class="num" font-size="14">~9s</text><text x="330" y="185">scored HOT</text><text x="330" y="203" class="tm">(open arithmetic)</text>
+    <circle cx="470" cy="150" r="7" class="dotA"></circle>
+    <text x="470" y="122" class="num" font-size="14">~14s</text><text x="470" y="185">matched to</text><text x="470" y="203">real stock only</text>
+    <circle cx="600" cy="150" r="7" class="dotA"></circle>
+    <text x="600" y="122" class="num" font-size="14">~19s</text><text x="600" y="185">reply drafted</text><text x="600" y="203" class="tm">(in your voice)</text>
   </g>
-  <!-- the gate -->
-  <rect x="672" y="105" width="130" height="90" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="3"/>
-  <text x="737" y="136" text-anchor="middle" fill="#B4551D" font-size="26" font-weight="800">STOP</text>
-  <text x="737" y="160" text-anchor="middle" fill="#20242B" font-size="13">a human reads it</text>
-  <text x="737" y="180" text-anchor="middle" fill="#20242B" font-size="13">and clicks Approve</text>
-  <line x1="640" y1="150" x2="668" y2="150" stroke="#6E6A63" stroke-width="2" marker-end="url(#f02a)"/>
-  <!-- send -->
-  <rect x="836" y="118" width="100" height="64" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2"/>
-  <text x="886" y="145" text-anchor="middle" fill="#2E7D53" font-size="15" font-weight="700">SENT</text>
-  <text x="886" y="167" text-anchor="middle" fill="#20242B" font-size="12">only from here</text>
-  <line x1="804" y1="150" x2="832" y2="150" stroke="#6E6A63" stroke-width="2" marker-end="url(#f02a)"/>
-  <text x="480" y="262" text-anchor="middle" fill="#6E6A63" font-size="14">The wait can be minutes or days — the draft sits safely in the database. There is no path around the gate.</text>
+  <rect x="672" y="103" width="130" height="94" rx="8" class="bxa" stroke-width="2"></rect>
+  <g class="ic icA"><use href="#i-lock" transform="translate(682,111) scale(.6)"></use></g>
+  <text x="737" y="138" text-anchor="middle" font-size="23" class="taw" letter-spacing=".1em">STOP</text>
+  <text x="737" y="161" text-anchor="middle" font-size="12.5">a human reads it</text>
+  <text x="737" y="180" text-anchor="middle" font-size="12.5">and clicks Approve</text>
+  <line x1="644" y1="150" x2="666" y2="150" class="ar" marker-end="url(#f02a)"></line>
+  <rect x="836" y="118" width="100" height="64" rx="8" class="bxg"></rect>
+  <text x="886" y="145" text-anchor="middle" font-size="14.5" class="tgw" letter-spacing=".08em">SENT</text>
+  <text x="886" y="167" text-anchor="middle" font-size="12" class="tm">only from here</text>
+  <line x1="806" y1="150" x2="830" y2="150" class="ar" marker-end="url(#f02a)"></line>
+  <text x="480" y="272" text-anchor="middle" font-size="14" class="tm">The wait can be minutes or days — the draft sits safely in the database. There is no path around the gate.</text>
 </svg></div>
 </section>
 
 <!-- 6 ─ PART 2a: A BUSINESS BORN BY CHAT -->
 <section class="slide">
-  <div class="kicker">Part 2 · Live · ~3.5 min</div>
-  <h2>I create a business by chatting. Its first enquiry arrives too early.</h2>
+  <header class="head">
+    <div class="kicker">Part 2 · Live · ~3.5 min</div>
+    <h2>I create a business by chatting. Its first enquiry arrives too early.</h2>
+    <hr class="rule">
+  </header>
   <div class="fig">
-  <svg viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
-    <rect width="960" height="300" fill="#FAF9F7"/>
-    <defs><marker id="t1a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
-    <rect x="30" y="90" width="180" height="90" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
-    <text x="120" y="122" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">💬 “Set up my business”</text>
-    <text x="120" y="146" text-anchor="middle" fill="#20242B" font-size="12.5">Aurora Lamps created</text>
-    <text x="120" y="164" text-anchor="middle" fill="#6E6A63" font-size="11.5">one new database record</text>
-    <line x1="212" y1="135" x2="268" y2="135" stroke="#6E6A63" stroke-width="2" marker-end="url(#t1a)"/>
-    <rect x="272" y="90" width="180" height="90" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
-    <text x="362" y="122" text-anchor="middle" fill="#20242B" font-size="15" font-weight="700">✉️ An enquiry arrives</text>
-    <text x="362" y="146" text-anchor="middle" fill="#20242B" font-size="12.5">“12 pendant lamps for</text>
-    <text x="362" y="163" text-anchor="middle" fill="#20242B" font-size="12.5">my café — ₹40,000”</text>
-    <line x1="454" y1="135" x2="510" y2="135" stroke="#6E6A63" stroke-width="2" marker-end="url(#t1a)"/>
-    <rect x="514" y="90" width="180" height="90" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
-    <text x="604" y="122" text-anchor="middle" fill="#20242B" font-size="15" font-weight="700">🤖 Classified &amp; scored</text>
-    <text x="604" y="146" text-anchor="middle" fill="#20242B" font-size="12.5">a real buyer with</text>
-    <text x="604" y="163" text-anchor="middle" fill="#20242B" font-size="12.5">a clear budget</text>
-    <line x1="696" y1="135" x2="752" y2="135" stroke="#6E6A63" stroke-width="2" marker-end="url(#t1a)"/>
-    <rect x="756" y="78" width="180" height="114" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2.5"/>
-    <text x="846" y="110" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">⏸ ON HOLD</text>
-    <text x="846" y="134" text-anchor="middle" fill="#20242B" font-size="12.5">The catalog is empty.</text>
-    <text x="846" y="152" text-anchor="middle" fill="#20242B" font-size="12.5">It won't recommend products</text>
-    <text x="846" y="170" text-anchor="middle" fill="#20242B" font-size="12.5">that don't exist.</text>
-    <text x="480" y="245" text-anchor="middle" fill="#B4551D" font-size="15" font-style="italic" font-weight="600">Not an error — the enquiry waits, and resumes automatically once setup is complete.</text>
+  <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="t1a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mk"></path></marker></defs>
+    <rect x="30" y="90" width="180" height="90" rx="8" class="bxs"></rect>
+    <g class="ic icS"><use href="#i-chat" transform="translate(40,98) scale(.55)"></use></g>
+    <text x="120" y="122" text-anchor="middle" font-size="13.5" class="tsw">“Set up my business”</text>
+    <text x="120" y="146" text-anchor="middle" font-size="12.5">Aurora Lamps created</text>
+    <text x="120" y="164" text-anchor="middle" font-size="11.5" class="tm">one new database record</text>
+    <line x1="214" y1="135" x2="266" y2="135" class="ar" marker-end="url(#t1a)"></line>
+    <rect x="272" y="90" width="180" height="90" rx="8" class="bx"></rect>
+    <g class="ic icM"><use href="#i-mail" transform="translate(282,98) scale(.55)"></use></g>
+    <text x="362" y="122" text-anchor="middle" font-size="13.5" class="tt">An enquiry arrives</text>
+    <text x="362" y="146" text-anchor="middle" font-size="12.5">“12 pendant lamps for</text>
+    <text x="362" y="163" text-anchor="middle" font-size="12.5">my café — ₹40,000”</text>
+    <line x1="456" y1="135" x2="508" y2="135" class="ar" marker-end="url(#t1a)"></line>
+    <rect x="514" y="90" width="180" height="90" rx="8" class="bx"></rect>
+    <g class="ic icM"><use href="#i-robot" transform="translate(524,98) scale(.55)"></use></g>
+    <text x="604" y="122" text-anchor="middle" font-size="13.5" class="tt">Classified &amp; scored</text>
+    <text x="604" y="146" text-anchor="middle" font-size="12.5">a real buyer with</text>
+    <text x="604" y="163" text-anchor="middle" font-size="12.5">a clear budget</text>
+    <line x1="698" y1="135" x2="750" y2="135" class="ar" marker-end="url(#t1a)"></line>
+    <rect x="756" y="78" width="180" height="114" rx="8" class="bxa" stroke-width="1.75"></rect>
+    <g class="ic icA"><use href="#i-pause" transform="translate(766,86) scale(.55)"></use></g>
+    <text x="846" y="110" text-anchor="middle" font-size="14.5" class="taw">ON HOLD</text>
+    <text x="846" y="134" text-anchor="middle" font-size="12.5">The catalog is empty.</text>
+    <text x="846" y="152" text-anchor="middle" font-size="12.5">It won't recommend products</text>
+    <text x="846" y="170" text-anchor="middle" font-size="12.5">that don't exist.</text>
+    <text x="480" y="245" text-anchor="middle" font-size="14.5" font-style="italic" class="taw">Not an error — the enquiry waits, and resumes automatically once setup is complete.</text>
   </svg>
   </div>
 </section>
 
 <!-- 7 ─ PART 2b: RESUME + APPROVE FROM CHAT -->
 <section class="slide">
-  <div class="kicker">Part 2 · continued · Live</div>
-  <h2>I add products by chat. The enquiry resumes by itself. This time I approve from chat.</h2>
+  <header class="head">
+    <div class="kicker">Part 2 · continued · Live</div>
+    <h2>I add products by chat. The enquiry resumes by itself. This time I approve from chat.</h2>
+    <hr class="rule">
+  </header>
   <div class="fig">
-  <svg viewBox="0 0 960 330" font-family="Segoe UI, Arial, sans-serif">
-    <rect width="960" height="330" fill="#FAF9F7"/>
-    <defs><marker id="t2a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
-    <rect x="30" y="40" width="200" height="84" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
-    <text x="130" y="70" text-anchor="middle" fill="#3D6C9E" font-size="14.5" font-weight="700">💬 “Here are my 3 lamps”</text>
-    <text x="130" y="92" text-anchor="middle" fill="#20242B" font-size="12">catalog added by chat</text>
-    <line x1="232" y1="82" x2="286" y2="82" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
-    <rect x="290" y="40" width="190" height="84" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2"/>
-    <text x="385" y="70" text-anchor="middle" fill="#2E7D53" font-size="14.5" font-weight="700">⚡ Enquiry resumes</text>
-    <text x="385" y="92" text-anchor="middle" fill="#20242B" font-size="12">one second later — matched</text>
-    <text x="385" y="108" text-anchor="middle" fill="#20242B" font-size="12">with real products</text>
-    <line x1="482" y1="82" x2="536" y2="82" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
-    <rect x="540" y="40" width="190" height="84" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
-    <text x="635" y="70" text-anchor="middle" fill="#B4551D" font-size="14.5" font-weight="700">⏸ On hold again</text>
-    <text x="635" y="92" text-anchor="middle" fill="#20242B" font-size="12">no approver is set yet</text>
-    <line x1="732" y1="82" x2="786" y2="82" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
-    <rect x="790" y="40" width="150" height="84" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
-    <text x="865" y="70" text-anchor="middle" fill="#3D6C9E" font-size="14.5" font-weight="700">💬 “Set approver”</text>
-    <text x="865" y="92" text-anchor="middle" fill="#20242B" font-size="12">a reviewer is named</text>
-    <line x1="865" y1="126" x2="865" y2="160" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
-    <rect x="620" y="165" width="320" height="90" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
-    <text x="780" y="196" text-anchor="middle" fill="#20242B" font-size="14.5" font-weight="700">✍️ A reply is drafted…</text>
-    <text x="780" y="219" text-anchor="middle" fill="#20242B" font-size="12.5">using only products that really exist</text>
-    <text x="780" y="238" text-anchor="middle" fill="#B4551D" font-size="12.5" font-weight="600">…and it WAITS. Nothing sends itself.</text>
-    <line x1="616" y1="210" x2="560" y2="210" stroke="#6E6A63" stroke-width="2" marker-end="url(#t2a)"/>
-    <rect x="240" y="165" width="316" height="90" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2.5"/>
-    <text x="398" y="198" text-anchor="middle" fill="#2E7D53" font-size="15" font-weight="700">✅ I approve — from chat</text>
-    <text x="398" y="222" text-anchor="middle" fill="#20242B" font-size="12.5">the reply is sent — half a minute of</text>
-    <text x="398" y="240" text-anchor="middle" fill="#20242B" font-size="12.5">machine work, one human decision</text>
+  <svg viewBox="0 0 960 330" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="t2a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mk"></path></marker></defs>
+    <rect x="30" y="40" width="200" height="84" rx="8" class="bxs"></rect>
+    <g class="ic icS"><use href="#i-chat" transform="translate(40,48) scale(.5)"></use></g>
+    <text x="130" y="70" text-anchor="middle" font-size="13.5" class="tsw">“Here are my 3 lamps”</text>
+    <text x="130" y="92" text-anchor="middle" font-size="12" class="tm">catalog added by chat</text>
+    <line x1="234" y1="82" x2="284" y2="82" class="ar" marker-end="url(#t2a)"></line>
+    <rect x="290" y="40" width="190" height="84" rx="8" class="bxg"></rect>
+    <g class="ic icG"><use href="#i-bolt" transform="translate(300,48) scale(.5)"></use></g>
+    <text x="385" y="70" text-anchor="middle" font-size="13.5" class="tgw">Enquiry resumes</text>
+    <text x="385" y="92" text-anchor="middle" font-size="12">one second later — matched</text>
+    <text x="385" y="108" text-anchor="middle" font-size="12">with real products</text>
+    <line x1="484" y1="82" x2="534" y2="82" class="ar" marker-end="url(#t2a)"></line>
+    <rect x="540" y="40" width="190" height="84" rx="8" class="bxa"></rect>
+    <g class="ic icA"><use href="#i-pause" transform="translate(550,48) scale(.5)"></use></g>
+    <text x="635" y="70" text-anchor="middle" font-size="13.5" class="taw">On hold again</text>
+    <text x="635" y="92" text-anchor="middle" font-size="12" class="tm">no approver is set yet</text>
+    <line x1="734" y1="82" x2="784" y2="82" class="ar" marker-end="url(#t2a)"></line>
+    <rect x="790" y="40" width="150" height="84" rx="8" class="bxs"></rect>
+    <g class="ic icS"><use href="#i-chat" transform="translate(798,48) scale(.5)"></use></g>
+    <text x="865" y="70" text-anchor="middle" font-size="13.5" class="tsw">“Set approver”</text>
+    <text x="865" y="92" text-anchor="middle" font-size="12" class="tm">a reviewer is named</text>
+    <line x1="865" y1="128" x2="865" y2="158" class="ar" marker-end="url(#t2a)"></line>
+    <rect x="620" y="165" width="320" height="90" rx="8" class="bx"></rect>
+    <g class="ic icM"><use href="#i-pen" transform="translate(632,175) scale(.55)"></use></g>
+    <text x="780" y="196" text-anchor="middle" font-size="13.5" class="tt">A reply is drafted…</text>
+    <text x="780" y="219" text-anchor="middle" font-size="12.5">using only products that really exist</text>
+    <text x="780" y="238" text-anchor="middle" font-size="12.5" class="taw">…and it WAITS. Nothing sends itself.</text>
+    <line x1="614" y1="210" x2="562" y2="210" class="ar" marker-end="url(#t2a)"></line>
+    <rect x="240" y="165" width="316" height="90" rx="8" class="bxg" stroke-width="1.75"></rect>
+    <g class="ic icG"><use href="#i-check" transform="translate(252,175) scale(.55)"></use></g>
+    <text x="398" y="198" text-anchor="middle" font-size="14.5" class="tgw">I approve — from chat</text>
+    <text x="398" y="222" text-anchor="middle" font-size="12.5">the reply is sent — half a minute of</text>
+    <text x="398" y="240" text-anchor="middle" font-size="12.5">machine work, one human decision</text>
   </svg>
   </div>
 </section>
 
 <!-- 8 ─ PART 3: TRY TO BREAK IT -->
 <section class="slide">
-  <div class="kicker">Part 3 · Live · ~2 min</div>
-  <h2>Now I try to make it lie.</h2>
-  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" font-family="Segoe UI, Arial, sans-serif">
-  <rect width="960" height="320" fill="#FAF9F7"/>
-  <defs><marker id="f03a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
-  <text x="480" y="42" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">Why it cannot invent a product — two locks</text>
-  <!-- lock 1 -->
-  <rect x="40" y="90" width="260" height="140" rx="10" fill="#FFFFFF" stroke="#3D6C9E" stroke-width="2.5"/>
-  <text x="170" y="122" text-anchor="middle" fill="#3D6C9E" font-size="16" font-weight="700">🔒 Lock 1 — before the AI</text>
-  <text x="170" y="150" text-anchor="middle" fill="#20242B" font-size="13.5">the database is asked first:</text>
-  <text x="170" y="170" text-anchor="middle" fill="#20242B" font-size="13.5">“what is really in stock,</text>
-  <text x="170" y="190" text-anchor="middle" fill="#20242B" font-size="13.5">matching this need &amp; budget?”</text>
-  <text x="170" y="215" text-anchor="middle" fill="#6E6A63" font-size="12.5">the AI only ever sees this shortlist</text>
-  <!-- middle -->
-  <rect x="360" y="105" width="220" height="110" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2.5"/>
-  <text x="470" y="140" text-anchor="middle" fill="#B4551D" font-size="16" font-weight="700">the AI picks 2–3</text>
-  <text x="470" y="165" text-anchor="middle" fill="#20242B" font-size="13.5">from the shortlist only,</text>
-  <text x="470" y="185" text-anchor="middle" fill="#20242B" font-size="13.5">with a reason for each</text>
-  <!-- lock 2 -->
-  <rect x="640" y="90" width="280" height="140" rx="10" fill="#FFFFFF" stroke="#3D6C9E" stroke-width="2.5"/>
-  <text x="780" y="122" text-anchor="middle" fill="#3D6C9E" font-size="16" font-weight="700">🔒 Lock 2 — after the AI</text>
-  <text x="780" y="150" text-anchor="middle" fill="#20242B" font-size="13.5">every pick is checked again</text>
-  <text x="780" y="170" text-anchor="middle" fill="#20242B" font-size="13.5">against live stock at the moment</text>
-  <text x="780" y="190" text-anchor="middle" fill="#20242B" font-size="13.5">of saving — fakes cannot survive</text>
-  <text x="780" y="215" text-anchor="middle" fill="#6E6A63" font-size="12.5">nothing suitable? it honestly says so</text>
-  <line x1="300" y1="160" x2="356" y2="160" stroke="#6E6A63" stroke-width="2" marker-end="url(#f03a)"/>
-  <line x1="580" y1="160" x2="636" y2="160" stroke="#6E6A63" stroke-width="2" marker-end="url(#f03a)"/>
-  <text x="480" y="282" text-anchor="middle" fill="#2E7D53" font-size="17" font-weight="700">Result: 39 of 39 recommendations ever made — real and in stock. 100%.</text>
+  <header class="head">
+    <div class="kicker">Part 3 · Live · ~2 min</div>
+    <h2>Now I try to make it lie.</h2>
+    <hr class="rule">
+  </header>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320">
+  <defs><marker id="f03a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mk"></path></marker></defs>
+  <text x="480" y="36" text-anchor="middle" font-size="19" class="tt">Why it cannot invent a product — two locks</text>
+  <rect x="40" y="86" width="260" height="140" rx="8" class="bxs" stroke-width="1.5"></rect>
+  <g class="ic icS"><use href="#i-lock" transform="translate(54,98) scale(.6)"></use></g>
+  <text x="178" y="118" text-anchor="middle" font-size="15" class="tsw">Lock 1 — before the AI</text>
+  <text x="170" y="146" text-anchor="middle" font-size="13">the database is asked first:</text>
+  <text x="170" y="166" text-anchor="middle" font-size="13">“what is really in stock,</text>
+  <text x="170" y="186" text-anchor="middle" font-size="13">matching this need &amp; budget?”</text>
+  <text x="170" y="211" text-anchor="middle" font-size="12" class="tm">the AI only ever sees this shortlist</text>
+  <rect x="360" y="101" width="220" height="110" rx="8" class="bxa" stroke-width="1.5"></rect>
+  <text x="470" y="136" text-anchor="middle" font-size="15" class="taw">the AI picks 2–3</text>
+  <text x="470" y="161" text-anchor="middle" font-size="13">from the shortlist only,</text>
+  <text x="470" y="181" text-anchor="middle" font-size="13">with a reason for each</text>
+  <rect x="640" y="86" width="280" height="140" rx="8" class="bxs" stroke-width="1.5"></rect>
+  <g class="ic icS"><use href="#i-lock" transform="translate(654,98) scale(.6)"></use></g>
+  <text x="788" y="118" text-anchor="middle" font-size="15" class="tsw">Lock 2 — after the AI</text>
+  <text x="780" y="146" text-anchor="middle" font-size="13">every pick is checked again</text>
+  <text x="780" y="166" text-anchor="middle" font-size="13">against live stock at the moment</text>
+  <text x="780" y="186" text-anchor="middle" font-size="13">of saving — fakes cannot survive</text>
+  <text x="780" y="211" text-anchor="middle" font-size="12" class="tm">nothing suitable? it honestly says so</text>
+  <line x1="302" y1="156" x2="354" y2="156" class="ar" marker-end="url(#f03a)"></line>
+  <line x1="582" y1="156" x2="634" y2="156" class="ar" marker-end="url(#f03a)"></line>
+  <line x1="330" y1="270" x2="630" y2="270" stroke="var(--good)" stroke-opacity=".3" stroke-width="1"></line>
+  <text x="480" y="298" text-anchor="middle" font-size="16" class="tgw">Result: 39 of 39 recommendations ever made — real and in stock. 100%.</text>
 </svg></div>
   <p class="sub">A customer asks for a product that is out of stock. A scammer promises millions. Watch both fail.</p>
   <div class="oneliner">“The AI only picks from real, in-stock products.”</div>
@@ -341,23 +543,28 @@
 
 <!-- 9 ─ PART 4: THE REPORT — EMAIL FIRST -->
 <section class="slide">
-  <div class="kicker">Part 4 · Live · ~1.5 min</div>
-  <h2>Every Monday the report lands in the inbox — and lives at a link.</h2>
-  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
-  <rect width="960" height="300" fill="#FAF9F7"/>
-  <text x="480" y="42" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">Estimates lie, meters don’t — the cost-per-enquiry correction</text>
-  <!-- bars: estimate tiny, exact big -->
-  <g>
-    <rect x="150" y="196" width="240" height="12" rx="4" fill="#6E6A63"/>
-    <text x="270" y="182" text-anchor="middle" fill="#6E6A63" font-size="14" font-weight="600">what my estimate said</text>
-    <text x="270" y="234" text-anchor="middle" fill="#20242B" font-size="16" font-weight="700">$0.0002</text>
-    <rect x="570" y="86" width="240" height="122" rx="6" fill="#B4551D"/>
-    <text x="690" y="72" text-anchor="middle" fill="#B4551D" font-size="14" font-weight="600">what the meter reads</text>
-    <text x="690" y="234" text-anchor="middle" fill="#20242B" font-size="16" font-weight="700">$0.0074  (₹0.62)</text>
+  <header class="head">
+    <div class="kicker">Part 4 · Live · ~1.5 min</div>
+    <h2>Every Monday the report lands in the inbox — and lives at a link.</h2>
+    <hr class="rule">
+  </header>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 290">
+  <text x="480" y="34" text-anchor="middle" font-size="19" class="tt">Estimates lie, meters don’t — the cost-per-enquiry correction</text>
+  <g stroke="var(--line)" stroke-width="1" stroke-dasharray="2 5">
+    <line x1="120" y1="86" x2="840" y2="86"></line><line x1="120" y1="147" x2="840" y2="147"></line>
   </g>
-  <text x="480" y="150" text-anchor="middle" fill="#20242B" font-size="26" font-weight="800">36×</text>
-  <text x="480" y="172" text-anchor="middle" fill="#6E6A63" font-size="13">off</text>
-  <text x="480" y="272" text-anchor="middle" fill="#6E6A63" font-size="14">Why? AI models “think” silently before answering — and every thought is billed. Text-length estimates can’t see thinking.</text>
+  <line x1="120" y1="208" x2="840" y2="208" stroke="var(--line)" stroke-width="1.5"></line>
+  <g>
+    <rect x="150" y="196" width="240" height="12" rx="3" class="barM"></rect>
+    <text x="270" y="182" text-anchor="middle" font-size="13.5" class="tm tt">what my estimate said</text>
+    <text x="270" y="236" text-anchor="middle" font-size="17" class="num">$0.0002</text>
+    <rect x="570" y="86" width="240" height="122" rx="3" class="barA"></rect>
+    <text x="690" y="72" text-anchor="middle" font-size="13.5" class="taw">what the meter reads</text>
+    <text x="690" y="236" text-anchor="middle" font-size="17" class="num">$0.0074  (₹0.62)</text>
+  </g>
+  <text x="480" y="150" text-anchor="middle" font-size="30" class="num ta">36×</text>
+  <text x="480" y="172" text-anchor="middle" font-size="13" class="tm">off</text>
+  <text x="480" y="274" text-anchor="middle" font-size="13.5" class="tm">Why? AI models “think” silently before answering — and every thought is billed. Text-length estimates can’t see thinking.</text>
 </svg></div>
   <div class="tiles">
     <div class="tile"><b>$0.0066</b><span>AI cost per enquiry this week — measured, not estimated</span></div>
@@ -368,42 +575,48 @@
 
 <!-- 10 ─ PART 5: THE FINALE -->
 <section class="slide">
-  <div class="kicker">Part 5 · Live · ~2.5 min</div>
-  <h2>Another company's software buys from us — and is told: “a human is deciding.”</h2>
-  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 380" font-family="Segoe UI, Arial, sans-serif">
-  <rect width="960" height="380" fill="#FAF9F7"/>
-  <defs><marker id="f06a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#6E6A63"/></marker></defs>
-  <text x="480" y="40" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">Two companies’ AIs do business — with a human hand still on the pen</text>
-  <!-- actors -->
-  <rect x="40" y="70" width="220" height="60" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
-  <text x="150" y="96" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">🤖 the buyer’s AI</text>
-  <text x="150" y="118" text-anchor="middle" fill="#6E6A63" font-size="12">“find us 25 good chairs”</text>
-  <rect x="700" y="70" width="220" height="60" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
-  <text x="810" y="96" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">🏪 the seller’s AI</text>
-  <text x="810" y="118" text-anchor="middle" fill="#6E6A63" font-size="12">same assembly line behind it</text>
-  <line x1="150" y1="130" x2="150" y2="340" stroke="#C9C5BD" stroke-width="2"/>
-  <line x1="810" y1="130" x2="810" y2="340" stroke="#C9C5BD" stroke-width="2"/>
-  <!-- exchanges -->
-  <g font-size="13.5">
-    <line x1="160" y1="165" x2="800" y2="165" stroke="#6E6A63" stroke-width="2" marker-end="url(#f06a)"/>
-    <text x="480" y="156" text-anchor="middle" fill="#20242B">reads the public “business card for AIs”, sends the enquiry</text>
-    <line x1="800" y1="205" x2="160" y2="205" stroke="#6E6A63" stroke-width="2" marker-end="url(#f06a)"/>
-    <text x="480" y="196" text-anchor="middle" fill="#20242B">“accepted — being worked on” (internals stay private)</text>
-    <line x1="800" y1="258" x2="160" y2="258" stroke="#B4551D" stroke-width="2.5" marker-end="url(#f06a)"/>
-    <text x="480" y="234" text-anchor="middle" fill="#B4551D" font-weight="700">“a HUMAN is reviewing the offer” — the gate is visible,</text>
-    <text x="480" y="250" text-anchor="middle" fill="#B4551D" font-weight="700">and the buyer’s AI waits for it</text>
-    <line x1="800" y1="310" x2="160" y2="310" stroke="#2E7D53" stroke-width="2.5" marker-end="url(#f06a)"/>
-    <text x="480" y="298" text-anchor="middle" fill="#2E7D53" font-weight="700">approved offer: a friendly letter + tidy data its systems can file</text>
+  <header class="head">
+    <div class="kicker">Part 5 · Live · ~2.5 min</div>
+    <h2>Another company's software buys from us — and is told: “a human is deciding.”</h2>
+    <hr class="rule">
+  </header>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 372" style="max-height:38vh">
+  <defs>
+    <marker id="f06a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mk"></path></marker>
+    <marker id="f06b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mkA"></path></marker>
+    <marker id="f06c" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" class="mkG"></path></marker>
+  </defs>
+  <text x="480" y="34" text-anchor="middle" font-size="19" class="tt">Two companies’ AIs do business — with a human hand still on the pen</text>
+  <rect x="40" y="62" width="220" height="60" rx="8" class="bxs"></rect>
+  <g class="ic icS"><use href="#i-robot" transform="translate(54,78) scale(.58)"></use></g>
+  <text x="158" y="88" text-anchor="middle" font-size="14.5" class="tsw">the buyer’s AI</text>
+  <text x="150" y="110" text-anchor="middle" font-size="12" class="tm">“find us 25 good chairs”</text>
+  <rect x="700" y="62" width="220" height="60" rx="8" class="bxa"></rect>
+  <g class="ic icA"><use href="#i-store" transform="translate(714,78) scale(.58)"></use></g>
+  <text x="818" y="88" text-anchor="middle" font-size="14.5" class="taw">the seller’s AI</text>
+  <text x="810" y="110" text-anchor="middle" font-size="12" class="tm">same assembly line behind it</text>
+  <line x1="150" y1="122" x2="150" y2="336" class="spine" stroke-dasharray="1 5" stroke-linecap="round"></line>
+  <line x1="810" y1="122" x2="810" y2="336" class="spine" stroke-dasharray="1 5" stroke-linecap="round"></line>
+  <g font-size="13">
+    <line x1="160" y1="163" x2="800" y2="163" class="ar" marker-end="url(#f06a)"></line>
+    <text x="480" y="153" text-anchor="middle">reads the public “business card for AIs”, sends the enquiry</text>
+    <line x1="800" y1="203" x2="160" y2="203" class="ar" marker-end="url(#f06a)"></line>
+    <text x="480" y="193" text-anchor="middle">“accepted — being worked on” (internals stay private)</text>
+    <line x1="800" y1="258" x2="160" y2="258" class="arA" marker-end="url(#f06b)"></line>
+    <text x="480" y="232" text-anchor="middle" class="taw">“a HUMAN is reviewing the offer” — the gate is visible,</text>
+    <text x="480" y="249" text-anchor="middle" class="taw">and the buyer’s AI waits for it</text>
+    <line x1="800" y1="308" x2="160" y2="308" class="arG" marker-end="url(#f06c)"></line>
+    <text x="480" y="297" text-anchor="middle" class="tgw">approved offer: a friendly letter + tidy data its systems can file</text>
   </g>
-  <text x="480" y="358" text-anchor="middle" fill="#6E6A63" font-size="13.5">Nobody on either side read or wrote an email. The seller was open at 2 a.m.</text>
+  <text x="480" y="352" text-anchor="middle" font-size="13" class="tm">Nobody on either side read or wrote an email. The seller was open at 2 a.m.</text>
 </svg></div>
   <div class="convo">
-    <div class="col buyer"><h3>🤖 The buyer software sends…</h3>
+    <div class="col buyer"><h3><svg class="ih" viewBox="0 0 24 24" width="15" height="15"><use href="#i-robot"></use></svg> The buyer software sends…</h3>
       <div class="msg"><code>GET /a2a-agent-card</code><small>“Who are you? What can you do?”</small></div>
       <div class="msg"><code>message/send</code> — “We need 25 office chairs…”<small>gets back a task number</small></div>
       <div class="msg"><code>tasks/get</code> …every 10 seconds<small>“how is my order going?”</small></div>
     </div>
-    <div class="col seller"><h3>🏢 SalesGenie answers…</h3>
+    <div class="col seller"><h3><svg class="ih" viewBox="0 0 24 24" width="15" height="15"><use href="#i-building"></use></svg> SalesGenie answers…</h3>
       <div class="msg">“Oak &amp; Ember Sales Agent. Send an enquiry; <b>every offer is reviewed by a human</b> before release.”</div>
       <div class="msg">working → working…<small>the same steps as every email enquiry</small></div>
       <div class="msg hl"><b>input-required</b> — “a human reviewer is checking” <small>then: completed — the offer + 3 real products with prices</small></div>
@@ -413,103 +626,129 @@
 
 <!-- 11 ─ SAFETY CHECKS -->
 <section class="slide">
-  <div class="kicker">Why you can trust it</div>
-  <h2>Three separate checks stand before the Send button.</h2>
+  <header class="head">
+    <div class="kicker">Why you can trust it</div>
+    <h2>Three separate checks stand before the Send button.</h2>
+    <hr class="rule">
+  </header>
   <div class="fig">
-  <svg viewBox="0 0 960 380" font-family="Segoe UI, Arial, sans-serif">
-    <rect width="960" height="380" fill="#FAF9F7"/>
-    <rect x="60" y="30" width="840" height="320" rx="16" fill="none" stroke="#3D6C9E" stroke-width="2.5"/>
-    <text x="480" y="60" text-anchor="middle" fill="#3D6C9E" font-size="15" font-weight="700">CHECK 1 — the flow: the send step only runs after an approval click</text>
-    <rect x="140" y="85" width="680" height="230" rx="14" fill="none" stroke="#B4551D" stroke-width="2.5"/>
-    <text x="480" y="115" text-anchor="middle" fill="#B4551D" font-size="15" font-weight="700">CHECK 2 — no double-send: approval only counts while the draft is still waiting</text>
-    <rect x="230" y="140" width="500" height="140" rx="12" fill="none" stroke="#2E7D53" stroke-width="2.5"/>
-    <text x="480" y="170" text-anchor="middle" fill="#2E7D53" font-size="15" font-weight="700">CHECK 3 — the database itself refuses illegal shortcuts</text>
-    <text x="480" y="192" text-anchor="middle" fill="#6E6A63" font-size="12.5">a draft can never jump from “written” straight to “sent”</text>
-    <text x="480" y="248" text-anchor="middle" font-size="34">✉️ 🔒</text>
+  <svg viewBox="0 0 960 380" xmlns="http://www.w3.org/2000/svg">
+    <rect x="60" y="30" width="840" height="320" rx="14" fill="var(--steel-soft)" fill-opacity=".45" stroke="var(--steel)" stroke-width="1.5"></rect>
+    <text x="480" y="62" text-anchor="middle" font-size="14.5" class="tsw">CHECK 1 — the flow: the send step only runs after an approval click</text>
+    <rect x="140" y="85" width="680" height="230" rx="12" fill="var(--accent-soft)" fill-opacity=".55" stroke="var(--accent)" stroke-width="1.5"></rect>
+    <text x="480" y="117" text-anchor="middle" font-size="14.5" class="taw">CHECK 2 — no double-send: approval only counts while the draft is still waiting</text>
+    <rect x="230" y="140" width="500" height="140" rx="10" fill="var(--good-soft)" fill-opacity=".7" stroke="var(--good)" stroke-width="1.5"></rect>
+    <text x="480" y="172" text-anchor="middle" font-size="14.5" class="tgw">CHECK 3 — the database itself refuses illegal shortcuts</text>
+    <text x="480" y="194" text-anchor="middle" font-size="12.5" class="tm">a draft can never jump from “written” straight to “sent”</text>
+    <g class="ic icI" stroke-width="1.5">
+      <use href="#i-mail" transform="translate(428,218) scale(1.15)"></use>
+      <use href="#i-lock" transform="translate(474,218) scale(1.15)"></use>
+    </g>
   </svg>
   </div>
 </section>
 
 <!-- 12 ─ TEST RESULTS -->
 <section class="slide">
-  <div class="kicker">The test results</div>
-  <h2>Tested against a fixed answer key — written before any tuning.</h2>
-  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" font-family="Segoe UI, Arial, sans-serif">
-  <rect width="960" height="260" fill="#FAF9F7"/>
-  <text x="480" y="42" text-anchor="middle" fill="#20242B" font-size="20" font-weight="700">The scoreboard — measured against an answer key written before the AI existed</text>
-  <g font-variant-numeric="tabular-nums">
-    <rect x="30" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
-    <text x="114" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">10/10</text>
-    <text x="114" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">emails correctly recognized</text>
-    <text x="114" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">spam never slipped through</text>
-    <rect x="216" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
-    <text x="300" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">95%+</text>
-    <text x="300" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">facts captured correctly</text>
-    <text x="300" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">zero facts ever invented</text>
-    <rect x="402" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
-    <text x="486" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">100%</text>
-    <text x="486" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">recommendations real</text>
-    <text x="486" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">39 of 39, in live stock</text>
-    <rect x="588" y="80" width="168" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
-    <text x="672" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">86%</text>
-    <text x="672" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">drafts approved by humans</text>
-    <text x="672" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">real clicks, gate is real</text>
-    <rect x="774" y="80" width="156" height="130" rx="10" fill="#FFFFFF" stroke="#C9C5BD" stroke-width="1.5"/>
-    <text x="852" y="130" text-anchor="middle" fill="#2E7D53" font-size="30" font-weight="800">₹0.62</text>
-    <text x="852" y="160" text-anchor="middle" fill="#20242B" font-size="12.5">AI cost per enquiry</text>
-    <text x="852" y="180" text-anchor="middle" fill="#6E6A63" font-size="12">exact, to the token</text>
+  <header class="head">
+    <div class="kicker">The test results</div>
+    <h2>Tested against a fixed answer key — written before any tuning.</h2>
+    <hr class="rule">
+  </header>
+  <div class="fig"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 264">
+  <text x="480" y="36" text-anchor="middle" font-size="19" class="tt">The scoreboard — measured against an answer key written before the AI existed</text>
+  <g>
+    <rect x="30" y="80" width="168" height="140" rx="8" class="bx"></rect>
+    <rect x="54" y="102" width="28" height="3" rx="1.5" class="dotA"></rect>
+    <text x="54" y="148" font-size="30" class="num ta">10/10</text>
+    <text x="54" y="176" font-size="12">emails correctly recognized</text>
+    <text x="54" y="196" font-size="11.5" class="tm">spam never slipped through</text>
+    <rect x="216" y="80" width="168" height="140" rx="8" class="bx"></rect>
+    <rect x="240" y="102" width="28" height="3" rx="1.5" class="dotA"></rect>
+    <text x="240" y="148" font-size="30" class="num ta">95%+</text>
+    <text x="240" y="176" font-size="12">facts captured correctly</text>
+    <text x="240" y="196" font-size="11.5" class="tm">zero facts ever invented</text>
+    <rect x="402" y="80" width="168" height="140" rx="8" class="bx"></rect>
+    <rect x="426" y="102" width="28" height="3" rx="1.5" class="dotA"></rect>
+    <text x="426" y="148" font-size="30" class="num ta">100%</text>
+    <text x="426" y="176" font-size="12">recommendations real</text>
+    <text x="426" y="196" font-size="11.5" class="tm">39 of 39, in live stock</text>
+    <rect x="588" y="80" width="168" height="140" rx="8" class="bx"></rect>
+    <rect x="612" y="102" width="28" height="3" rx="1.5" class="dotA"></rect>
+    <text x="612" y="148" font-size="30" class="num ta">86%</text>
+    <text x="612" y="176" font-size="12">drafts approved by humans</text>
+    <text x="612" y="196" font-size="11.5" class="tm">real clicks, gate is real</text>
+    <rect x="774" y="80" width="156" height="140" rx="8" class="bx"></rect>
+    <rect x="798" y="102" width="28" height="3" rx="1.5" class="dotA"></rect>
+    <text x="798" y="148" font-size="30" class="num ta">₹0.62</text>
+    <text x="798" y="176" font-size="12">AI cost per enquiry</text>
+    <text x="798" y="196" font-size="11.5" class="tm">exact, to the token</text>
   </g>
 </svg></div>
 </section>
 
 <!-- 13 ─ CLOSE -->
 <section class="slide">
-  <div class="kicker">Close</div>
-  <h2>Every enquiry is always in exactly one of seven states.</h2>
+  <header class="head">
+    <div class="kicker">Close</div>
+    <h2>Every enquiry is always in exactly one of seven states.</h2>
+    <hr class="rule">
+  </header>
   <div class="fig">
-  <svg viewBox="0 0 960 300" font-family="Segoe UI, Arial, sans-serif">
-    <rect width="960" height="300" fill="#FAF9F7"/>
-    <rect x="35"  y="60" width="200" height="74" rx="10" fill="#DFE8F2" stroke="#3D6C9E" stroke-width="2"/>
-    <text x="135" y="90" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">▶️ in progress</text>
-    <text x="135" y="112" text-anchor="middle" fill="#6E6A63" font-size="11.5">moving through the steps</text>
-    <rect x="260" y="60" width="200" height="74" rx="10" fill="#DEEEE5" stroke="#2E7D53" stroke-width="2"/>
-    <text x="360" y="90" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">✅ sent</text>
-    <text x="360" y="112" text-anchor="middle" fill="#6E6A63" font-size="11.5">human-approved reply</text>
-    <rect x="485" y="60" width="200" height="74" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
-    <text x="585" y="90" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">🗑 discarded</text>
-    <text x="585" y="112" text-anchor="middle" fill="#6E6A63" font-size="11.5">spam &amp; sales pitches</text>
-    <rect x="710" y="60" width="200" height="74" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
-    <text x="810" y="90" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">🚫 rejected</text>
-    <text x="810" y="112" text-anchor="middle" fill="#6E6A63" font-size="11.5">the approver said no</text>
-    <rect x="35"  y="160" width="200" height="74" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
-    <text x="135" y="190" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">🙋 waiting for a human</text>
-    <text x="135" y="212" text-anchor="middle" fill="#6E6A63" font-size="11.5">the AI chose not to guess</text>
-    <rect x="260" y="160" width="200" height="74" rx="10" fill="#F4E3D7" stroke="#B4551D" stroke-width="2"/>
-    <text x="360" y="190" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">⏸ waiting for setup</text>
-    <text x="360" y="212" text-anchor="middle" fill="#6E6A63" font-size="11.5">resumes automatically</text>
-    <rect x="485" y="160" width="200" height="74" rx="10" fill="#FFFFFF" stroke="#E2DFD9" stroke-width="2"/>
-    <text x="585" y="190" text-anchor="middle" fill="#20242B" font-size="14" font-weight="700">⚠️ failed + alert</text>
-    <text x="585" y="212" text-anchor="middle" fill="#2E7D53" font-size="12" font-weight="700">current count: 0</text>
-    <g opacity="0.45">
-      <rect x="710" y="160" width="200" height="74" rx="10" fill="none" stroke="#6E6A63" stroke-width="2" stroke-dasharray="7 6"/>
-      <text x="810" y="192" text-anchor="middle" fill="#6E6A63" font-size="14" font-weight="700">an eighth state?</text>
-      <line x1="725" y1="170" x2="895" y2="224" stroke="#B4551D" stroke-width="3"/>
-      <line x1="895" y1="170" x2="725" y2="224" stroke="#B4551D" stroke-width="3"/>
+  <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg">
+    <rect x="35" y="52" width="200" height="74" rx="8" class="bxs"></rect>
+    <g class="ic icS"><use href="#i-play" transform="translate(48,64) scale(.55)"></use></g>
+    <text x="142" y="82" text-anchor="middle" font-size="14" class="tt">in progress</text>
+    <text x="135" y="104" text-anchor="middle" font-size="11.5" class="tm">moving through the steps</text>
+    <rect x="260" y="52" width="200" height="74" rx="8" class="bxg"></rect>
+    <g class="ic icG"><use href="#i-check" transform="translate(273,64) scale(.55)"></use></g>
+    <text x="367" y="82" text-anchor="middle" font-size="14" class="tt">sent</text>
+    <text x="360" y="104" text-anchor="middle" font-size="11.5" class="tm">human-approved reply</text>
+    <rect x="485" y="52" width="200" height="74" rx="8" class="bx"></rect>
+    <g class="ic icM"><use href="#i-trash" transform="translate(498,64) scale(.55)"></use></g>
+    <text x="592" y="82" text-anchor="middle" font-size="14" class="tt">discarded</text>
+    <text x="585" y="104" text-anchor="middle" font-size="11.5" class="tm">spam &amp; sales pitches</text>
+    <rect x="710" y="52" width="200" height="74" rx="8" class="bx"></rect>
+    <g class="ic icM"><use href="#i-prohibit" transform="translate(723,64) scale(.55)"></use></g>
+    <text x="817" y="82" text-anchor="middle" font-size="14" class="tt">rejected</text>
+    <text x="810" y="104" text-anchor="middle" font-size="11.5" class="tm">the approver said no</text>
+    <rect x="35" y="152" width="200" height="74" rx="8" class="bxa"></rect>
+    <g class="ic icA"><use href="#i-person" transform="translate(48,164) scale(.55)"></use></g>
+    <text x="142" y="182" text-anchor="middle" font-size="14" class="tt">waiting for a human</text>
+    <text x="135" y="204" text-anchor="middle" font-size="11.5" class="tm">the AI chose not to guess</text>
+    <rect x="260" y="152" width="200" height="74" rx="8" class="bxa"></rect>
+    <g class="ic icA"><use href="#i-pause" transform="translate(273,164) scale(.55)"></use></g>
+    <text x="367" y="182" text-anchor="middle" font-size="14" class="tt">waiting for setup</text>
+    <text x="360" y="204" text-anchor="middle" font-size="11.5" class="tm">resumes automatically</text>
+    <rect x="485" y="152" width="200" height="74" rx="8" class="bx"></rect>
+    <g class="ic icM"><use href="#i-warning" transform="translate(498,164) scale(.55)"></use></g>
+    <text x="592" y="182" text-anchor="middle" font-size="14" class="tt">failed + alert</text>
+    <text x="585" y="204" text-anchor="middle" font-size="12" class="tgw">current count: 0</text>
+    <g opacity="0.5">
+      <rect x="710" y="152" width="200" height="74" rx="8" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="7 6"></rect>
+      <text x="810" y="184" text-anchor="middle" font-size="14" class="tm tt">an eighth state?</text>
+      <line x1="725" y1="162" x2="895" y2="216" stroke="var(--accent)" stroke-width="2.5"></line>
+      <line x1="895" y1="162" x2="725" y2="216" stroke="var(--accent)" stroke-width="2.5"></line>
     </g>
-    <text x="480" y="272" text-anchor="middle" fill="#B4551D" font-size="16" font-style="italic" font-weight="600">There is no eighth state.</text>
+    <text x="480" y="272" text-anchor="middle" font-size="16" font-style="italic" class="taw">There is no eighth state.</text>
   </svg>
   </div>
   <p class="sub">AI speed. Human authority. Every number checkable.</p>
 </section>
 
 <!-- 14 ─ CLOSE: CTA -->
-<section class="slide">
-  <div class="kicker">Thanks for watching</div>
-  <h1>The code, the numbers,<br>the receipts — all public.</h1>
+<section class="slide divider">
+  <header class="head">
+    <div class="kicker">Thanks for watching</div>
+    <h1>The code, the numbers,<br>the receipts — all public.</h1>
+  </header>
   <p class="sub">Every figure in this video traces back to a database row you can query yourself. Full source, architecture docs, and eval results back every claim you just saw.</p>
 </section>
 
-<div class="nav"><button id="prev">‹</button> <span id="ctr">1 / 14</span> <button id="next">›</button></div>
+<div class="nav">
+  <button id="theme" aria-label="Toggle theme" title="Theme (T)">◐</button>
+  <button id="prev" aria-label="Previous slide">‹</button> <span id="ctr">1 / 14</span> <button id="next" aria-label="Next slide">›</button>
+</div>
 <script>
   const slides = [...document.querySelectorAll('.slide')];
   let i = 0;
@@ -519,15 +758,27 @@
     document.getElementById('ctr').textContent = (i + 1) + ' / ' + slides.length;
     document.getElementById('bar').style.width = ((i + 1) / slides.length * 100) + '%';
   }
+  const themes = ['', 'dark', 'light'];
+  function setTheme(t) {
+    if (t) document.documentElement.setAttribute('data-theme', t);
+    else document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem('demo-deck-theme', t); } catch (e) {}
+  }
+  function cycleTheme() {
+    const cur = document.documentElement.getAttribute('data-theme') || '';
+    setTheme(themes[(themes.indexOf(cur) + 1) % themes.length]);
+  }
+  try { const saved = localStorage.getItem('demo-deck-theme'); if (saved) setTheme(saved); } catch (e) {}
   addEventListener('keydown', e => {
     if (['ArrowRight','PageDown',' '].includes(e.key)) { e.preventDefault(); show(i + 1); }
     if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); show(i - 1); }
     if (e.key === 'Home') show(0);
     if (e.key === 'End') show(slides.length - 1);
+    if (e.key === 't' || e.key === 'T') cycleTheme();
   });
   document.getElementById('prev').onclick = () => show(i - 1);
   document.getElementById('next').onclick = () => show(i + 1);
+  document.getElementById('theme').onclick = cycleTheme;
   show((parseInt(location.hash.slice(1), 10) || 1) - 1);
 </script>
-</body>
-</html>
+</body></html>
