@@ -4,6 +4,14 @@ A business describes itself in one English sentence and inherits a complete AI s
 
 Built on **n8n** (14 workflows, authored via its REST API) + **Postgres** + **Gemini 2.5 Flash** (gpt-4o-mini fallback) with **GPT-4o as a cross-vendor judge**, **Langfuse** for per-token LLM observability, QuickChart for email-safe charts. All free-tier, all local.
 
+## ▶ See it work
+
+**[Watch the 10-minute demo](../../releases/tag/demo-v1)** — a business born by chat, an
+enquiry that parks itself until the shop is ready and resumes on its own, two attempts to
+make the AI lie (both fail), the weekly cost report, and another company's AI buying over
+A2A while a human still holds the pen. Recorded live against this system; every number on
+screen traces back to a `vaibhavcapstone_*` row.
+
 ## Three doors, one pipeline
 
 ```

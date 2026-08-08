@@ -4,7 +4,10 @@
 **I want** the README quickstart to actually work on a machine that has never seen this project,
 **so that** the public repo is evidence of the system, not just a description of it.
 
-**Status:** blocked until the demo video is recorded (the local rig must not be disturbed before then). Repo is **private** until every box below is ticked.
+**Status:** **unblocked** (2026-08-08) — the demo video is recorded, cut, and published as
+release `demo-v1`; the rig has been cleaned down (demo leads and Aurora Lamps removed,
+scheduled workflows deactivated), so it is free to be disturbed now. Repo is **private**
+until every box below is ticked.
 
 ## Acceptance criteria — all must pass before `--visibility public`
 
@@ -14,8 +17,18 @@
 4. **Secret scan** (`preflight-publish.js` pattern + live-value scan against `.env`) clean on the final tree; `git ls-files` contains no `.env`, no course PDF, no zip.
 5. **Flip and verify:** `gh repo edit vaibhav0904/salesgenie --visibility public`, then in a logged-out/incognito browser: README renders, quickstart legible, no sensitive file reachable.
 
+6. **Demo video privacy pass.** Release `demo-v1` becomes public the moment the repo does.
+   The recording shows a real Gmail window during Part 1 (~2:45–3:53) and Part 3
+   (~7:30–8:00): the account address, unread counts (Inbox 8,275, Promotions 2,691,
+   Spam 180), folder/label names, and "1 of 10,556". No third-party message content was
+   visible in the frames sampled during editing, but the full 12 minutes were not audited.
+   Watch both passages before flipping, and re-cut or blur if anything personal is legible.
+   The master is `presentation/video-assets/raw/full-take.mp4` (gitignored), so a re-cut
+   costs nothing but time.
+
 ## Also before any public screenshot / on-camera n8n screen
 - Deactivate or delete `ZZ-TEMP-Dispatch03` (leftover test workflow, webhook-only, still Active).
+  — done 2026-08-07, confirmed still inactive 2026-08-08.
 
 ## Non-goals
 - BUG-009 product fix (CSV header aliases + reporting ignored columns) — separate card, may land before or after the flip.
