@@ -16,9 +16,16 @@ const sql = `SELECT json_agg(t) FROM (
   FROM vaibhavcapstone_leads l LEFT JOIN vaibhavcapstone_extractions e USING (lead_id)
   WHERE l.raw_payload->>'external_id' LIKE 'seed-email-%'
   ORDER BY l.raw_payload->>'external_id', l.created_at DESC) t;`;
-const raw = execSync(
-  `docker exec n8n-localdata-postgres-1 psql -U salesgenie -d salesgenie -t -A -c "${sql.replace(/\n/g, ' ').replace(/"/g, '\\"')}"`
-).toString().trim();
+// Two ways to reach Postgres, because not everyone runs it in a local container:
+//   DATABASE_URL   -> psql against a hosted database (Supabase, Neon, anything)
+//   POSTGRES_*     -> docker exec into a local container (the author's setup)
+// Hardcoding the container name meant these evals only ever ran on one machine.
+const q = sql.replace(/\n/g, ' ').replace(/"/g, '\\"');
+const cmd = process.env.DATABASE_URL
+  ? `psql "${process.env.DATABASE_URL}" -t -A -c "${q}"`
+  : `docker exec ${process.env.POSTGRES_CONTAINER || 'n8n-localdata-postgres-1'} ` +
+    `psql -U ${process.env.POSTGRES_USER || 'salesgenie'} -d ${process.env.POSTGRES_DB || 'salesgenie'} -t -A -c "${q}"`;
+const raw = execSync(cmd).toString().trim();
 const actuals = Object.fromEntries(JSON.parse(raw).map(r => [r.id, r]));
 
 // Real date, not a constant: a hardcoded '2026-07-26' here caused later runs to

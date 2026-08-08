@@ -23,3 +23,7 @@ presentation/video-assets/work/
 # history, so a clone stays small. A teaser under ~10MB may still be committed
 # by un-ignoring it explicitly (git add -f), per video-assets/packaging.md.
 presentation/video-assets/exports/*.mp4
+
+# Output of scripts/retarget-host.js — someone else's host baked into copies of the
+# exports. Personal to whoever ran it; regenerate rather than commit.
+n8n/workflows-retargeted/

@@ -2,6 +2,14 @@
   "name": "VaibhavCapstone-07-WeeklyInsights",
   "nodes": [
     {
+      "id": "cron",
+      "name": "Every Monday 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        192
+      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -14,22 +22,9 @@
             }
           ]
         }
-      },
-      "id": "cron",
-      "name": "Every Monday 08:00",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        0,
-        192
-      ]
+      }
     },
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "vaibhavcapstone-insights-run",
-        "options": {}
-      },
       "id": "whrun",
       "name": "Run Now (manual/demo)",
       "type": "n8n-nodes-base.webhook",
@@ -38,14 +33,14 @@
         0,
         384
       ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vaibhavcapstone-insights-run",
+        "options": {}
+      },
       "webhookId": "c74102fd-186a-47b2-9b19-ba32e0ece9ce"
     },
     {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT business_id FROM vaibhavcapstone_businesses ORDER BY business_id;",
-        "options": {}
-      },
       "id": "biz",
       "name": "Get Businesses",
       "type": "n8n-nodes-base.postgres",
@@ -54,20 +49,22 @@
         224,
         288
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT business_id FROM vaibhavcapstone_businesses ORDER BY business_id;",
+        "options": {}
+      },
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
-      "parameters": {
-        "options": {}
-      },
       "id": "sib",
       "name": "Per Business",
       "type": "n8n-nodes-base.splitInBatches",
@@ -75,16 +72,12 @@
       "position": [
         448,
         288
-      ]
+      ],
+      "parameters": {
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT\n b.business_id, b.name AS business_name,\n b.config->>'reviewer_email' AS reviewer_email, b.config->>'sender_identity' AS sender_identity,\n jsonb_build_object(\n  'week_start', (now() - interval '7 days')::date,\n  'week_end', now()::date,\n  'volume_total', (SELECT count(*) FROM vaibhavcapstone_leads l WHERE l.business_id = b.business_id AND l.received_at > now() - interval '7 days'),\n  'daily', (SELECT COALESCE(jsonb_agg(jsonb_build_object('day', to_char(d, 'Dy DD Mon'), 'count', c) ORDER BY d), '[]'::jsonb)\n            FROM (SELECT date_trunc('day', received_at) d, count(*) c FROM vaibhavcapstone_leads\n                  WHERE business_id = b.business_id AND received_at > now() - interval '7 days' GROUP BY 1) t),\n  'band_mix', (SELECT COALESCE(jsonb_object_agg(band, c), '{}'::jsonb)\n               FROM (SELECT q.band, count(*) c FROM vaibhavcapstone_qualifications q JOIN vaibhavcapstone_leads l USING (lead_id)\n                     WHERE q.business_id = b.business_id AND l.received_at > now() - interval '7 days' GROUP BY q.band) t),\n  'status_mix', (SELECT COALESCE(jsonb_object_agg(status, c), '{}'::jsonb)\n                 FROM (SELECT status, count(*) c FROM vaibhavcapstone_leads\n                       WHERE business_id = b.business_id AND received_at > now() - interval '7 days' GROUP BY status) t),\n  'funnel', jsonb_build_object(\n    'received', (SELECT count(*) FROM vaibhavcapstone_leads l WHERE l.business_id = b.business_id AND l.received_at > now() - interval '7 days'),\n    'enquiries', (SELECT count(*) FROM vaibhavcapstone_extractions e JOIN vaibhavcapstone_leads l USING (lead_id) WHERE e.business_id = b.business_id AND e.classification = 'ENQUIRY' AND l.received_at > now() - interval '7 days'),\n    'qualified', (SELECT count(*) FROM vaibhavcapstone_qualifications q JOIN vaibhavcapstone_leads l USING (lead_id) WHERE q.business_id = b.business_id AND l.received_at > now() - interval '7 days'),\n    'recommended', (SELECT count(*) FROM vaibhavcapstone_recommendations r JOIN vaibhavcapstone_leads l USING (lead_id) WHERE r.business_id = b.business_id AND r.grounded AND l.received_at > now() - interval '7 days'),\n    'sent', (SELECT count(*) FROM vaibhavcapstone_leads l WHERE l.business_id = b.business_id AND l.status = 'SENT' AND l.received_at > now() - interval '7 days')),\n  'approval', (SELECT jsonb_build_object('approved', count(*) FILTER (WHERE action = 'DRAFT_APPROVED'),\n                                          'rejected', count(*) FILTER (WHERE action = 'DRAFT_REJECTED'))\n               FROM vaibhavcapstone_events WHERE business_id = b.business_id AND created_at > now() - interval '7 days'),\n  'avg_mins_to_draft', (SELECT round((avg(EXTRACT(EPOCH FROM (d.created_at - r2.created_at)) / 60))::numeric, 1)\n                        FROM vaibhavcapstone_events r2 JOIN vaibhavcapstone_events d\n                          ON d.lead_id = r2.lead_id AND d.action = 'DRAFT_CREATED'\n                        WHERE r2.action = 'LEAD_RECEIVED' AND r2.business_id = b.business_id AND r2.created_at > now() - interval '7 days'),\n  'needs_review', (SELECT count(*) FROM vaibhavcapstone_leads l WHERE l.business_id = b.business_id AND l.status = 'NEEDS_REVIEW' AND l.received_at > now() - interval '7 days'),\n  'top_categories', (SELECT COALESCE(jsonb_agg(jsonb_build_object('category', cat, 'count', c) ORDER BY c DESC), '[]'::jsonb)\n                     FROM (SELECT p.category cat, count(*) c FROM vaibhavcapstone_recommendations rec CROSS JOIN LATERAL jsonb_array_elements(rec.items) i JOIN vaibhavcapstone_products p ON p.sku = i->>'sku' AND p.business_id = rec.business_id\n                           WHERE rec.business_id = b.business_id AND rec.created_at > now() - interval '7 days'\n                           GROUP BY 1 ORDER BY 2 DESC LIMIT 5) t),\n  'ai_health', jsonb_build_object(\n    'llm_calls', (SELECT count(*) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days'),\n    'cost_per_lead_usd', (SELECT round((COALESCE(sum(c.cost_usd),0) / GREATEST((SELECT count(*) FROM vaibhavcapstone_leads l2 WHERE l2.business_id = b.business_id AND l2.received_at > now() - interval '7 days'),1))::numeric, 5)\n        FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days' AND c.call_site <> 'judge' AND c.usage_source = 'exact_api'),\n    'latency_p50_ms', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY c.latency_ms) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days'),\n    'latency_p95_ms', (SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY c.latency_ms) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days'),\n    'schema_validity_pct', (SELECT round(100.0 * count(*) FILTER (WHERE c.schema_valid) / GREATEST(count(*),1), 1) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days'),\n    'retries', (SELECT count(*) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.attempt > 1 AND c.created_at > now() - interval '7 days'),\n    'fallbacks', (SELECT count(*) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.fallback_used AND c.created_at > now() - interval '7 days'),\n    'judge', (SELECT COALESCE(jsonb_object_agg(t.artifact_type, jsonb_build_object('avg', t.avg, 'n', t.n, 'violations', t.v)), '{}'::jsonb)\n      FROM (SELECT artifact_type, round(avg(score),2) AS avg, count(*) AS n,\n                   sum(jsonb_array_length(violations)) AS v\n            FROM vaibhavcapstone_judge_scores j WHERE j.business_id = b.business_id AND j.created_at > now() - interval '7 days'\n            GROUP BY artifact_type) t)\n  )\n ) AS metrics\nFROM vaibhavcapstone_businesses b WHERE b.business_id = $1;",
-        "options": {
-          "queryReplacement": "={{ [$json.business_id] }}"
-        }
-      },
       "id": "met",
       "name": "Compute Metrics (SQL)",
       "type": "n8n-nodes-base.postgres",
@@ -93,21 +86,25 @@
         672,
         112
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n b.business_id, b.name AS business_name,\n b.config->>'reviewer_email' AS reviewer_email, b.config->>'sender_identity' AS sender_identity,\n jsonb_build_object(\n  'week_start', (now() - interval '7 days')::date,\n  'week_end', now()::date,\n  'volume_total', (SELECT count(*) FROM vaibhavcapstone_leads l WHERE l.business_id = b.business_id AND l.received_at > now() - interval '7 days'),\n  'daily', (SELECT COALESCE(jsonb_agg(jsonb_build_object('day', to_char(d, 'Dy DD Mon'), 'count', c) ORDER BY d), '[]'::jsonb)\n            FROM (SELECT date_trunc('day', received_at) d, count(*) c FROM vaibhavcapstone_leads\n                  WHERE business_id = b.business_id AND received_at > now() - interval '7 days' GROUP BY 1) t),\n  'band_mix', (SELECT COALESCE(jsonb_object_agg(band, c), '{}'::jsonb)\n               FROM (SELECT q.band, count(*) c FROM vaibhavcapstone_qualifications q JOIN vaibhavcapstone_leads l USING (lead_id)\n                     WHERE q.business_id = b.business_id AND l.received_at > now() - interval '7 days' GROUP BY q.band) t),\n  'status_mix', (SELECT COALESCE(jsonb_object_agg(status, c), '{}'::jsonb)\n                 FROM (SELECT status, count(*) c FROM vaibhavcapstone_leads\n                       WHERE business_id = b.business_id AND received_at > now() - interval '7 days' GROUP BY status) t),\n  'funnel', jsonb_build_object(\n    'received', (SELECT count(*) FROM vaibhavcapstone_leads l WHERE l.business_id = b.business_id AND l.received_at > now() - interval '7 days'),\n    'enquiries', (SELECT count(*) FROM vaibhavcapstone_extractions e JOIN vaibhavcapstone_leads l USING (lead_id) WHERE e.business_id = b.business_id AND e.classification = 'ENQUIRY' AND l.received_at > now() - interval '7 days'),\n    'qualified', (SELECT count(*) FROM vaibhavcapstone_qualifications q JOIN vaibhavcapstone_leads l USING (lead_id) WHERE q.business_id = b.business_id AND l.received_at > now() - interval '7 days'),\n    'recommended', (SELECT count(*) FROM vaibhavcapstone_recommendations r JOIN vaibhavcapstone_leads l USING (lead_id) WHERE r.business_id = b.business_id AND r.grounded AND l.received_at > now() - interval '7 days'),\n    'sent', (SELECT count(*) FROM vaibhavcapstone_leads l WHERE l.business_id = b.business_id AND l.status = 'SENT' AND l.received_at > now() - interval '7 days')),\n  'approval', (SELECT jsonb_build_object('approved', count(*) FILTER (WHERE action = 'DRAFT_APPROVED'),\n                                          'rejected', count(*) FILTER (WHERE action = 'DRAFT_REJECTED'))\n               FROM vaibhavcapstone_events WHERE business_id = b.business_id AND created_at > now() - interval '7 days'),\n  'avg_mins_to_draft', (SELECT round((avg(EXTRACT(EPOCH FROM (d.created_at - r2.created_at)) / 60))::numeric, 1)\n                        FROM vaibhavcapstone_events r2 JOIN vaibhavcapstone_events d\n                          ON d.lead_id = r2.lead_id AND d.action = 'DRAFT_CREATED'\n                        WHERE r2.action = 'LEAD_RECEIVED' AND r2.business_id = b.business_id AND r2.created_at > now() - interval '7 days'),\n  'needs_review', (SELECT count(*) FROM vaibhavcapstone_leads l WHERE l.business_id = b.business_id AND l.status = 'NEEDS_REVIEW' AND l.received_at > now() - interval '7 days'),\n  'top_categories', (SELECT COALESCE(jsonb_agg(jsonb_build_object('category', cat, 'count', c) ORDER BY c DESC), '[]'::jsonb)\n                     FROM (SELECT p.category cat, count(*) c FROM vaibhavcapstone_recommendations rec CROSS JOIN LATERAL jsonb_array_elements(rec.items) i JOIN vaibhavcapstone_products p ON p.sku = i->>'sku' AND p.business_id = rec.business_id\n                           WHERE rec.business_id = b.business_id AND rec.created_at > now() - interval '7 days'\n                           GROUP BY 1 ORDER BY 2 DESC LIMIT 5) t),\n  'ai_health', jsonb_build_object(\n    'llm_calls', (SELECT count(*) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days'),\n    'cost_per_lead_usd', (SELECT round((COALESCE(sum(c.cost_usd),0) / GREATEST((SELECT count(*) FROM vaibhavcapstone_leads l2 WHERE l2.business_id = b.business_id AND l2.received_at > now() - interval '7 days'),1))::numeric, 5)\n        FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days' AND c.call_site <> 'judge' AND c.usage_source = 'exact_api'),\n    'latency_p50_ms', (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY c.latency_ms) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days'),\n    'latency_p95_ms', (SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY c.latency_ms) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days'),\n    'schema_validity_pct', (SELECT round(100.0 * count(*) FILTER (WHERE c.schema_valid) / GREATEST(count(*),1), 1) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.created_at > now() - interval '7 days'),\n    'retries', (SELECT count(*) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.attempt > 1 AND c.created_at > now() - interval '7 days'),\n    'fallbacks', (SELECT count(*) FROM vaibhavcapstone_llm_calls c WHERE c.business_id = b.business_id AND c.fallback_used AND c.created_at > now() - interval '7 days'),\n    'judge', (SELECT COALESCE(jsonb_object_agg(t.artifact_type, jsonb_build_object('avg', t.avg, 'n', t.n, 'violations', t.v)), '{}'::jsonb)\n      FROM (SELECT artifact_type, round(avg(score),2) AS avg, count(*) AS n,\n                   sum(jsonb_array_length(violations)) AS v\n            FROM vaibhavcapstone_judge_scores j WHERE j.business_id = b.business_id AND j.created_at > now() - interval '7 days'\n            GROUP BY artifact_type) t)\n  )\n ) AS metrics\nFROM vaibhavcapstone_businesses b WHERE b.business_id = $1;",
+        "options": {
+          "queryReplacement": "={{ [$json.business_id] }}"
+        }
+      },
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
       },
-      "notes": "TRACEABILITY: every report number originates in this one SQL statement over leads/extractions/qualifications/recommendations/events. No LLM computes any metric."
+      "notes": "TRACEABILITY: every report number originates in this one SQL statement over leads/extractions/qualifications/recommendations/events. No LLM computes any metric.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nconst m = j.metrics;\n// Palette validated with dataviz six-checks (light surface): HOT/WARM/COLD\nconst BAND = { HOT: '#D64545', WARM: '#D98E21', COLD: '#3B6FD1' };\nconst BLUE = '#3B6FD1', INK = '#333333', MUTED = '#707070';\nconst qc = (cfg, w, h) => 'https://quickchart.io/chart?w=' + w + '&h=' + h + '&bkg=white&devicePixelRatio=2&c=' + encodeURIComponent(JSON.stringify(cfg));\nconst bands = ['HOT', 'WARM', 'COLD'].filter(b => (m.band_mix[b] || 0) > 0);\nconst donut = { type: 'doughnut',\n  data: { labels: bands.map(b => b + ' (' + m.band_mix[b] + ')'), datasets: [{ data: bands.map(b => m.band_mix[b]), backgroundColor: bands.map(b => BAND[b]), borderColor: '#ffffff', borderWidth: 2 }] },\n  options: { legend: { position: 'right', labels: { fontColor: INK, fontSize: 13 } }, plugins: { datalabels: { color: '#ffffff', font: { weight: 'bold', size: 14 } } } } };\nconst daily = { type: 'bar',\n  data: { labels: (m.daily || []).map(d => d.day), datasets: [{ data: (m.daily || []).map(d => d.count), backgroundColor: BLUE }] },\n  options: { legend: { display: false }, plugins: { datalabels: { anchor: 'end', align: 'top', color: MUTED, font: { size: 12 } } },\n    scales: { yAxes: [{ ticks: { beginAtZero: true, stepSize: 1, fontColor: MUTED }, gridLines: { color: '#eeeeee' } }],\n              xAxes: [{ ticks: { fontColor: MUTED }, gridLines: { display: false } }] } } };\nconst f = m.funnel;\nconst funnel = { type: 'horizontalBar',\n  data: { labels: ['Received', 'Enquiries', 'Qualified', 'Recommended', 'Sent'],\n    datasets: [{ data: [f.received, f.enquiries, f.qualified, f.recommended, f.sent], backgroundColor: BLUE }] },\n  options: { legend: { display: false }, plugins: { datalabels: { anchor: 'end', align: 'end', color: INK, font: { weight: 'bold', size: 13 } } },\n    scales: { xAxes: [{ ticks: { beginAtZero: true, stepSize: 1, fontColor: MUTED }, gridLines: { color: '#eeeeee' } }],\n              yAxes: [{ ticks: { fontColor: INK, fontSize: 13 }, gridLines: { display: false } }] } } };\nconst jm = m.ai_health && m.ai_health.judge ? m.ai_health.judge : {};\nconst jTypes = Object.keys(jm);\nconst judgeChart = { type: 'bar',\n  data: { labels: jTypes.map(t => t + ' (n=' + jm[t].n + ')'), datasets: [{ data: jTypes.map(t => jm[t].avg), backgroundColor: BLUE }] },\n  options: { legend: { display: false }, plugins: { datalabels: { anchor: 'end', align: 'top', color: INK, font: { weight: 'bold', size: 13 } } },\n    scales: { yAxes: [{ ticks: { beginAtZero: true, max: 5, stepSize: 1, fontColor: MUTED }, gridLines: { color: '#eeeeee' } }],\n              xAxes: [{ ticks: { fontColor: MUTED }, gridLines: { display: false } }] } } };\nreturn [{ json: { ...j, charts: {\n  judge: { config: judgeChart, url: qc(judgeChart, 420, 220) },\n  band_mix: { config: donut, url: qc(donut, 380, 220) },\n  daily: { config: daily, url: qc(daily, 520, 240) },\n  funnel: { config: funnel, url: qc(funnel, 520, 260) } } } }];"
-      },
       "id": "charts",
       "name": "Build Charts",
       "type": "n8n-nodes-base.code",
@@ -116,9 +113,20 @@
         896,
         112
       ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst m = j.metrics;\n// Palette validated with dataviz six-checks (light surface): HOT/WARM/COLD\nconst BAND = { HOT: '#D64545', WARM: '#D98E21', COLD: '#3B6FD1' };\nconst BLUE = '#3B6FD1', INK = '#333333', MUTED = '#707070';\nconst qc = (cfg, w, h) => 'https://quickchart.io/chart?w=' + w + '&h=' + h + '&bkg=white&devicePixelRatio=2&c=' + encodeURIComponent(JSON.stringify(cfg));\nconst bands = ['HOT', 'WARM', 'COLD'].filter(b => (m.band_mix[b] || 0) > 0);\nconst donut = { type: 'doughnut',\n  data: { labels: bands.map(b => b + ' (' + m.band_mix[b] + ')'), datasets: [{ data: bands.map(b => m.band_mix[b]), backgroundColor: bands.map(b => BAND[b]), borderColor: '#ffffff', borderWidth: 2 }] },\n  options: { legend: { position: 'right', labels: { fontColor: INK, fontSize: 13 } }, plugins: { datalabels: { color: '#ffffff', font: { weight: 'bold', size: 14 } } } } };\nconst daily = { type: 'bar',\n  data: { labels: (m.daily || []).map(d => d.day), datasets: [{ data: (m.daily || []).map(d => d.count), backgroundColor: BLUE }] },\n  options: { legend: { display: false }, plugins: { datalabels: { anchor: 'end', align: 'top', color: MUTED, font: { size: 12 } } },\n    scales: { yAxes: [{ ticks: { beginAtZero: true, stepSize: 1, fontColor: MUTED }, gridLines: { color: '#eeeeee' } }],\n              xAxes: [{ ticks: { fontColor: MUTED }, gridLines: { display: false } }] } } };\nconst f = m.funnel;\nconst funnel = { type: 'horizontalBar',\n  data: { labels: ['Received', 'Enquiries', 'Qualified', 'Recommended', 'Sent'],\n    datasets: [{ data: [f.received, f.enquiries, f.qualified, f.recommended, f.sent], backgroundColor: BLUE }] },\n  options: { legend: { display: false }, plugins: { datalabels: { anchor: 'end', align: 'end', color: INK, font: { weight: 'bold', size: 13 } } },\n    scales: { xAxes: [{ ticks: { beginAtZero: true, stepSize: 1, fontColor: MUTED }, gridLines: { color: '#eeeeee' } }],\n              yAxes: [{ ticks: { fontColor: INK, fontSize: 13 }, gridLines: { display: false } }] } } };\nconst jm = m.ai_health && m.ai_health.judge ? m.ai_health.judge : {};\nconst jTypes = Object.keys(jm);\nconst judgeChart = { type: 'bar',\n  data: { labels: jTypes.map(t => t + ' (n=' + jm[t].n + ')'), datasets: [{ data: jTypes.map(t => jm[t].avg), backgroundColor: BLUE }] },\n  options: { legend: { display: false }, plugins: { datalabels: { anchor: 'end', align: 'top', color: INK, font: { weight: 'bold', size: 13 } } },\n    scales: { yAxes: [{ ticks: { beginAtZero: true, max: 5, stepSize: 1, fontColor: MUTED }, gridLines: { color: '#eeeeee' } }],\n              xAxes: [{ ticks: { fontColor: MUTED }, gridLines: { display: false } }] } } };\nreturn [{ json: { ...j, charts: {\n  judge: { config: judgeChart, url: qc(judgeChart, 420, 220) },\n  band_mix: { config: donut, url: qc(donut, 380, 220) },\n  daily: { config: daily, url: qc(daily, 520, 240) },\n  funnel: { config: funnel, url: qc(funnel, 520, 260) } } } }];"
+      },
       "notes": "QuickChart PNG URLs (free, keyless). Configs carry aggregates only - never PII. Palette CVD-validated."
     },
     {
+      "id": "gem",
+      "name": "Gemini Narrative",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1344,
+        112
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
@@ -131,30 +139,19 @@
           "timeout": 60000
         }
       },
-      "id": "gem",
-      "name": "Gemini Narrative",
-      "position": [
-        1344,
-        112
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 2000,
       "credentials": {
         "googlePalmApi": {
           "id": "lLjcnrnGkFilQs0h",
           "name": "Google Gemini(PaLM) Api account"
         }
       },
+      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before.",
       "onError": "continueErrorOutput",
-      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before."
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
     },
     {
-      "parameters": {
-        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || '').join('');\nelse if (r.content !== undefined) r = r.content;\nif (typeof r === 'string') { try { r = JSON.parse(r.replace(/^```json?\\s*|```\\s*$/g, '')); } catch (e) { r = null; } }\nconst j = $('Build Charts').first().json;\nconst m = j.metrics, c = j.charts;\nconst narrative = (r && typeof r.narrative === 'string' && r.narrative.trim()) ? r.narrative.trim()\n  : 'Narrative unavailable this week; all figures are in the tables and charts below.';\nconst esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');\nconst row = (k, v) => '<tr><td style=\"padding:6px 14px 6px 0;color:#707070\">' + k + '</td><td style=\"padding:6px 0;color:#333;font-weight:600\">' + v + '</td></tr>';\nconst appr = m.approval || {};\nconst apprTotal = (appr.approved || 0) + (appr.rejected || 0);\nconst apprRate = apprTotal ? Math.round((appr.approved || 0) * 100 / apprTotal) + '%' : 'n/a';\nconst cats = (m.top_categories || []).map(t => t.category + ' (' + t.count + ')').join(', ') || 'none';\nconst ah = m.ai_health || null;\nconst usd = (v) => '$' + (v == null ? '0' : v);\nlet aiSection = '<p style=\"color:#707070\">No AI telemetry this week.</p>';\nif (ah) {\n  aiSection = (c.judge ? '<img src=\"' + c.judge.url + '\" width=\"420\" alt=\"Judge scores by artifact type, scale 1 to 5\" style=\"max-width:100%\">' : '') +\n    '<table style=\"border-collapse:collapse;font-size:14px\">' +\n    row('LLM calls this week', ah.llm_calls) +\n    row('Cost per lead (exact API tokens)', usd(ah.cost_per_lead_usd) + ' (free tier: actual spend 0)') +\n    row('Latency p50 / p95', Math.round(ah.latency_p50_ms || 0) + ' ms / ' + Math.round(ah.latency_p95_ms || 0) + ' ms') +\n    row('Schema-valid outputs', (ah.schema_validity_pct || 0) + '%') +\n    row('Retries / fallbacks', (ah.retries || 0) + ' / ' + (ah.fallbacks || 0)) +\n    '</table>';\n}\nconst html = [\n  '<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;color:#333\">',\n  '<h2 style=\"margin:0 0 2px\">' + esc(j.business_name) + ' - Weekly Sales Insights</h2>',\n  '<p style=\"color:#707070;margin:0 0 18px\">' + m.week_start + ' to ' + m.week_end + '</p>',\n  '<p style=\"line-height:1.55\">' + esc(narrative) + '</p>',\n  '<h3 style=\"margin:22px 0 8px\">Funnel</h3>',\n  '<img src=\"' + c.funnel.url + '\" width=\"520\" alt=\"Funnel: received to sent\" style=\"max-width:100%\">',\n  '<h3 style=\"margin:22px 0 8px\">Lead quality</h3>',\n  '<img src=\"' + c.band_mix.url + '\" width=\"380\" alt=\"Band mix\" style=\"max-width:100%\">',\n  '<h3 style=\"margin:22px 0 8px\">Daily enquiry volume</h3>',\n  '<img src=\"' + c.daily.url + '\" width=\"520\" alt=\"Daily volume\" style=\"max-width:100%\">',\n  '<h3 style=\"margin:22px 0 8px\">Key numbers</h3>',\n  '<table style=\"border-collapse:collapse;font-size:14px\">',\n  row('Enquiries received', m.volume_total),\n  row('Replies sent', (m.funnel || {}).sent || 0),\n  row('Approval rate', apprRate + ' (' + (appr.approved || 0) + ' approved / ' + (appr.rejected || 0) + ' rejected)'),\n  row('Avg time to draft', (m.avg_mins_to_draft != null ? m.avg_mins_to_draft + ' min' : 'n/a')),\n  row('Waiting on humans', (m.needs_review || 0) + ' need review'),\n  row('Top recommended categories', esc(cats)),\n  '</table>',\n  '<h3 style=\"margin:22px 0 8px\">AI health</h3>',\n  aiSection,\n  '<p style=\"color:#9a9a9a;font-size:12px;margin-top:22px\">Every number is computed from vaibhavcapstone_* rows (leads, events, llm_calls, judge_scores) and reproducible by SQL. Charts contain aggregates only - no personal data.</p>',\n  '</div>'\n].join('');\nreturn [{ json: { business_id: j.business_id, business_name: j.business_name, reviewer_email: j.reviewer_email,\n  sender_identity: j.sender_identity, metrics: m, narrative, charts: c, report_html: html } }];"
-      },
       "id": "asm",
       "name": "Assemble Report",
       "type": "n8n-nodes-base.code",
@@ -162,16 +159,12 @@
       "position": [
         2016,
         112
-      ]
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || '').join('');\nelse if (r.content !== undefined) r = r.content;\nif (typeof r === 'string') { try { r = JSON.parse(r.replace(/^```json?\\s*|```\\s*$/g, '')); } catch (e) { r = null; } }\nconst j = $('Build Charts').first().json;\nconst m = j.metrics, c = j.charts;\nconst narrative = (r && typeof r.narrative === 'string' && r.narrative.trim()) ? r.narrative.trim()\n  : 'Narrative unavailable this week; all figures are in the tables and charts below.';\nconst esc = (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');\nconst row = (k, v) => '<tr><td style=\"padding:6px 14px 6px 0;color:#707070\">' + k + '</td><td style=\"padding:6px 0;color:#333;font-weight:600\">' + v + '</td></tr>';\nconst appr = m.approval || {};\nconst apprTotal = (appr.approved || 0) + (appr.rejected || 0);\nconst apprRate = apprTotal ? Math.round((appr.approved || 0) * 100 / apprTotal) + '%' : 'n/a';\nconst cats = (m.top_categories || []).map(t => t.category + ' (' + t.count + ')').join(', ') || 'none';\nconst ah = m.ai_health || null;\nconst usd = (v) => '$' + (v == null ? '0' : v);\nlet aiSection = '<p style=\"color:#707070\">No AI telemetry this week.</p>';\nif (ah) {\n  aiSection = (c.judge ? '<img src=\"' + c.judge.url + '\" width=\"420\" alt=\"Judge scores by artifact type, scale 1 to 5\" style=\"max-width:100%\">' : '') +\n    '<table style=\"border-collapse:collapse;font-size:14px\">' +\n    row('LLM calls this week', ah.llm_calls) +\n    row('Cost per lead (exact API tokens)', usd(ah.cost_per_lead_usd) + ' (free tier: actual spend 0)') +\n    row('Latency p50 / p95', Math.round(ah.latency_p50_ms || 0) + ' ms / ' + Math.round(ah.latency_p95_ms || 0) + ' ms') +\n    row('Schema-valid outputs', (ah.schema_validity_pct || 0) + '%') +\n    row('Retries / fallbacks', (ah.retries || 0) + ' / ' + (ah.fallbacks || 0)) +\n    '</table>';\n}\nconst html = [\n  '<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;color:#333\">',\n  '<h2 style=\"margin:0 0 2px\">' + esc(j.business_name) + ' - Weekly Sales Insights</h2>',\n  '<p style=\"color:#707070;margin:0 0 18px\">' + m.week_start + ' to ' + m.week_end + '</p>',\n  '<p style=\"line-height:1.55\">' + esc(narrative) + '</p>',\n  '<h3 style=\"margin:22px 0 8px\">Funnel</h3>',\n  '<img src=\"' + c.funnel.url + '\" width=\"520\" alt=\"Funnel: received to sent\" style=\"max-width:100%\">',\n  '<h3 style=\"margin:22px 0 8px\">Lead quality</h3>',\n  '<img src=\"' + c.band_mix.url + '\" width=\"380\" alt=\"Band mix\" style=\"max-width:100%\">',\n  '<h3 style=\"margin:22px 0 8px\">Daily enquiry volume</h3>',\n  '<img src=\"' + c.daily.url + '\" width=\"520\" alt=\"Daily volume\" style=\"max-width:100%\">',\n  '<h3 style=\"margin:22px 0 8px\">Key numbers</h3>',\n  '<table style=\"border-collapse:collapse;font-size:14px\">',\n  row('Enquiries received', m.volume_total),\n  row('Replies sent', (m.funnel || {}).sent || 0),\n  row('Approval rate', apprRate + ' (' + (appr.approved || 0) + ' approved / ' + (appr.rejected || 0) + ' rejected)'),\n  row('Avg time to draft', (m.avg_mins_to_draft != null ? m.avg_mins_to_draft + ' min' : 'n/a')),\n  row('Waiting on humans', (m.needs_review || 0) + ' need review'),\n  row('Top recommended categories', esc(cats)),\n  '</table>',\n  '<h3 style=\"margin:22px 0 8px\">AI health</h3>',\n  aiSection,\n  '<p style=\"color:#9a9a9a;font-size:12px;margin-top:22px\">Every number is computed from vaibhavcapstone_* rows (leads, events, llm_calls, judge_scores) and reproducible by SQL. Charts contain aggregates only - no personal data.</p>',\n  '</div>'\n].join('');\nreturn [{ json: { business_id: j.business_id, business_name: j.business_name, reviewer_email: j.reviewer_email,\n  sender_identity: j.sender_identity, metrics: m, narrative, charts: c, report_html: html } }];"
+      }
     },
     {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH ins AS (INSERT INTO vaibhavcapstone_insights (business_id, week_start, week_end, metrics, narrative, chart_configs, report_html)\n  VALUES ($1, ($2::jsonb->>'week_start')::date, ($2::jsonb->>'week_end')::date, $2::jsonb, $3, $4::jsonb, $5)\n  RETURNING insight_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  VALUES ($1, NULL, NULL, 'insights', 'INSIGHTS_GENERATED', 'system',\n    jsonb_build_object('insight_id', (SELECT insight_id FROM ins))) RETURNING event_id)\nSELECT (SELECT insight_id FROM ins) AS insight_id;",
-        "options": {
-          "queryReplacement": "={{ [$json.business_id, JSON.stringify($json.metrics), $json.narrative, JSON.stringify({band_mix: $json.charts.band_mix.config, daily: $json.charts.daily.config, funnel: $json.charts.funnel.config}), $json.report_html] }}"
-        }
-      },
       "id": "save",
       "name": "Store Insight",
       "type": "n8n-nodes-base.postgres",
@@ -180,24 +173,24 @@
         2240,
         -80
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ins AS (INSERT INTO vaibhavcapstone_insights (business_id, week_start, week_end, metrics, narrative, chart_configs, report_html)\n  VALUES ($1, ($2::jsonb->>'week_start')::date, ($2::jsonb->>'week_end')::date, $2::jsonb, $3, $4::jsonb, $5)\n  RETURNING insight_id),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  VALUES ($1, NULL, NULL, 'insights', 'INSIGHTS_GENERATED', 'system',\n    jsonb_build_object('insight_id', (SELECT insight_id FROM ins))) RETURNING event_id)\nSELECT (SELECT insight_id FROM ins) AS insight_id;",
+        "options": {
+          "queryReplacement": "={{ [$json.business_id, JSON.stringify($json.metrics), $json.narrative, JSON.stringify({band_mix: $json.charts.band_mix.config, daily: $json.charts.daily.config, funnel: $json.charts.funnel.config}), $json.report_html] }}"
+        }
+      },
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
-      "parameters": {
-        "fromEmail": "={{ $('Assemble Report').first().json.sender_identity }}",
-        "toEmail": "={{ $('Assemble Report').first().json.reviewer_email }}",
-        "subject": "={{ '[Weekly Insights] ' + $('Assemble Report').first().json.business_name + ' - week of ' + $('Assemble Report').first().json.metrics.week_start }}",
-        "html": "={{ $('Assemble Report').first().json.report_html }}",
-        "options": {}
-      },
       "id": "mail",
       "name": "Email Report",
       "type": "n8n-nodes-base.emailSend",
@@ -206,23 +199,25 @@
         2464,
         192
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "webhookId": "9baf062f-f559-42a5-974b-3c13f9a519c0",
+      "parameters": {
+        "fromEmail": "={{ $('Assemble Report').first().json.sender_identity }}",
+        "toEmail": "={{ $('Assemble Report').first().json.reviewer_email }}",
+        "subject": "={{ '[Weekly Insights] ' + $('Assemble Report').first().json.business_name + ' - week of ' + $('Assemble Report').first().json.metrics.week_start }}",
+        "html": "={{ $('Assemble Report').first().json.report_html }}",
+        "options": {}
+      },
       "credentials": {
         "smtp": {
           "id": "9Chmlw4pL9nqibCH",
           "name": "Capstone-SMTP"
         }
-      }
+      },
+      "webhookId": "9baf062f-f559-42a5-974b-3c13f9a519c0",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     },
     {
-      "parameters": {
-        "path": "vaibhavcapstone-insights-latest",
-        "responseMode": "responseNode",
-        "options": {}
-      },
       "id": "whget",
       "name": "Latest Report (GET)",
       "type": "n8n-nodes-base.webhook",
@@ -231,16 +226,14 @@
         0,
         608
       ],
+      "parameters": {
+        "path": "vaibhavcapstone-insights-latest",
+        "responseMode": "responseNode",
+        "options": {}
+      },
       "webhookId": "1d237f19-d023-4376-b997-edc79d2ef21e"
     },
     {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "SELECT i.report_html FROM vaibhavcapstone_insights i\nWHERE i.business_id = $1 ORDER BY i.created_at DESC LIMIT 1;",
-        "options": {
-          "queryReplacement": "={{ [$json.query && $json.query.business_id ? $json.query.business_id : ''] }}"
-        }
-      },
       "id": "getsql",
       "name": "Fetch Latest Insight",
       "type": "n8n-nodes-base.postgres",
@@ -249,16 +242,31 @@
         224,
         608
       ],
-      "alwaysOutputData": true,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT i.report_html FROM vaibhavcapstone_insights i\nWHERE i.business_id = $1 ORDER BY i.created_at DESC LIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$json.query && $json.query.business_id ? $json.query.business_id : ''] }}"
+        }
+      },
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
       },
-      "notes": "No tenant default: business_id must be supplied (hard rule - never branch on a specific business_id)."
+      "notes": "No tenant default: business_id must be supplied (hard rule - never branch on a specific business_id).",
+      "alwaysOutputData": true
     },
     {
+      "id": "resp",
+      "name": "Respond HTML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        608
+      ],
       "parameters": {
         "respondWith": "text",
         "responseBody": "={{ $json.report_html || \"<p>No report found. Pass ?business_id=&lt;your business id&gt; (find it with get_setup_status), or generate one by POSTing to /webhook/vaibhavcapstone-insights-run.</p>\" }}",
@@ -272,20 +280,9 @@
             ]
           }
         }
-      },
-      "id": "resp",
-      "name": "Respond HTML",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
-      "position": [
-        448,
-        608
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
-      },
       "id": "st_insights_narrative",
       "name": "Stamp insights_narrative",
       "type": "n8n-nodes-base.code",
@@ -294,16 +291,12 @@
         1120,
         112
       ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
+      },
       "notes": "Telemetry stamp (docs/traceability.md): start time + input size. Passes data through unchanged."
     },
     {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO vaibhavcapstone_llm_calls\n (business_id, lead_id, trace_id, call_site, prompt_version, model, latency_ms,\n  input_tokens, output_tokens, cost_usd, schema_valid, attempt, fallback_used, finish_reason, usage_source)\nVALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING call_id;",
-        "options": {
-          "queryReplacement": "={{ (() => { const g = $('LLM Result insights_narrative').first().json; const st = $('Stamp insights_narrative').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = (g.usageMetadata && g.usageMetadata.promptTokenCount != null) ? g.usageMetadata : null; const it = u ? (u.promptTokenCount || 0) : Math.ceil((st.__in_chars || 0) / 4); const ot = u ? ((u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0)) : Math.ceil(txt.length / 4); let ok=false; try { const r=JSON.parse(txt.replace(/^```json?\\s*|```\\s*$/g,'')); ok=!!(r.narrative) } catch(e) {} return [$json.business_id, $json.lead_id || null, $json.trace_id || null, 'insights_narrative', 'v1', (g.__model || 'gemini-2.5-flash'), Date.now() - (st.__t0 || Date.now()), it, ot, +(((g.__fallback ? it * 0.15 + ot * 0.6 : it * 0.3 + ot * 2.5)) / 1e6).toFixed(6), ok, 1, (g.__fallback === true || !ok), cand.finishReason || null, u ? 'exact_api' : 'estimated'] })() }}"
-        }
-      },
       "id": "lg_insights_narrative",
       "name": "Log LLM insights_narrative",
       "type": "n8n-nodes-base.postgres",
@@ -312,16 +305,31 @@
         2240,
         112
       ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO vaibhavcapstone_llm_calls\n (business_id, lead_id, trace_id, call_site, prompt_version, model, latency_ms,\n  input_tokens, output_tokens, cost_usd, schema_valid, attempt, fallback_used, finish_reason, usage_source)\nVALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING call_id;",
+        "options": {
+          "queryReplacement": "={{ (() => { const g = $('LLM Result insights_narrative').first().json; const st = $('Stamp insights_narrative').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = (g.usageMetadata && g.usageMetadata.promptTokenCount != null) ? g.usageMetadata : null; const it = u ? (u.promptTokenCount || 0) : Math.ceil((st.__in_chars || 0) / 4); const ot = u ? ((u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0)) : Math.ceil(txt.length / 4); let ok=false; try { const r=JSON.parse(txt.replace(/^```json?\\s*|```\\s*$/g,'')); ok=!!(r.narrative) } catch(e) {} return [$json.business_id, $json.lead_id || null, $json.trace_id || null, 'insights_narrative', 'v1', (g.__model || 'gemini-2.5-flash'), Date.now() - (st.__t0 || Date.now()), it, ot, +(((g.__fallback ? it * 0.15 + ot * 0.6 : it * 0.3 + ot * 2.5)) / 1e6).toFixed(6), ok, 1, (g.__fallback === true || !ok), cand.finishReason || null, u ? 'exact_api' : 'estimated'] })() }}"
+        }
+      },
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
       },
-      "continueOnFail": true,
-      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata)."
+      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata).",
+      "continueOnFail": true
     },
     {
+      "id": "lf_insights_nar",
+      "name": "Ship LF insights_narrative",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2240,
+        304
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://langfuse-web:3000/api/public/ingestion",
@@ -334,24 +342,24 @@
           "timeout": 10000
         }
       },
-      "id": "lf_insights_nar",
-      "name": "Ship LF insights_narrative",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2240,
-        304
-      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "x9DKbzWznHMJTync",
           "name": "Capstone-Langfuse"
         }
       },
-      "continueOnFail": true,
-      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id."
+      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id.",
+      "continueOnFail": true
     },
     {
+      "id": "fb_insights_nar",
+      "name": "OpenAI Fallback insights_narrative",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1568,
+        208
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://api.openai.com/v1/chat/completions",
@@ -364,29 +372,18 @@
           "timeout": 60000
         }
       },
-      "id": "fb_insights_nar",
-      "name": "OpenAI Fallback insights_narrative",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1568,
-        208
-      ],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 1000,
       "credentials": {
         "openAiApi": {
           "id": "qQqGaHdi61WLgZ52",
           "name": "OpenAI account"
         }
       },
-      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright."
+      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright.",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
     },
     {
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
-      },
       "id": "mr_insights_nar",
       "name": "LLM Result insights_narrative",
       "type": "n8n-nodes-base.code",
@@ -395,119 +392,122 @@
         1792,
         112
       ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
+      },
       "notes": "Merge point: normalizes Gemini or OpenAI responses to one shape; __model/__fallback feed telemetry."
     },
     {
-      "parameters": {
-        "content": "## The Monday morning report\n\nEvery Monday at 8am each business gets an email showing how its enquiries are going: how many arrived, how they scored, how quickly they were answered — and what the AI cost to run.\n\nEvery number is computed from that business's own records. **The AI is only allowed to write the commentary around the figures, never to produce a figure.**",
-        "height": 190,
-        "width": 2120,
-        "color": 4
-      },
+      "id": "sticky-MZeaFf-0",
+      "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -430
       ],
-      "id": "sticky-MZeaFf-0",
-      "name": "Sticky Note"
+      "parameters": {
+        "content": "## The Monday morning report\n\nEvery Monday at 8am each business gets an email showing how its enquiries are going: how many arrived, how they scored, how quickly they were answered — and what the AI cost to run.\n\nEvery number is computed from that business's own records. **The AI is only allowed to write the commentary around the figures, never to produce a figure.**",
+        "height": 190,
+        "width": 2120,
+        "color": 4
+      }
     },
     {
-      "parameters": {
-        "content": "### Who gets a report, and when\n\n**Three ways in.** Monday at 8am automatically; a \"run now\" address used for demos; and a third, separate address for reading the latest report in a browser — that's the lane underneath.\n\n**Fetch the businesses, then handle them one at a time.** Each gets its own report built from its own data. Nobody ever sees anyone else's numbers.",
-        "height": 470,
-        "width": 700,
-        "color": 7
-      },
+      "id": "sticky-MZeaFf-1",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -210
       ],
-      "id": "sticky-MZeaFf-1",
-      "name": "Sticky Note1"
-    },
-    {
       "parameters": {
-        "content": "### Reading the latest report in a browser\n\nA small separate path with nothing to do with Monday: ask for a business's most recently stored report and show it as a web page.\n\nHandy for demos — and for anyone who deleted the email.",
-        "height": 265,
+        "content": "### Who gets a report, and when\n\n**Three ways in.** Monday at 8am automatically; a \"run now\" address used for demos; and a third, separate address for reading the latest report in a browser — that's the lane underneath.\n\n**Fetch the businesses, then handle them one at a time.** Each gets its own report built from its own data. Nobody ever sees anyone else's numbers.",
+        "height": 470,
         "width": 700,
         "color": 7
-      },
+      }
+    },
+    {
+      "id": "sticky-MZeaFf-2",
+      "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         285
       ],
-      "id": "sticky-MZeaFf-2",
-      "name": "Sticky Note2"
+      "parameters": {
+        "content": "### Reading the latest report in a browser\n\nA small separate path with nothing to do with Monday: ask for a business's most recently stored report and show it as a web page.\n\nHandy for demos — and for anyone who deleted the email.",
+        "height": 265,
+        "width": 700,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "### Work out the numbers\n\n**One big question to the database** produces the whole picture: how many enquiries arrived, how they split across hot, warm and cold, how many reached a reply, how long each stage took, and what every AI call cost.\n\nAsking it as a *single* question matters — every figure then comes from the same instant, so no two parts of the report can disagree with each other.\n\n**Turn the numbers into charts.** Email programs won't run code, so a chart can't be drawn inside the message. Each chart is built as a web address that returns a picture, and the email simply shows those pictures.",
-        "height": 570,
-        "width": 360,
-        "color": 7
-      },
+      "id": "sticky-MZeaFf-3",
+      "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         620,
         -110
       ],
-      "id": "sticky-MZeaFf-3",
-      "name": "Sticky Note3"
+      "parameters": {
+        "content": "### Work out the numbers\n\n**One big question to the database** produces the whole picture: how many enquiries arrived, how they split across hot, warm and cold, how many reached a reply, how long each stage took, and what every AI call cost.\n\nAsking it as a *single* question matters — every figure then comes from the same instant, so no two parts of the report can disagree with each other.\n\n**Turn the numbers into charts.** Email programs won't run code, so a chart can't be drawn inside the message. Each chart is built as a web address that returns a picture, and the email simply shows those pictures.",
+        "height": 570,
+        "width": 360,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "### Let the AI write the words — never the numbers\n\n**The AI is handed the finished figures** and asked for a short, readable summary. It is never asked to work anything out; every number is already fixed before it sees them.\n\nGoogle's AI first, OpenAI as backup, both answers flattened to one shape — and the call recorded with its exact tokens and cost, which is itself one of the numbers in next week's report.\n\n**If the AI writes nothing usable, the report still goes out**, with a plain line saying the summary isn't available this week. Every figure and chart is still there. The commentary is a nicety; the data is the point.",
-        "height": 630,
-        "width": 500,
-        "color": 7
-      },
+      "id": "sticky-MZeaFf-4",
+      "name": "Sticky Note4",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         1000,
         -170
       ],
-      "id": "sticky-MZeaFf-4",
-      "name": "Sticky Note4"
+      "parameters": {
+        "content": "### Let the AI write the words — never the numbers\n\n**The AI is handed the finished figures** and asked for a short, readable summary. It is never asked to work anything out; every number is already fixed before it sees them.\n\nGoogle's AI first, OpenAI as backup, both answers flattened to one shape — and the call recorded with its exact tokens and cost, which is itself one of the numbers in next week's report.\n\n**If the AI writes nothing usable, the report still goes out**, with a plain line saying the summary isn't available this week. Every figure and chart is still there. The commentary is a nicety; the data is the point.",
+        "height": 630,
+        "width": 500,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "### Store it, send it, next business\n\n**Save the finished report** so it can be re-read later at the \"latest report\" address without building it again.\n\n**Email it to the business**, then loop back and do the whole thing for the next one.",
-        "height": 570,
-        "width": 400,
-        "color": 7
-      },
+      "id": "sticky-MZeaFf-5",
+      "name": "Sticky Note5",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         1520,
         -110
       ],
-      "id": "sticky-MZeaFf-5",
-      "name": "Sticky Note5"
+      "parameters": {
+        "content": "### Store it, send it, next business\n\n**Save the finished report** so it can be re-read later at the \"latest report\" address without building it again.\n\n**Email it to the business**, then loop back and do the whole thing for the next one.",
+        "height": 570,
+        "width": 400,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "## Why you can trust every number in this report\n\n**Every figure here can be re-derived by hand from the records.**\n\nThe AI writes sentences, never numbers. The figures all come from one question asked at one moment. And the section reporting what the AI itself cost is computed exactly like everything else.\n\nThat rule earned its keep during the build: it caught the report's own AI call landing *after* its own snapshot, so the report was never counting itself.",
-        "height": 280,
-        "width": 880,
-        "color": 5
-      },
+      "id": "sticky-MZeaFf-6",
+      "name": "Sticky Note6",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         620,
         500
       ],
-      "id": "sticky-MZeaFf-6",
-      "name": "Sticky Note6"
+      "parameters": {
+        "content": "## Why you can trust every number in this report\n\n**Every figure here can be re-derived by hand from the records.**\n\nThe AI writes sentences, never numbers. The figures all come from one question asked at one moment. And the section reporting what the AI itself cost is computed exactly like everything else.\n\nThat rule earned its keep during the build: it caught the report's own AI call landing *after* its own snapshot, so the report was never counting itself.",
+        "height": 280,
+        "width": 880,
+        "color": 5
+      }
     }
   ],
   "connections": {
@@ -699,8 +699,7 @@
     "executionOrder": "v1",
     "timezone": "Asia/Kolkata",
     "errorWorkflow": "7jyaQ5gz8eYDBFJI",
-    "saveDataErrorExecution": "all",
-    "binaryMode": "separate"
+    "saveDataErrorExecution": "all"
   },
   "meta": {}
 }

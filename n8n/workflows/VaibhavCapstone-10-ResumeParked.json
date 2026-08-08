@@ -143,68 +143,68 @@
       }
     },
     {
-      "parameters": {
-        "content": "## The wake-up call\n\nSome enquiries arrive before their business is ready — no catalogue uploaded yet, or nobody named to approve replies. Rather than fail those enquiries, the system parks them.\n\nThis is what wakes them up again, the moment the missing piece finally appears.",
-        "height": 180,
-        "width": 1520,
-        "color": 4
-      },
+      "id": "sticky-wrGgSD-0",
+      "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -330
       ],
-      "id": "sticky-wrGgSD-0",
-      "name": "Sticky Note"
+      "parameters": {
+        "content": "## The wake-up call\n\nSome enquiries arrive before their business is ready — no catalogue uploaded yet, or nobody named to approve replies. Rather than fail those enquiries, the system parks them.\n\nThis is what wakes them up again, the moment the missing piece finally appears.",
+        "height": 180,
+        "width": 1520,
+        "color": 4
+      }
     },
     {
-      "parameters": {
-        "content": "### Find the ones that can now continue\n\n**Called whenever a business finishes a setup step** — a catalogue uploaded, a reviewer named.\n\n**Ask which parked enquiries are now unblocked, and un-park them in the same breath.** Doing both in one question is deliberate: it means the same enquiry can't be picked up twice by two runs happening at once.",
-        "height": 500,
-        "width": 700,
-        "color": 7
-      },
+      "id": "sticky-wrGgSD-1",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -130
       ],
-      "id": "sticky-wrGgSD-1",
-      "name": "Sticky Note1"
+      "parameters": {
+        "content": "### Find the ones that can now continue\n\n**Called whenever a business finishes a setup step** — a catalogue uploaded, a reviewer named.\n\n**Ask which parked enquiries are now unblocked, and un-park them in the same breath.** Doing both in one question is deliberate: it means the same enquiry can't be picked up twice by two runs happening at once.",
+        "height": 500,
+        "width": 700,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "### Restart each one where it left off\n\n**One at a time**, so a slow enquiry never holds up the others.\n\n**Each goes back to the right place.** An enquiry that stalled for want of a catalogue restarts at product matching. One that stalled for want of a reviewer restarts at drafting.\n\nNeither starts over — the reading, the facts and the score already worked out are all kept.",
-        "height": 500,
-        "width": 720,
-        "color": 7
-      },
+      "id": "sticky-wrGgSD-2",
+      "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         620,
         -130
       ],
-      "id": "sticky-wrGgSD-2",
-      "name": "Sticky Note2"
+      "parameters": {
+        "content": "### Restart each one where it left off\n\n**One at a time**, so a slow enquiry never holds up the others.\n\n**Each goes back to the right place.** An enquiry that stalled for want of a catalogue restarts at product matching. One that stalled for want of a reviewer restarts at drafting.\n\nNeither starts over — the reading, the facts and the score already worked out are all kept.",
+        "height": 500,
+        "width": 720,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "## Waiting isn't an error\n\nA half-configured business is a normal stage of being a new customer, not a fault.\n\nSo an enquiry that arrives too early is parked with an explanation rather than failed — and it resumes by itself. Nobody has to notice, remember, or press anything.",
-        "height": 240,
-        "width": 700,
-        "color": 5
-      },
+      "id": "sticky-wrGgSD-3",
+      "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         410
       ],
-      "id": "sticky-wrGgSD-3",
-      "name": "Sticky Note3"
+      "parameters": {
+        "content": "## Waiting isn't an error\n\nA half-configured business is a normal stage of being a new customer, not a fault.\n\nSo an enquiry that arrives too early is parked with an explanation rather than failed — and it resumes by itself. Nobody has to notice, remember, or press anything.",
+        "height": 240,
+        "width": 700,
+        "color": 5
+      }
     }
   ],
   "connections": {

@@ -62,9 +62,40 @@ The SalesGenie package contains **14 workflow files** (they end in `.json`) in i
 | `Capstone-MCP-Bearer` | Bearer Auth | Invent another long random phrase — this protects your chat controls (Step 6) |
 
 3. Open each imported workflow once. Wherever a step shows a credential warning, click it and select the matching credential you just created. (n8n remembers your choice per credential name, so this goes quickly after the first few.)
-4. Two small address fixes, because the package was built on a private machine:
-   - In the workflow named **…02-GmailAdapter**, one step forwards email to "reception" at an address starting with `http://localhost:5678`. Change that part to your own n8n address (it looks like `https://your-team.app.n8n.cloud`). The same localhost address appears in **…09-MCPOperations** (the "send a test enquiry" tool) and **…13-A2AServer** (the AI-to-AI door) — same one-line fix in each.
-   - Steps whose names start with **"Ship LF"** send AI-usage data to an optional monitoring dashboard that was self-hosted. Leave them alone for now — they fail silently and harmlessly if the dashboard isn't there. (Step 8 shows how to point them at a free hosted dashboard if you want it.)
+4. **Fix the addresses — do this before importing, with the script, not by hand.**
+
+   The package was built on a private machine where n8n answered at
+   `http://localhost:5678`. That address appears **20 times across 5 workflows**, and
+   five of those are hidden inside database queries and code steps where you would
+   never find them by looking at the obvious places. Miss them and the damage is
+   quiet: the chat tools in Step 6 will run and simply reach nothing.
+
+   On a computer with the package downloaded and Node installed, run:
+
+   ```bash
+   node scripts/retarget-host.js --base https://your-team.app.n8n.cloud \
+        --langfuse https://cloud.langfuse.com \
+        --reviewer you@yourbusiness.com
+   ```
+
+   It writes corrected copies into `n8n/workflows-retargeted/` — **import those**
+   instead of the originals — and prints the two things it cannot fix for you, which
+   you handle in Step 4b below.
+
+   *(`--langfuse` is only useful if you did Step 8; without it the "Ship LF" steps
+   keep pointing at a dashboard that isn't there and fail silently and harmlessly.
+   `--reviewer` sets who gets error alerts.)*
+
+4b. **Two things only you can do, after importing.** n8n links workflows together by
+   an internal ID that is different on every installation, so these cannot travel in
+   a file:
+
+   - **Error handler:** in each workflow, Settings → Error Workflow → choose
+     `VaibhavCapstone-00-ErrorHandler`. Skip this and failures become invisible.
+   - **The eight handoff steps:** open each workflow named in the script's output and
+     re-select the workflow it calls. These are what pass an enquiry from one
+     department to the next; if they are not re-pointed, enquiries stop after the
+     first step.
 
 ---
 

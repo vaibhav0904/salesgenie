@@ -31,8 +31,11 @@ Next `/story` run should confirm real order with Vaibhav before picking one.
 
 ## In progress
 
-Nothing in progress — next `/story` run should confirm priority order
-with Vaibhav from the backlog below.
+`E20-S2` — anyone can run this on their own hosted n8n — stage: **build done,
+TC14–TC19 outstanding**. Tooling and docs are complete and self-verified
+(TC1–TC13); the claim itself is unproven until the guide is followed verbatim
+against a throwaway instance. **E20-S1 depends on this** — its first acceptance
+criterion is that same fresh-install run.
 
 ## Rig state (post-demo, 2026-08-08)
 

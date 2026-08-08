@@ -13,10 +13,11 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "vaibhavcapstone-intake",
-        "responseMode": "responseNode"
+        "responseMode": "responseNode",
+        "options": {}
       },
-      "notes": "Canonical intake for ALL channels/tenants. Payload: {business_id, channel, from_email, from_name, subject, body, received_at, external_id}. Adapters (Gmail etc.) map their source into this shape.",
-      "webhookId": "80ba8a50-6123-417c-8ab2-161bf1317dc2"
+      "webhookId": "80ba8a50-6123-417c-8ab2-161bf1317dc2",
+      "notes": "Canonical intake for ALL channels/tenants. Payload: {business_id, channel, from_email, from_name, subject, body, received_at, external_id}. Adapters (Gmail etc.) map their source into this shape."
     },
     {
       "id": "code1",
@@ -24,7 +25,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        224,
         0
       ],
       "parameters": {
@@ -38,7 +39,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        440,
+        448,
         0
       ],
       "parameters": {
@@ -46,10 +47,9 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose",
+            "typeValidation": "strict",
             "version": 2
           },
-          "combinator": "and",
           "conditions": [
             {
               "id": "c1",
@@ -61,8 +61,10 @@
                 "singleValue": true
               }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       }
     },
     {
@@ -71,11 +73,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        660,
-        -100
+        672,
+        -96
       ],
       "parameters": {
-        "resource": "database",
         "operation": "executeQuery",
         "query": "WITH p AS (SELECT $1::jsonb AS j),\nbiz AS (\n  SELECT b.business_id FROM vaibhavcapstone_businesses b, p\n  WHERE b.business_id = p.j->>'business_id'\n),\nins AS (\n  INSERT INTO vaibhavcapstone_leads\n    (lead_id, business_id, trace_id, channel, from_email, subject, body, raw_payload, received_at, status)\n  SELECT p.j->>'lead_id', biz.business_id, p.j->>'trace_id', p.j->>'channel',\n         p.j->>'from_email', p.j->>'subject', p.j->>'body_text', p.j->'raw',\n         COALESCE((p.j->>'received_at')::timestamptz, now()), 'RECEIVED'\n  FROM p, biz\n  RETURNING lead_id, business_id, trace_id\n),\nevt AS (\n  INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT business_id, lead_id, trace_id, 'intake', 'LEAD_RECEIVED', 'system',\n         jsonb_build_object('channel', (SELECT j->>'channel' FROM p))\n  FROM ins\n  RETURNING event_id\n)\nSELECT ins.lead_id, ins.trace_id, ins.business_id, 'RECEIVED' AS status FROM ins;",
         "options": {
@@ -88,11 +89,11 @@
           "name": "Capstone-Postgres"
         }
       },
+      "notes": "Atomic CTE: verify business exists -> insert lead (RECEIVED) -> log event. 0 rows = unknown business.",
       "alwaysOutputData": true,
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "notes": "Atomic CTE: verify business exists -> insert lead (RECEIVED) -> log event. 0 rows = unknown business."
+      "waitBetweenTries": 1000
     },
     {
       "id": "if2",
@@ -101,17 +102,16 @@
       "typeVersion": 2.2,
       "position": [
         880,
-        -100
+        -96
       ],
       "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose",
+            "typeValidation": "strict",
             "version": 2
           },
-          "combinator": "and",
           "conditions": [
             {
               "id": "c2",
@@ -123,8 +123,10 @@
                 "singleValue": true
               }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       }
     },
     {
@@ -133,8 +135,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1100,
-        -160
+        1104,
+        -192
       ],
       "parameters": {
         "respondWith": "json",
@@ -150,11 +152,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        1100,
-        -40
+        1104,
+        -48
       ],
       "parameters": {
-        "resource": "database",
         "operation": "executeQuery",
         "query": "INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\nVALUES (COALESCE($1::jsonb->>'business_id','unknown'), NULL, $1::jsonb->>'trace_id',\n        'intake', 'INTAKE_UNKNOWN_BUSINESS', 'system', $1::jsonb)\nRETURNING event_id;",
         "options": {
@@ -177,8 +178,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1320,
-        -40
+        1328,
+        -48
       ],
       "parameters": {
         "respondWith": "json",
@@ -194,11 +195,10 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        660,
-        120
+        672,
+        128
       ],
       "parameters": {
-        "resource": "database",
         "operation": "executeQuery",
         "query": "INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\nVALUES (COALESCE($1::jsonb->>'business_id','unknown'), NULL, $1::jsonb->>'trace_id',\n        'intake', 'INTAKE_REJECTED', 'system', $1::jsonb)\nRETURNING event_id;",
         "options": {
@@ -222,7 +222,7 @@
       "typeVersion": 1.1,
       "position": [
         880,
-        120
+        128
       ],
       "parameters": {
         "respondWith": "json",
@@ -238,8 +238,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        -160
+        1328,
+        -192
       ],
       "parameters": {
         "jsCode": "const j = $input.first().json;\nreturn [{ json: { envelope_version: '1.0', business_id: j.business_id, lead_id: j.lead_id, trace_id: j.trace_id, agent: 'intake', status: 'ok', payload: {} } }];"
@@ -251,8 +251,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        1540,
-        -160
+        1536,
+        -192
       ],
       "parameters": {
         "workflowId": {
@@ -266,100 +266,100 @@
       }
     },
     {
+      "id": "sticky-S9Foc6-0",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -416
+      ],
       "parameters": {
         "content": "## The front door\n\nEvery enquiry enters the system here, whatever it came from — an ordinary email, a chat message from the business's own staff, or another company's AI agent. They all arrive at this one address, in the same shape.\n\nThat's deliberate: **nothing downstream ever needs to know how a customer reached us.**",
         "height": 190,
         "width": 1900,
         "color": 4
-      },
+      }
+    },
+    {
+      "id": "sticky-S9Foc6-1",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -100,
-        -420
+        -96,
+        -256
       ],
-      "id": "sticky-S9Foc6-0",
-      "name": "Sticky Note"
-    },
-    {
       "parameters": {
         "content": "### Check what arrived\n\n**One address; anything may knock.**\n\n**Does it make sense?** Is there a business, a sender's address, and some actual text? Is the address even shaped like an address?\n\nWe also stamp two identifiers here: one naming this enquiry, and one for tracking it across every step that follows. That second one is what lets you follow a single enquiry through the whole system later.",
         "height": 520,
         "width": 700,
         "color": 7
-      },
+      }
+    },
+    {
+      "id": "sticky-S9Foc6-2",
+      "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -100,
-        -260
+        624,
+        -256
       ],
-      "id": "sticky-S9Foc6-1",
-      "name": "Sticky Note1"
-    },
-    {
       "parameters": {
         "content": "### Write it down before anything else\n\n**The enquiry is recorded immediately** — before any AI, any decision, any judgement. If everything after this point fell over, the enquiry would still be safely written down.\n\n**If the request was malformed**, the rejection itself is recorded and we answer with a clear \"that wasn't valid\". Even a bad request leaves a trace; nothing is silently dropped.",
         "height": 520,
         "width": 440,
         "color": 7
-      },
+      }
+    },
+    {
+      "id": "sticky-S9Foc6-3",
+      "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        620,
-        -260
+        1088,
+        -288
       ],
-      "id": "sticky-S9Foc6-2",
-      "name": "Sticky Note2"
-    },
-    {
       "parameters": {
         "content": "### Answer fast, then do the work\n\n**Answer straight away — \"received\".** Whoever sent it doesn't wait while we think; the acknowledgement goes back in a fraction of a second. The real work happens after.\n\n**Don't recognise the business?** Recorded, and answered honestly with \"we don't know that business\" rather than quietly swallowing the enquiry.\n\n**Then hand on the job ticket** to the workflow that reads the email. Everything from here on works from this one record.",
         "height": 540,
         "width": 700,
         "color": 7
-      },
+      }
+    },
+    {
+      "id": "sticky-S9Foc6-4",
+      "name": "Sticky Note4",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1080,
-        -280
+        -96,
+        304
       ],
-      "id": "sticky-S9Foc6-3",
-      "name": "Sticky Note3"
-    },
-    {
       "parameters": {
         "content": "## Why one door matters\n\nEmail, chat and other companies' AI agents all funnel into this same address.\n\nAdding a new way for enquiries to arrive means writing a small adapter that knocks on this door — not touching the pipeline behind it. That's exactly how the agent-to-agent door was added late in the build without disturbing anything that already worked.",
         "height": 250,
         "width": 700,
         "color": 5
-      },
+      }
+    },
+    {
+      "id": "sticky-S9Foc6-5",
+      "name": "Sticky Note5",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -100,
-        300
+        1088,
+        304
       ],
-      "id": "sticky-S9Foc6-4",
-      "name": "Sticky Note4"
-    },
-    {
       "parameters": {
         "content": "## Known limitation, stated honestly\n\n**This door isn't password-protected.** Anyone who knows the address could post an enquiry to it.\n\nThat's acceptable for a local demo and it's the first thing to fix for real use: a key per business, checked here. It's listed as the biggest known gap in the write-up rather than quietly left out.",
         "height": 210,
         "width": 700,
         "color": 3
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        1080,
-        300
-      ],
-      "id": "sticky-S9Foc6-5",
-      "name": "Sticky Note5"
+      }
     }
   ],
   "connections": {

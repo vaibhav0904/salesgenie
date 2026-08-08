@@ -63,11 +63,11 @@
           "name": "Capstone-Postgres"
         }
       },
+      "notes": "Which business owns this mailbox? Pure config lookup (config.intake_email) - no tenant hardcoding. ANTI-LOOP (BUG-001): mail FROM the business own sender/intake identity is never ingested.",
       "alwaysOutputData": true,
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "notes": "Which business owns this mailbox? Pure config lookup (config.intake_email) - no tenant hardcoding. ANTI-LOOP (BUG-001): mail FROM the business own sender/intake identity is never ingested."
+      "waitBetweenTries": 1000
     },
     {
       "id": "if1",
@@ -151,68 +151,68 @@
       "waitBetweenTries": 1000
     },
     {
-      "parameters": {
-        "content": "## The email door\n\nWatches a real mailbox and turns each new message into the standard shape the front door expects.\n\nThis is the only part of the system that knows anything about email. Everything after it just sees \"an enquiry arrived\".",
-        "height": 175,
-        "width": 1300,
-        "color": 4
-      },
+      "id": "sticky-cbqL8f-0",
+      "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -360
       ],
-      "id": "sticky-cbqL8f-0",
-      "name": "Sticky Note"
+      "parameters": {
+        "content": "## The email door\n\nWatches a real mailbox and turns each new message into the standard shape the front door expects.\n\nThis is the only part of the system that knows anything about email. Everything after it just sees \"an enquiry arrived\".",
+        "height": 175,
+        "width": 1300,
+        "color": 4
+      }
     },
     {
-      "parameters": {
-        "content": "### Read the mailbox\n\n**Watch for new mail**, checked on a timer, so an enquiry is picked up within about a minute of landing.\n\n**Pull out the useful parts** — the sender's real address and their name, which arrive tangled together on one line; the subject; and the message text. If the message was sent as a formatted web page, strip it back to plain words.\n\n**Whose mailbox is this?** Look up which business owns the address it was sent *to*. That one lookup is how a single mailbox-watching workflow serves every business on the platform.",
-        "height": 480,
-        "width": 700,
-        "color": 7
-      },
+      "id": "sticky-cbqL8f-1",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -200
       ],
-      "id": "sticky-cbqL8f-1",
-      "name": "Sticky Note1"
+      "parameters": {
+        "content": "### Read the mailbox\n\n**Watch for new mail**, checked on a timer, so an enquiry is picked up within about a minute of landing.\n\n**Pull out the useful parts** — the sender's real address and their name, which arrive tangled together on one line; the subject; and the message text. If the message was sent as a formatted web page, strip it back to plain words.\n\n**Whose mailbox is this?** Look up which business owns the address it was sent *to*. That one lookup is how a single mailbox-watching workflow serves every business on the platform.",
+        "height": 480,
+        "width": 700,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "### Hand it to the front door\n\n**A recognised business** → forward the message to the front door in the standard shape, exactly as any other channel would.\n\n**An unrecognised mailbox** → record it and stop. Mail to an address we don't know is never guessed at or attached to the nearest business.",
-        "height": 480,
-        "width": 580,
-        "color": 7
-      },
+      "id": "sticky-cbqL8f-2",
+      "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         620,
         -200
       ],
-      "id": "sticky-cbqL8f-2",
-      "name": "Sticky Note2"
+      "parameters": {
+        "content": "### Hand it to the front door\n\n**A recognised business** → forward the message to the front door in the standard shape, exactly as any other channel would.\n\n**An unrecognised mailbox** → record it and stop. Mail to an address we don't know is never guessed at or attached to the nearest business.",
+        "height": 480,
+        "width": 580,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "## The trap this door had to be taught to avoid\n\nThe system sends email as well as reading it — so its own outgoing replies can land back in the very mailbox it watches, and get treated as fresh enquiries. A loop, if nobody stops it.\n\n**The lookup above quietly refuses any message sent from the business's own address**, whether that's its replying address or the intake address itself.\n\nThis was a real bug found in testing, not a hypothetical. It's why that condition exists.",
-        "height": 250,
-        "width": 1300,
-        "color": 3
-      },
+      "id": "sticky-cbqL8f-3",
+      "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         320
       ],
-      "id": "sticky-cbqL8f-3",
-      "name": "Sticky Note3"
+      "parameters": {
+        "content": "## The trap this door had to be taught to avoid\n\nThe system sends email as well as reading it — so its own outgoing replies can land back in the very mailbox it watches, and get treated as fresh enquiries. A loop, if nobody stops it.\n\n**The lookup above quietly refuses any message sent from the business's own address**, whether that's its replying address or the intake address itself.\n\nThis was a real bug found in testing, not a hypothetical. It's why that condition exists.",
+        "height": 250,
+        "width": 1300,
+        "color": 3
+      }
     }
   ],
   "connections": {

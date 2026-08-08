@@ -87,8 +87,19 @@ The call graph, for reference:
 10-ResumeParked  ──▶ 05-Recommender, 06-DraftHITL
 ```
 
-**5. Re-point the `Execute Workflow` nodes.** Workflow IDs are per-instance; the six handoff nodes above reference IDs, not names, so they must be re-selected after import.
+**5. Re-point the `Execute Workflow` nodes.** Workflow IDs are per-instance; the **eight** handoff nodes reference IDs, not names, so they must be re-selected after import. `node scripts/retarget-host.js --base <your-url>` prints the exact list (and rewrites the host URLs below in the same pass).
 
 **6. Re-point the error workflow.** All 13 non-handler workflows already carry `00-ErrorHandler` as their error workflow in these exports, but that setting is also stored as an ID — so re-select it (Settings → Error Workflow) after import, or failures will be invisible.
 
-Host URLs are `http://localhost:5678` throughout; change them together if you host elsewhere.
+**Host URLs.** The exports ship with `http://localhost:5678`, which appears **20 times across 5 files** — and five of those are inside Postgres SQL queries and Code nodes, where a find-and-replace over node URLs will miss them. There are also 7 hardcoded `http://langfuse-web:3000` trace URLs (a Docker service name that resolves nowhere else). Do not hand-edit these:
+
+```bash
+node scripts/retarget-host.js --base https://you.app.n8n.cloud \
+     --langfuse https://cloud.langfuse.com --reviewer you@yourbusiness.com
+```
+
+It writes retargeted copies to `n8n/workflows-retargeted/`, leaves the originals untouched, and prints everything it *cannot* fix (the error-workflow reference and the eight Execute Workflow nodes, which n8n resolves by ID).
+
+**What each workflow does** — triggers, endpoints, credentials, tables read and written, and the call graph — is in [`docs/workflows-reference.md`](../../docs/workflows-reference.md), generated from these exports so it cannot drift.
+
+**Keeping these files honest.** Editing a workflow in the n8n UI silently changes its stored JSON, so committed exports go stale. Before committing workflow changes, run `node scripts/sync-workflows.js` (or `--check` to just be told). It re-exports every `VaibhavCapstone-*`, regenerates the reference above, and scrubs any real operator email back to the placeholder.

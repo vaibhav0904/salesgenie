@@ -2,33 +2,41 @@
   "name": "VaibhavCapstone-03-ClassifyExtract",
   "nodes": [
     {
-      "parameters": {
-        "inputSource": "passthrough"
-      },
       "id": "trg",
       "name": "When Called By Agent",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
         0,
-        752
+        576
       ],
+      "parameters": {
+        "inputSource": "passthrough"
+      },
       "notes": "Agent contract: receives Envelope v1.0 (docs/contracts.md). Called by WF-01 after intake."
     },
     {
-      "parameters": {
-        "jsCode": "const e = $input.first().json;\nconst miss = ['envelope_version','business_id','lead_id','trace_id'].filter(k => !e[k]);\nif (miss.length) throw new Error('LEAD:' + (e.lead_id || '') + '|TRACE:' + (e.trace_id || '') + '|invalid envelope, missing: ' + miss.join(', '));\nif (e.envelope_version !== '1.0') throw new Error('LEAD:' + e.lead_id + '|TRACE:' + e.trace_id + '|unsupported envelope_version ' + e.envelope_version);\nreturn [{ json: e }];"
-      },
       "id": "env",
       "name": "Validate Envelope",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         224,
-        752
-      ]
+        576
+      ],
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst miss = ['envelope_version','business_id','lead_id','trace_id'].filter(k => !e[k]);\nif (miss.length) throw new Error('LEAD:' + (e.lead_id || '') + '|TRACE:' + (e.trace_id || '') + '|invalid envelope, missing: ' + miss.join(', '));\nif (e.envelope_version !== '1.0') throw new Error('LEAD:' + e.lead_id + '|TRACE:' + e.trace_id + '|unsupported envelope_version ' + e.envelope_version);\nreturn [{ json: e }];"
+      }
     },
     {
+      "id": "fetch",
+      "name": "Fetch Lead",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        448,
+        576
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "SELECT l.lead_id, l.business_id, l.trace_id, l.from_email, l.subject, l.body,\n       l.raw_payload->>'from_name' AS from_name,\n       b.name AS business_name, b.industry\nFROM vaibhavcapstone_leads l\nJOIN vaibhavcapstone_businesses b USING (business_id)\nWHERE l.lead_id = $1 AND l.status IN ('RECEIVED');",
@@ -36,27 +44,27 @@
           "queryReplacement": "={{ [$json.lead_id] }}"
         }
       },
-      "id": "fetch",
-      "name": "Fetch Lead",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        448,
-        752
-      ],
-      "alwaysOutputData": true,
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
       },
-      "notes": "Only RECEIVED leads are processed; anything else is a no-op (idempotent re-calls)."
+      "notes": "Only RECEIVED leads are processed; anything else is a no-op (idempotent re-calls).",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
+      "id": "ifready",
+      "name": "Lead Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        576
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -80,17 +88,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "ifready",
-      "name": "Lead Ready?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        672,
-        752
-      ]
+      }
     },
     {
+      "id": "gem1",
+      "name": "Gemini Classify+Extract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        576
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
@@ -103,40 +111,40 @@
           "timeout": 60000
         }
       },
-      "id": "gem1",
-      "name": "Gemini Classify+Extract",
-      "position": [
-        1120,
-        752
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 2000,
       "credentials": {
         "googlePalmApi": {
           "id": "lLjcnrnGkFilQs0h",
           "name": "Google Gemini(PaLM) Api account"
         }
       },
+      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before.",
       "onError": "continueErrorOutput",
-      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before."
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
     },
     {
-      "parameters": {
-        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || \"\").join(\"\");\nelse if (r.content !== undefined) r = r.content;\nelse if (r.text !== undefined) r = r.text;\nif (typeof r === \"string\") { try { r = JSON.parse(r.replace(/^```json?s*|```s*$/g, \"\")); } catch (e) { r = null; } }\nconst errs = [];\nif (!r || typeof r !== 'object') errs.push('not an object');\nelse {\n  if (!['ENQUIRY','NOT_ENQUIRY','SPAM'].includes(r.classification)) errs.push('bad classification');\n  if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1) errs.push('bad confidence');\n  if (!Array.isArray(r.product_interest)) errs.push('product_interest not array');\n  if (r.budget_value !== null && r.budget_value !== undefined && typeof r.budget_value !== 'number') errs.push('bad budget_value');\n  if (r.urgency != null && !['high','medium','low'].includes(r.urgency)) errs.push('bad urgency');\n}\nconst lead = $('Fetch Lead').first().json;\nreturn [{ json: { valid: errs.length === 0, errors: errs, attempt: 1,\n  parsed: r || {}, lead_id: lead.lead_id, business_id: lead.business_id, trace_id: lead.trace_id } }];"
-      },
       "id": "parse1",
       "name": "Validate LLM Output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1568,
-        -112
-      ]
+        -96
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || \"\").join(\"\");\nelse if (r.content !== undefined) r = r.content;\nelse if (r.text !== undefined) r = r.text;\nif (typeof r === \"string\") { try { r = JSON.parse(r.replace(/^```json?s*|```s*$/g, \"\")); } catch (e) { r = null; } }\nconst errs = [];\nif (!r || typeof r !== 'object') errs.push('not an object');\nelse {\n  if (!['ENQUIRY','NOT_ENQUIRY','SPAM'].includes(r.classification)) errs.push('bad classification');\n  if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1) errs.push('bad confidence');\n  if (!Array.isArray(r.product_interest)) errs.push('product_interest not array');\n  if (r.budget_value !== null && r.budget_value !== undefined && typeof r.budget_value !== 'number') errs.push('bad budget_value');\n  if (r.urgency != null && !['high','medium','low'].includes(r.urgency)) errs.push('bad urgency');\n}\nconst lead = $('Fetch Lead').first().json;\nreturn [{ json: { valid: errs.length === 0, errors: errs, attempt: 1,\n  parsed: r || {}, lead_id: lead.lead_id, business_id: lead.business_id, trace_id: lead.trace_id } }];"
+      }
     },
     {
+      "id": "ifv1",
+      "name": "Output Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1792,
+        -288
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -160,17 +168,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "ifv1",
-      "name": "Output Valid?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1792,
-        -288
-      ]
+      }
     },
     {
+      "id": "gem2",
+      "name": "Gemini Retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2368,
+        944
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
@@ -183,40 +191,40 @@
           "timeout": 60000
         }
       },
-      "id": "gem2",
-      "name": "Gemini Retry",
-      "position": [
-        2240,
-        464
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 2000,
       "credentials": {
         "googlePalmApi": {
           "id": "lLjcnrnGkFilQs0h",
           "name": "Google Gemini(PaLM) Api account"
         }
       },
+      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before.",
       "onError": "continueErrorOutput",
-      "notes": "Direct generateContent call: response carries exact usageMetadata (the n8n Gemini node strips it). Same prompt/model/JSON config as before."
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
     },
     {
-      "parameters": {
-        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || \"\").join(\"\");\nelse if (r.content !== undefined) r = r.content;\nelse if (r.text !== undefined) r = r.text;\nif (typeof r === \"string\") { try { r = JSON.parse(r.replace(/^```json?s*|```s*$/g, \"\")); } catch (e) { r = null; } }\nconst errs = [];\nif (!r || typeof r !== 'object') errs.push('not an object');\nelse {\n  if (!['ENQUIRY','NOT_ENQUIRY','SPAM'].includes(r.classification)) errs.push('bad classification');\n  if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1) errs.push('bad confidence');\n  if (!Array.isArray(r.product_interest)) errs.push('product_interest not array');\n  if (r.budget_value !== null && r.budget_value !== undefined && typeof r.budget_value !== 'number') errs.push('bad budget_value');\n  if (r.urgency != null && !['high','medium','low'].includes(r.urgency)) errs.push('bad urgency');\n}\nconst lead = $('Fetch Lead').first().json;\nreturn [{ json: { valid: errs.length === 0, errors: errs, attempt: 2,\n  parsed: r || {}, lead_id: lead.lead_id, business_id: lead.business_id, trace_id: lead.trace_id } }];"
-      },
       "id": "parse2",
       "name": "Validate Retry Output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1568,
-        432
-      ]
+        1616,
+        784
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nlet r = raw;\nif (r && Array.isArray(r.candidates)) r = { content: (r.candidates[0] || {}).content };\nif (r && r.content && Array.isArray(r.content.parts)) r = r.content.parts.map(p => p.text || \"\").join(\"\");\nelse if (r.content !== undefined) r = r.content;\nelse if (r.text !== undefined) r = r.text;\nif (typeof r === \"string\") { try { r = JSON.parse(r.replace(/^```json?s*|```s*$/g, \"\")); } catch (e) { r = null; } }\nconst errs = [];\nif (!r || typeof r !== 'object') errs.push('not an object');\nelse {\n  if (!['ENQUIRY','NOT_ENQUIRY','SPAM'].includes(r.classification)) errs.push('bad classification');\n  if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1) errs.push('bad confidence');\n  if (!Array.isArray(r.product_interest)) errs.push('product_interest not array');\n  if (r.budget_value !== null && r.budget_value !== undefined && typeof r.budget_value !== 'number') errs.push('bad budget_value');\n  if (r.urgency != null && !['high','medium','low'].includes(r.urgency)) errs.push('bad urgency');\n}\nconst lead = $('Fetch Lead').first().json;\nreturn [{ json: { valid: errs.length === 0, errors: errs, attempt: 2,\n  parsed: r || {}, lead_id: lead.lead_id, business_id: lead.business_id, trace_id: lead.trace_id } }];"
+      }
     },
     {
+      "id": "ifv2",
+      "name": "Retry Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1840,
+        784
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -240,24 +248,9 @@
           ]
         },
         "options": {}
-      },
-      "id": "ifv2",
-      "name": "Retry Valid?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1792,
-        368
-      ]
+      }
     },
     {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "WITH p AS (SELECT $1::text AS lead, $2::text AS biz, $3::text AS trc, $4::jsonb AS r),\ncfg AS (SELECT COALESCE((b.config->>'min_confidence')::numeric, 0.6) AS mc\n        FROM vaibhavcapstone_businesses b, p WHERE b.business_id = p.biz),\nns AS (SELECT CASE\n  WHEN (SELECT r->>'classification' FROM p) = 'SPAM' THEN 'DISCARDED_SPAM'\n  WHEN (SELECT r->>'classification' FROM p) = 'NOT_ENQUIRY' THEN 'DISCARDED_NOT_ENQUIRY'\n  WHEN COALESCE((SELECT (r->>'confidence')::numeric FROM p), 0) < (SELECT mc FROM cfg) THEN 'NEEDS_REVIEW'\n  ELSE 'EXTRACTED' END AS st),\next AS (INSERT INTO vaibhavcapstone_extractions\n  (lead_id, business_id, classification, contact_name, contact_email, company,\n   budget_value, budget_currency, product_interest, urgency, location, raw_llm_output)\n  SELECT p.lead, p.biz, p.r->>'classification', p.r->>'contact_name', p.r->>'contact_email', p.r->>'company',\n         NULLIF(p.r->>'budget_value','')::numeric, p.r->>'budget_currency',\n         COALESCE(p.r->'product_interest','[]'::jsonb), p.r->>'urgency', p.r->>'location', p.r\n  FROM p\n  ON CONFLICT (lead_id) DO UPDATE SET classification=EXCLUDED.classification, contact_name=EXCLUDED.contact_name,\n    contact_email=EXCLUDED.contact_email, company=EXCLUDED.company, budget_value=EXCLUDED.budget_value,\n    budget_currency=EXCLUDED.budget_currency, product_interest=EXCLUDED.product_interest,\n    urgency=EXCLUDED.urgency, location=EXCLUDED.location, raw_llm_output=EXCLUDED.raw_llm_output\n  RETURNING lead_id),\nupd AS (UPDATE vaibhavcapstone_leads\n  SET status = (SELECT st FROM ns),\n      status_detail = CASE WHEN (SELECT st FROM ns) = 'NEEDS_REVIEW'\n        THEN jsonb_build_object('reason','low_confidence','confidence',(SELECT r->>'confidence' FROM p),'resume_from','classify')\n        ELSE status_detail END,\n      updated_at = now()\n  WHERE lead_id = (SELECT lead FROM p) AND status IN ('RECEIVED','NEEDS_REVIEW')\n  RETURNING status),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT p.biz, p.lead, p.trc, 'classify-extract', 'LEAD_CLASSIFIED', 'system',\n         jsonb_build_object('classification', p.r->>'classification', 'confidence', p.r->>'confidence',\n                            'new_status', (SELECT st FROM ns), 'attempt', $5::int)\n  FROM p RETURNING event_id)\nSELECT (SELECT st FROM ns) AS new_status, (SELECT lead FROM p) AS lead_id,\n       (SELECT r->>'classification' FROM p) AS classification;",
-        "options": {
-          "queryReplacement": "={{ [$json.lead_id, $json.business_id, $json.trace_id, JSON.stringify($json.parsed), $json.attempt] }}"
-        }
-      },
       "id": "persist",
       "name": "Persist Classification+Extraction",
       "type": "n8n-nodes-base.postgres",
@@ -266,18 +259,33 @@
         2016,
         -256
       ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH p AS (SELECT $1::text AS lead, $2::text AS biz, $3::text AS trc, $4::jsonb AS r),\ncfg AS (SELECT COALESCE((b.config->>'min_confidence')::numeric, 0.6) AS mc\n        FROM vaibhavcapstone_businesses b, p WHERE b.business_id = p.biz),\nns AS (SELECT CASE\n  WHEN (SELECT r->>'classification' FROM p) = 'SPAM' THEN 'DISCARDED_SPAM'\n  WHEN (SELECT r->>'classification' FROM p) = 'NOT_ENQUIRY' THEN 'DISCARDED_NOT_ENQUIRY'\n  WHEN COALESCE((SELECT (r->>'confidence')::numeric FROM p), 0) < (SELECT mc FROM cfg) THEN 'NEEDS_REVIEW'\n  ELSE 'EXTRACTED' END AS st),\next AS (INSERT INTO vaibhavcapstone_extractions\n  (lead_id, business_id, classification, contact_name, contact_email, company,\n   budget_value, budget_currency, product_interest, urgency, location, raw_llm_output)\n  SELECT p.lead, p.biz, p.r->>'classification', p.r->>'contact_name', p.r->>'contact_email', p.r->>'company',\n         NULLIF(p.r->>'budget_value','')::numeric, p.r->>'budget_currency',\n         COALESCE(p.r->'product_interest','[]'::jsonb), p.r->>'urgency', p.r->>'location', p.r\n  FROM p\n  ON CONFLICT (lead_id) DO UPDATE SET classification=EXCLUDED.classification, contact_name=EXCLUDED.contact_name,\n    contact_email=EXCLUDED.contact_email, company=EXCLUDED.company, budget_value=EXCLUDED.budget_value,\n    budget_currency=EXCLUDED.budget_currency, product_interest=EXCLUDED.product_interest,\n    urgency=EXCLUDED.urgency, location=EXCLUDED.location, raw_llm_output=EXCLUDED.raw_llm_output\n  RETURNING lead_id),\nupd AS (UPDATE vaibhavcapstone_leads\n  SET status = (SELECT st FROM ns),\n      status_detail = CASE WHEN (SELECT st FROM ns) = 'NEEDS_REVIEW'\n        THEN jsonb_build_object('reason','low_confidence','confidence',(SELECT r->>'confidence' FROM p),'resume_from','classify')\n        ELSE status_detail END,\n      updated_at = now()\n  WHERE lead_id = (SELECT lead FROM p) AND status IN ('RECEIVED','NEEDS_REVIEW')\n  RETURNING status),\nev AS (INSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\n  SELECT p.biz, p.lead, p.trc, 'classify-extract', 'LEAD_CLASSIFIED', 'system',\n         jsonb_build_object('classification', p.r->>'classification', 'confidence', p.r->>'confidence',\n                            'new_status', (SELECT st FROM ns), 'attempt', $5::int)\n  FROM p RETURNING event_id)\nSELECT (SELECT st FROM ns) AS new_status, (SELECT lead FROM p) AS lead_id,\n       (SELECT r->>'classification' FROM p) AS classification;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id, $json.business_id, $json.trace_id, JSON.stringify($json.parsed), $json.attempt] }}"
+        }
+      },
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
       },
-      "notes": "One atomic CTE: upsert extraction, route lead status (SPAM/NOT_ENQUIRY discard, low confidence -> NEEDS_REVIEW, else EXTRACTED), log event. Confidence threshold from business config (default 0.6)."
+      "notes": "One atomic CTE: upsert extraction, route lead status (SPAM/NOT_ENQUIRY discard, low confidence -> NEEDS_REVIEW, else EXTRACTED), log event. Confidence threshold from business config (default 0.6).",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
+      "id": "needsrev",
+      "name": "Mark NEEDS_REVIEW (LLM invalid)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2064,
+        880
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "WITH upd AS (UPDATE vaibhavcapstone_leads\n  SET status='NEEDS_REVIEW',\n      status_detail = jsonb_build_object('reason','llm_output_invalid','errors',$4,'resume_from','classify'),\n      updated_at=now()\n  WHERE lead_id=$1 AND status IN ('RECEIVED') RETURNING lead_id)\nINSERT INTO vaibhavcapstone_events (business_id, lead_id, trace_id, agent, action, actor, detail)\nVALUES ($2, $1, $3, 'classify-extract', 'LLM_OUTPUT_INVALID', 'system', jsonb_build_object('errors', $4))\nRETURNING event_id;",
@@ -285,26 +293,26 @@
           "queryReplacement": "={{ [$json.lead_id, $json.business_id, $json.trace_id, JSON.stringify($json.errors)] }}"
         }
       },
-      "id": "needsrev",
-      "name": "Mark NEEDS_REVIEW (LLM invalid)",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        2016,
-        480
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 1000,
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
       },
-      "notes": "Guardrail: schema-invalid LLM output after 1 retry degrades to human triage, never a crash or silent drop."
+      "notes": "Guardrail: schema-invalid LLM output after 1 retry degrades to human triage, never a crash or silent drop.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
+      "id": "ifext",
+      "name": "Now EXTRACTED?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        -256
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -327,20 +335,9 @@
           ]
         },
         "options": {}
-      },
-      "id": "ifext",
-      "name": "Now EXTRACTED?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        2240,
-        -256
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nconst src = $('Validate Envelope').first().json;\nreturn [{ json: { envelope_version: '1.0', business_id: src.business_id, lead_id: j.lead_id, trace_id: src.trace_id, agent: 'classify-extract', status: 'ok', payload: {} } }];"
-      },
       "id": "envq",
       "name": "Envelope For Qualifier",
       "type": "n8n-nodes-base.code",
@@ -348,9 +345,20 @@
       "position": [
         2464,
         -256
-      ]
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nconst src = $('Validate Envelope').first().json;\nreturn [{ json: { envelope_version: '1.0', business_id: src.business_id, lead_id: j.lead_id, trace_id: src.trace_id, agent: 'classify-extract', status: 'ok', payload: {} } }];"
+      }
     },
     {
+      "id": "callq",
+      "name": "Call Qualifier",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2688,
+        -256
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -360,31 +368,31 @@
         "options": {
           "waitForSubWorkflow": false
         }
-      },
-      "id": "callq",
-      "name": "Call Qualifier",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        2688,
-        -256
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
-      },
       "id": "st_classify_extract",
       "name": "Stamp classify_extract",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         896,
-        752
+        576
       ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
+      },
       "notes": "Telemetry stamp (docs/traceability.md): start time + input size. Passes data through unchanged."
     },
     {
+      "id": "lg_classify_extract",
+      "name": "Log LLM classify_extract",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1808,
+        -96
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO vaibhavcapstone_llm_calls\n (business_id, lead_id, trace_id, call_site, prompt_version, model, latency_ms,\n  input_tokens, output_tokens, cost_usd, schema_valid, attempt, fallback_used, finish_reason, usage_source)\nVALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING call_id;",
@@ -392,38 +400,38 @@
           "queryReplacement": "={{ (() => { const g = $('LLM Result classify_extract').first().json; const st = $('Stamp classify_extract').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = (g.usageMetadata && g.usageMetadata.promptTokenCount != null) ? g.usageMetadata : null; const it = u ? (u.promptTokenCount || 0) : Math.ceil((st.__in_chars || 0) / 4); const ot = u ? ((u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0)) : Math.ceil(txt.length / 4); return [$json.business_id, $json.lead_id || null, $json.trace_id || null, 'classify_extract', 'v3', (g.__model || 'gemini-2.5-flash'), Date.now() - (st.__t0 || Date.now()), it, ot, +(((g.__fallback ? it * 0.15 + ot * 0.6 : it * 0.3 + ot * 2.5)) / 1e6).toFixed(6), $json.valid === true, 1, (g.__fallback === true), cand.finishReason || null, u ? 'exact_api' : 'estimated'] })() }}"
         }
       },
-      "id": "lg_classify_extract",
-      "name": "Log LLM classify_extract",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        1792,
-        -96
-      ],
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
       },
-      "continueOnFail": true,
-      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata)."
+      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata).",
+      "continueOnFail": true
     },
     {
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
-      },
       "id": "st_classify_extract_retry",
       "name": "Stamp classify_extract_retry",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2016,
-        80
+        2064,
+        592
       ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { ...j, __t0: Date.now(), __in_chars: JSON.stringify(j).length } }];"
+      },
       "notes": "Telemetry stamp (docs/traceability.md): start time + input size. Passes data through unchanged."
     },
     {
+      "id": "lg_classify_extract_retry",
+      "name": "Log LLM classify_extract_retry",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1840,
+        976
+      ],
       "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO vaibhavcapstone_llm_calls\n (business_id, lead_id, trace_id, call_site, prompt_version, model, latency_ms,\n  input_tokens, output_tokens, cost_usd, schema_valid, attempt, fallback_used, finish_reason, usage_source)\nVALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING call_id;",
@@ -431,24 +439,24 @@
           "queryReplacement": "={{ (() => { const g = $('LLM Result classify_extract_retry').first().json; const st = $('Stamp classify_extract_retry').first().json; const cand = Array.isArray(g.candidates) ? (g.candidates[0] || {}) : g; const txt = (cand.content && Array.isArray(cand.content.parts)) ? cand.content.parts.map(p => p.text || '').join('') : ''; const u = (g.usageMetadata && g.usageMetadata.promptTokenCount != null) ? g.usageMetadata : null; const it = u ? (u.promptTokenCount || 0) : Math.ceil((st.__in_chars || 0) / 4); const ot = u ? ((u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0)) : Math.ceil(txt.length / 4); return [$json.business_id, $json.lead_id || null, $json.trace_id || null, 'classify_extract_retry', 'v3', (g.__model || 'gemini-2.5-flash'), Date.now() - (st.__t0 || Date.now()), it, ot, +(((g.__fallback ? it * 0.15 + ot * 0.6 : it * 0.3 + ot * 2.5)) / 1e6).toFixed(6), $json.valid === true, 2, (g.__fallback === true), cand.finishReason || null, u ? 'exact_api' : 'estimated'] })() }}"
         }
       },
-      "id": "lg_classify_extract_retry",
-      "name": "Log LLM classify_extract_retry",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.6,
-      "position": [
-        1792,
-        560
-      ],
       "credentials": {
         "postgres": {
           "id": "KR1AzPVfamsVzB1d",
           "name": "Capstone-Postgres"
         }
       },
-      "continueOnFail": true,
-      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata)."
+      "notes": "Observability only (ADR-0010): continueOnFail + parallel branch - a logging failure can never touch the pipeline. Tokens are chars/4 estimates (node strips usageMetadata).",
+      "continueOnFail": true
     },
     {
+      "id": "lf_classify_ext",
+      "name": "Ship LF classify_extract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2128,
+        224
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://langfuse-web:3000/api/public/ingestion",
@@ -461,24 +469,24 @@
           "timeout": 10000
         }
       },
-      "id": "lf_classify_ext",
-      "name": "Ship LF classify_extract",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1792,
-        176
-      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "x9DKbzWznHMJTync",
           "name": "Capstone-Langfuse"
         }
       },
-      "continueOnFail": true,
-      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id."
+      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id.",
+      "continueOnFail": true
     },
     {
+      "id": "lf_classify_ext",
+      "name": "Ship LF classify_extract_retry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1968,
+        256
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://langfuse-web:3000/api/public/ingestion",
@@ -491,24 +499,24 @@
           "timeout": 10000
         }
       },
-      "id": "lf_classify_ext",
-      "name": "Ship LF classify_extract_retry",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1968,
-        256
-      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "x9DKbzWznHMJTync",
           "name": "Capstone-Langfuse"
         }
       },
-      "continueOnFail": true,
-      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id."
+      "notes": "Observability only - never blocks the pipeline. Trace id = platform trace_id.",
+      "continueOnFail": true
     },
     {
+      "id": "fb_classify_ext",
+      "name": "OpenAI Fallback classify_extract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1712,
+        496
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://api.openai.com/v1/chat/completions",
@@ -521,52 +529,32 @@
           "timeout": 60000
         }
       },
-      "id": "fb_classify_ext",
-      "name": "OpenAI Fallback classify_extract",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        2464,
-        816
-      ],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 1000,
       "credentials": {
         "openAiApi": {
           "id": "qQqGaHdi61WLgZ52",
           "name": "OpenAI account"
         }
       },
-      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright."
+      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright.",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
     },
     {
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
-      },
       "id": "mr_classify_ext",
       "name": "LLM Result classify_extract",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1344,
-        624
+        1712,
+        112
       ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
+      },
       "notes": "Merge point: normalizes Gemini or OpenAI responses to one shape; __model/__fallback feed telemetry."
     },
     {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'system', content: \"You classify and extract structured data from one inbound email received by a business.\\nRespond with ONLY a JSON object, no prose, exactly these keys:\\n{\\\"classification\\\":\\\"ENQUIRY|NOT_ENQUIRY|SPAM\\\",\\\"contact_name\\\":string|null,\\\"contact_email\\\":string|null,\\\"company\\\":string|null,\\\"budget_value\\\":number|null,\\\"budget_currency\\\":string|null,\\\"product_interest\\\":string[],\\\"urgency\\\":\\\"high\\\"|\\\"medium\\\"|\\\"low\\\"|null,\\\"location\\\":string|null (customer city/region relevant for delivery or visit; NOT rooms, sites or descriptions like a terrace),\\\"confidence\\\":number}\\nRules:\\n- ENQUIRY = a potential customer asking about buying the business's products/services.\\n- NOT_ENQUIRY = legitimate mail that is not a purchase enquiry (vendor pitches, partnerships, invoices, job applications).\\n- SPAM = scams, phishing, lotteries, unsolicited mass mail.\\n- Extract ONLY facts explicitly present in the email or its headers. Use null when absent. NEVER guess or invent values.\\n- contact_name: a name written in the body/signature; otherwise the From-Name header if it looks like a real personal name (e.g. first + last name). A bare handle, nickname, or single lowercase word is NOT a name -> null.\\n- budget_value: total numeric budget in the currency mentioned. Convert Indian notation (1 lakh = 100000, 1 crore = 10000000).\\n- product_interest: short lowercase category words for what they want (e.g. \\\"desks\\\", \\\"office-chairs\\\", \\\"sofas\\\", \\\"beds\\\", \\\"dining\\\", \\\"bookshelves\\\", \\\"outdoor\\\").\\n- urgency reflects TIME pressure only: high = explicit deadline or delivery window within ~a month (e.g. \\\"within 2-3 weeks\\\", \\\"by end of August\\\") or urgent wording; medium = implied near-term need or an event/move without an exact date; low = no time signal at all (price/availability questions alone are low).\\n- confidence: 0-1, how confident you are in classification AND extraction combined, given how clear and complete the email is.\\n  Calibration: 0.9+ = clear, well-formed, specific email; ~0.7 = clear intent but sparse details; BELOW 0.5 = garbled, txt-speak, or too vague to extract anything meaningful (e.g. \\\"hey u sell stuf?? price??\\\").\\nIf the message is garbled or barely intelligible: set EVERY extraction field to null, product_interest to [], and confidence below 0.5. Do not extract urgency or interests from garbled fragments.\" }, { role: 'user', content: ('Business receiving the email: ' + $('Fetch Lead').first().json.business_name + ' (industry: ' + ($('Fetch Lead').first().json.industry || 'unknown') + ')\\n\\nEmail:\\nFrom: ' + ($('Fetch Lead').first().json.from_email || 'unknown') + '\\nFrom-Name: ' + ($('Fetch Lead').first().json.from_name || '(none)') + '\\nSubject: ' + ($('Fetch Lead').first().json.subject || '(none)') + '\\n\\n' + ($('Fetch Lead').first().json.body || '')) }] }) }}",
-        "options": {
-          "timeout": 60000
-        }
-      },
       "id": "fb_classify_ext",
       "name": "OpenAI Fallback classify_extract_retry",
       "type": "n8n-nodes-base.httpRequest",
@@ -575,21 +563,30 @@
         1552,
         224
       ],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 1000,
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-4o-mini', response_format: { type: 'json_object' }, messages: [{ role: 'system', content: \"You classify and extract structured data from one inbound email received by a business.\\nRespond with ONLY a JSON object, no prose, exactly these keys:\\n{\\\"classification\\\":\\\"ENQUIRY|NOT_ENQUIRY|SPAM\\\",\\\"contact_name\\\":string|null,\\\"contact_email\\\":string|null,\\\"company\\\":string|null,\\\"budget_value\\\":number|null,\\\"budget_currency\\\":string|null,\\\"product_interest\\\":string[],\\\"urgency\\\":\\\"high\\\"|\\\"medium\\\"|\\\"low\\\"|null,\\\"location\\\":string|null (customer city/region relevant for delivery or visit; NOT rooms, sites or descriptions like a terrace),\\\"confidence\\\":number}\\nRules:\\n- ENQUIRY = a potential customer asking about buying the business's products/services.\\n- NOT_ENQUIRY = legitimate mail that is not a purchase enquiry (vendor pitches, partnerships, invoices, job applications).\\n- SPAM = scams, phishing, lotteries, unsolicited mass mail.\\n- Extract ONLY facts explicitly present in the email or its headers. Use null when absent. NEVER guess or invent values.\\n- contact_name: a name written in the body/signature; otherwise the From-Name header if it looks like a real personal name (e.g. first + last name). A bare handle, nickname, or single lowercase word is NOT a name -> null.\\n- budget_value: total numeric budget in the currency mentioned. Convert Indian notation (1 lakh = 100000, 1 crore = 10000000).\\n- product_interest: short lowercase category words for what they want (e.g. \\\"desks\\\", \\\"office-chairs\\\", \\\"sofas\\\", \\\"beds\\\", \\\"dining\\\", \\\"bookshelves\\\", \\\"outdoor\\\").\\n- urgency reflects TIME pressure only: high = explicit deadline or delivery window within ~a month (e.g. \\\"within 2-3 weeks\\\", \\\"by end of August\\\") or urgent wording; medium = implied near-term need or an event/move without an exact date; low = no time signal at all (price/availability questions alone are low).\\n- confidence: 0-1, how confident you are in classification AND extraction combined, given how clear and complete the email is.\\n  Calibration: 0.9+ = clear, well-formed, specific email; ~0.7 = clear intent but sparse details; BELOW 0.5 = garbled, txt-speak, or too vague to extract anything meaningful (e.g. \\\"hey u sell stuf?? price??\\\").\\nIf the message is garbled or barely intelligible: set EVERY extraction field to null, product_interest to [], and confidence below 0.5. Do not extract urgency or interests from garbled fragments.\" }, { role: 'user', content: ('Business receiving the email: ' + $('Fetch Lead').first().json.business_name + ' (industry: ' + ($('Fetch Lead').first().json.industry || 'unknown') + ')\\n\\nEmail:\\nFrom: ' + ($('Fetch Lead').first().json.from_email || 'unknown') + '\\nFrom-Name: ' + ($('Fetch Lead').first().json.from_name || '(none)') + '\\nSubject: ' + ($('Fetch Lead').first().json.subject || '(none)') + '\\n\\n' + ($('Fetch Lead').first().json.body || '')) }] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
       "credentials": {
         "openAiApi": {
           "id": "qQqGaHdi61WLgZ52",
           "name": "OpenAI account"
         }
       },
-      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright."
+      "notes": "Cross-vendor fallback (ADR-0013): same prompts, gpt-4o-mini. Fires only when the Gemini call fails outright.",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
     },
     {
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
-      },
       "id": "mr_classify_ext",
       "name": "LLM Result classify_extract_retry",
       "type": "n8n-nodes-base.code",
@@ -598,103 +595,106 @@
         1680,
         112
       ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nlet out;\nif (Array.isArray(j.candidates)) {\n  out = { ...j, __model: 'gemini-2.5-flash', __fallback: false };\n} else if (Array.isArray(j.choices)) {\n  const u = j.usage || {};\n  out = { candidates: [{ content: { parts: [{ text: (j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '' }] },\n    finishReason: (j.choices[0] && j.choices[0].finish_reason) || null }],\n    usageMetadata: { promptTokenCount: u.prompt_tokens || 0, candidatesTokenCount: u.completion_tokens || 0, thoughtsTokenCount: 0 },\n    __model: 'gpt-4o-mini', __fallback: true };\n} else {\n  out = { candidates: [], usageMetadata: {}, __model: 'unknown', __fallback: true };\n}\nreturn [{ json: out }];"
+      },
       "notes": "Merge point: normalizes Gemini or OpenAI responses to one shape; __model/__fallback feed telemetry."
     },
     {
+      "id": "sticky-BmN8Sf-0",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -640
+      ],
       "parameters": {
         "content": "## Reading the email\n\nAn enquiry has arrived and been written down. Now we need two things from it: **is this a real customer enquiry**, and **what facts are in it** — who wrote it, which company, what they want, how much they can spend, how soon.\n\nThat's the whole job here: turn a paragraph of English into tidy, checkable facts. Read left to right — get ready → ask the AI → if the answer came back unusable, ask once more → save what we got, or hand it to a person.",
         "height": 210,
         "width": 2640,
         "color": 4
-      },
+      }
+    },
+    {
+      "id": "sticky-BmN8Sf-1",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -100,
-        -640
+        -96,
+        -400
       ],
-      "id": "sticky-BmN8Sf-0",
-      "name": "Sticky Note"
-    },
-    {
       "parameters": {
         "content": "### Getting ready\n\n**Someone hands us a job.** This step never runs on its own. The workflow before it calls it and passes a small job ticket carrying the business, the enquiry and a tracking number.\n\n**Check the ticket is complete.** If any required detail is missing we stop right here with a clear error, rather than carry on with half a job. The error workflow catches it, writes it down and emails the operator.\n\n**Fetch the enquiry.** Ask the database for the full text of this enquiry, plus this particular business's own settings.\n\n**Is it at the right stage?** An enquiry is only read once. If it has already been read, or the business hasn't finished setting up, we quietly stop instead of doing the work twice.",
         "height": 800,
         "width": 780,
         "color": 7
-      },
+      }
+    },
+    {
+      "id": "sticky-BmN8Sf-2",
+      "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -100,
+        704,
         -400
       ],
-      "id": "sticky-BmN8Sf-1",
-      "name": "Sticky Note1"
-    },
-    {
       "parameters": {
         "content": "### The AI reads it\n\n**Start the stopwatch.** We note the time and the size of what we're about to send, so we can report exactly how long the AI took and what it cost.\n\n**Ask Google's AI.** We call Google directly rather than through n8n's ready-made AI step — deliberately. Only the direct call reports the **exact** number of tokens used, including the ones the AI spends thinking before it answers. Those hidden thinking tokens are why our first cost estimate was 36 times too low.\n\n**If Google is down, OpenAI answers instead.** Same instructions, different company. A full-outage drill proved the pipeline finishes on the backup and the answer is still grounded.\n\n**Make both answers look alike.** The two companies format replies differently. One small step rewrites either into a single shape, so nothing downstream needs to know who answered.\n\n**Check the answer is usable.** Is the verdict one of the three we allow? Is the confidence a real number? Are the facts shaped correctly? A confident-sounding but malformed answer gets caught right here.\n\n**Record what the call cost** — into the database, and off to the tracing dashboard, with its exact token count and price.",
         "height": 800,
         "width": 660,
         "color": 7
-      },
+      }
+    },
+    {
+      "id": "sticky-BmN8Sf-3",
+      "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        700,
-        -400
+        2640,
+        -48
       ],
-      "id": "sticky-BmN8Sf-2",
-      "name": "Sticky Note2"
-    },
-    {
       "parameters": {
         "content": "### One more try — then save, or ask a person\n\n**If the first answer was unusable, we ask once more.** Same email, same instructions, a fresh attempt — with the same Google-then-OpenAI arrangement behind it, and its cost recorded just the same.\n\n**Save the facts.** The verdict and every extracted fact are written to the enquiry's record in one go, and the enquiry moves to its next stage.\n\nThis save is **guarded**: it only applies if the enquiry is still at the stage we expect. That condition is what makes it impossible to process the same enquiry twice into a mess — the database enforces it, not the workflow.\n\n**If the second answer was also unusable, a person takes over.** The enquiry is marked as needing review with the original email untouched. The AI having a bad day becomes someone's task, never a wrong fact in the record.",
         "height": 800,
         "width": 660,
         "color": 7
-      },
+      }
+    },
+    {
+      "id": "sticky-BmN8Sf-4",
+      "name": "Sticky Note4",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        1380,
-        -400
+        2048,
+        -896
       ],
-      "id": "sticky-BmN8Sf-3",
-      "name": "Sticky Note3"
-    },
-    {
       "parameters": {
         "content": "### Handing on\n\n**Did it actually work?** Check the enquiry really did reach the \"facts extracted\" stage before going any further.\n\n**Write the next job ticket** — same business, same enquiry, same tracking number, now stamped as coming from this step.\n\n**Call the next workflow**, which works out how promising this enquiry is.\n\nSpam and non-enquiries stop here, on purpose. They've been read, judged and recorded — there's simply nothing worth replying to.",
         "height": 800,
         "width": 480,
         "color": 7
-      },
+      }
+    },
+    {
+      "id": "sticky-BmN8Sf-5",
+      "name": "Sticky Note5",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        2060,
-        -400
+        -80,
+        736
       ],
-      "id": "sticky-BmN8Sf-4",
-      "name": "Sticky Note4"
-    },
-    {
       "parameters": {
         "content": "## The rule this whole step protects\n\n**Blank beats invented.**\n\nThe AI is told: if a fact isn't clearly in the email, leave it empty. Don't infer, don't assume, don't be helpful.\n\nThat's why a malformed answer becomes a person's job instead of a best guess — and it's why, across the whole test set, **not one fact was ever invented**.",
         "height": 250,
         "width": 780,
         "color": 3
-      },
-      "type": "n8n-nodes-base.stickyNote",
-      "typeVersion": 1,
-      "position": [
-        -100,
-        440
-      ],
-      "id": "sticky-BmN8Sf-5",
-      "name": "Sticky Note5"
+      }
     }
   ],
   "connections": {
@@ -962,8 +962,7 @@
     "executionOrder": "v1",
     "timezone": "Asia/Kolkata",
     "errorWorkflow": "7jyaQ5gz8eYDBFJI",
-    "saveDataErrorExecution": "all",
-    "binaryMode": "separate"
+    "saveDataErrorExecution": "all"
   },
   "meta": {}
 }

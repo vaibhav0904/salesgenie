@@ -110,6 +110,14 @@
       "webhookId": "ba2f2f89-550b-443f-970c-d48872bd1aeb"
     },
     {
+      "id": "real-failure-gate",
+      "name": "Real Failure?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        0
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -154,95 +162,87 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        880,
-        0
-      ],
-      "id": "real-failure-gate",
-      "name": "Real Failure?"
+      }
     },
     {
-      "parameters": {
-        "content": "## The safety net\n\nEvery other workflow points here when something goes wrong. **Nothing in this system is allowed to fail silently** — a customer enquiry must never simply evaporate.",
-        "height": 160,
-        "width": 1500,
-        "color": 4
-      },
+      "id": "sticky-7jyaQ5-0",
+      "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -290
       ],
-      "id": "sticky-7jyaQ5-0",
-      "name": "Sticky Note"
+      "parameters": {
+        "content": "## The safety net\n\nEvery other workflow points here when something goes wrong. **Nothing in this system is allowed to fail silently** — a customer enquiry must never simply evaporate.",
+        "height": 160,
+        "width": 1500,
+        "color": 4
+      }
     },
     {
-      "parameters": {
-        "content": "### Work out what broke — and whether an enquiry was hurt\n\n**Something failed somewhere.** We're told which workflow, which step, and what the message said.\n\n**Find the enquiry, if there was one.** Failures are tagged with the enquiry and its tracking number, and we dig those back out of the failure text — which is fiddlier than it sounds, because the workflow engine chops error messages up before we see them.",
-        "height": 420,
-        "width": 660,
-        "color": 7
-      },
+      "id": "sticky-7jyaQ5-1",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -150
       ],
-      "id": "sticky-7jyaQ5-1",
-      "name": "Sticky Note1"
+      "parameters": {
+        "content": "### Work out what broke — and whether an enquiry was hurt\n\n**Something failed somewhere.** We're told which workflow, which step, and what the message said.\n\n**Find the enquiry, if there was one.** Failures are tagged with the enquiry and its tracking number, and we dig those back out of the failure text — which is fiddlier than it sounds, because the workflow engine chops error messages up before we see them.",
+        "height": 420,
+        "width": 660,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "### Record it, and protect the enquiry\n\n**Mark the enquiry as stuck** — but only if it wasn't already finished. A late failure must never undo an enquiry that was already sent or already rejected.\n\n**Write the failure down** with everything needed to understand it later. This always happens, for every failure, no exceptions.",
-        "height": 420,
-        "width": 460,
-        "color": 7
-      },
+      "id": "sticky-7jyaQ5-2",
+      "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         580,
         -150
       ],
-      "id": "sticky-7jyaQ5-2",
-      "name": "Sticky Note2"
+      "parameters": {
+        "content": "### Record it, and protect the enquiry\n\n**Mark the enquiry as stuck** — but only if it wasn't already finished. A late failure must never undo an enquiry that was already sent or already rejected.\n\n**Write the failure down** with everything needed to understand it later. This always happens, for every failure, no exceptions.",
+        "height": 420,
+        "width": 460,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "### Only bother a person if it's real\n\n**Email the operator** — but only when there is something a person can actually act on.\n\nSome failures are self-healing: the mailbox connection drops, and the system reconnects by itself seconds later. Those arrive with no execution, no failing step and no enquiry attached — nothing to fix. They are still written down above, but they no longer send an email.\n\nAnything with a real execution, a real failing step, or a real enquiry attached still emails immediately.",
-        "height": 420,
-        "width": 420,
-        "color": 7
-      },
+      "id": "sticky-7jyaQ5-3",
+      "name": "Sticky Note3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         1060,
         -150
       ],
-      "id": "sticky-7jyaQ5-3",
-      "name": "Sticky Note3"
+      "parameters": {
+        "content": "### Only bother a person if it's real\n\n**Email the operator** — but only when there is something a person can actually act on.\n\nSome failures are self-healing: the mailbox connection drops, and the system reconnects by itself seconds later. Those arrive with no execution, no failing step and no enquiry attached — nothing to fix. They are still written down above, but they no longer send an email.\n\nAnything with a real execution, a real failing step, or a real enquiry attached still emails immediately.",
+        "height": 420,
+        "width": 420,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "## Why the alert is filtered, not switched off\n\nAn operator who gets an email every few hours for something that fixed itself stops reading the emails — and that is exactly how a real failure gets missed.\n\nSo the filter is deliberately narrow: silence **only** when there is no execution, no failing step *and* no enquiry. Everything else still shouts.\n\nThe recording step is also set to carry on even if it fails, so the alert still goes out **even when the database is the thing that's broken**.",
-        "height": 230,
-        "width": 1140,
-        "color": 3
-      },
+      "id": "sticky-7jyaQ5-4",
+      "name": "Sticky Note4",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         300
       ],
-      "id": "sticky-7jyaQ5-4",
-      "name": "Sticky Note4"
+      "parameters": {
+        "content": "## Why the alert is filtered, not switched off\n\nAn operator who gets an email every few hours for something that fixed itself stops reading the emails — and that is exactly how a real failure gets missed.\n\nSo the filter is deliberately narrow: silence **only** when there is no execution, no failing step *and* no enquiry. Everything else still shouts.\n\nThe recording step is also set to carry on even if it fails, so the alert still goes out **even when the database is the thing that's broken**.",
+        "height": 230,
+        "width": 1140,
+        "color": 3
+      }
     }
   ],
   "connections": {

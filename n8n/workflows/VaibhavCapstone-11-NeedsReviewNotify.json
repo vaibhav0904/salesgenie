@@ -59,11 +59,11 @@
           "name": "Capstone-Postgres"
         }
       },
+      "notes": "Claim-then-notify: the same UPDATE that selects the lead also stamps review_notified_at, so no lead is ever emailed twice (and tenants without a reviewer are skipped, not failed).",
       "alwaysOutputData": true,
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 1000,
-      "notes": "Claim-then-notify: the same UPDATE that selects the lead also stamps review_notified_at, so no lead is ever emailed twice (and tenants without a reviewer are skipped, not failed)."
+      "waitBetweenTries": 1000
     },
     {
       "id": "has",
@@ -122,11 +122,11 @@
           "name": "Capstone-SMTP"
         }
       },
+      "webhookId": "6cbf9cb8-ae42-4f10-9a72-9915bc57d6d5",
+      "notes": "Triage email, NOT a customer email: it carries the original enquiry and why the assistant stopped. Nothing is ever sent to the customer from this path.",
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "notes": "Triage email, NOT a customer email: it carries the original enquiry and why the assistant stopped. Nothing is ever sent to the customer from this path.",
-      "webhookId": "6cbf9cb8-ae42-4f10-9a72-9915bc57d6d5"
+      "waitBetweenTries": 2000
     },
     {
       "id": "log",
@@ -156,52 +156,52 @@
       "waitBetweenTries": 1000
     },
     {
-      "parameters": {
-        "content": "## The nudger\n\nWhen the system isn't confident enough to act on an enquiry by itself, it says so and stops.\n\nThis step makes sure a person actually *hears* about it — because an enquiry quietly waiting for attention that nobody knows about is just a lost enquiry.",
-        "height": 165,
-        "width": 1320,
-        "color": 4
-      },
+      "id": "sticky-uLxUlj-0",
+      "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -310
       ],
-      "id": "sticky-uLxUlj-0",
-      "name": "Sticky Note"
+      "parameters": {
+        "content": "## The nudger\n\nWhen the system isn't confident enough to act on an enquiry by itself, it says so and stops.\n\nThis step makes sure a person actually *hears* about it — because an enquiry quietly waiting for attention that nobody knows about is just a lost enquiry.",
+        "height": 165,
+        "width": 1320,
+        "color": 4
+      }
     },
     {
-      "parameters": {
-        "content": "### Find what's waiting for a person\n\n**Every ten minutes**, or on demand for a demo.\n\n**Claim anything needing review that hasn't been reported yet.** \"Claim\" is the important word: the enquiries are marked as reported in the very same question that fetches them.\n\nThat's what stops the next run, ten minutes later, emailing somebody all over again about the same enquiries.",
-        "height": 450,
-        "width": 700,
-        "color": 7
-      },
+      "id": "sticky-uLxUlj-1",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         -100,
         -190
       ],
-      "id": "sticky-uLxUlj-1",
-      "name": "Sticky Note1"
+      "parameters": {
+        "content": "### Find what's waiting for a person\n\n**Every ten minutes**, or on demand for a demo.\n\n**Claim anything needing review that hasn't been reported yet.** \"Claim\" is the important word: the enquiries are marked as reported in the very same question that fetches them.\n\nThat's what stops the next run, ten minutes later, emailing somebody all over again about the same enquiries.",
+        "height": 450,
+        "width": 700,
+        "color": 7
+      }
     },
     {
-      "parameters": {
-        "content": "### Tell someone\n\n**Email this business's reviewer** with what needs a look.\n\n**Then record that they were told** — so the trail shows not just that an enquiry needed attention, but that a person was actually asked to give it.",
-        "height": 450,
-        "width": 580,
-        "color": 7
-      },
+      "id": "sticky-uLxUlj-2",
+      "name": "Sticky Note2",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         620,
         -190
       ],
-      "id": "sticky-uLxUlj-2",
-      "name": "Sticky Note2"
+      "parameters": {
+        "content": "### Tell someone\n\n**Email this business's reviewer** with what needs a look.\n\n**Then record that they were told** — so the trail shows not just that an enquiry needed attention, but that a person was actually asked to give it.",
+        "height": 450,
+        "width": 580,
+        "color": 7
+      }
     }
   ],
   "connections": {

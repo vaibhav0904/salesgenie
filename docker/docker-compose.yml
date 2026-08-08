@@ -1,0 +1,95 @@
+# Local n8n + Postgres for SalesGenie.
+#
+# This is the OPTIONAL path, for developing on your own machine. The supported way
+# to actually run SalesGenie is hosted n8n + a managed database —
+# see docs/business-onboarding-guide.md.
+#
+#   cd docker && docker compose --env-file ../.env up -d
+#
+# Then open http://localhost:5678, create the owner account, and follow
+# n8n/workflows/README.md. Because n8n is on localhost here, you do NOT need
+# scripts/retarget-host.js — the exports already point at this address.
+#
+# Self-contained on purpose: its own network and volumes, no dependency on any
+# stack that happens to exist on the author's machine.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: salesgenie-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-salesgenie}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-salesgenie}
+    ports:
+      # Published so psql and the scripts in scripts/ can reach it from the host.
+      - "5432:5432"
+    volumes:
+      - salesgenie_pg_data:/var/lib/postgresql/data
+      # Everything in here runs once, in filename order, on first boot of an empty
+      # volume — so a fresh `up -d` arrives with the schema already applied.
+      # 002 is the optional demo tenant; delete the line below to start clean.
+      - ../db/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ../db/002_seed_oakember.sql:/docker-entrypoint-initdb.d/002_seed_oakember.sql:ro
+      - ../db/003_llm_observability.sql:/docker-entrypoint-initdb.d/003_llm_observability.sql:ro
+      - ../db/004_a2a.sql:/docker-entrypoint-initdb.d/004_a2a.sql:ro
+      - ../db/005_exact_usage.sql:/docker-entrypoint-initdb.d/005_exact_usage.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-salesgenie} -d ${POSTGRES_DB:-salesgenie}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: salesgenie-n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5678:5678"
+    environment:
+      # The exports assume this exact address. Change it and you must also run
+      # scripts/retarget-host.js.
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Kolkata}
+      # n8n keeps its OWN data (workflows, credentials, executions) here. This is a
+      # different database from the salesgenie one the workflows read and write.
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-salesgenie}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_RUNNERS_ENABLED: "true"
+    volumes:
+      - salesgenie_n8n_data:/home/node/.n8n
+
+  # Creates the separate `n8n` database the service above needs. Postgres' own
+  # init scripts only ever create one database, so this fills the gap and exits.
+  n8n-db-init:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        psql -h postgres -U ${POSTGRES_USER:-salesgenie} -d ${POSTGRES_DB:-salesgenie} \
+          -tc "SELECT 1 FROM pg_database WHERE datname='n8n'" | grep -q 1 \
+          || psql -h postgres -U ${POSTGRES_USER:-salesgenie} -d ${POSTGRES_DB:-salesgenie} \
+             -c "CREATE DATABASE n8n"
+    restart: "no"
+
+volumes:
+  salesgenie_pg_data:
+  salesgenie_n8n_data:

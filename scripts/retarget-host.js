@@ -1,0 +1,142 @@
+#!/usr/bin/env node
+// Rewrite the workflow exports for YOUR n8n instead of the author's laptop.
+//
+// The exports were built on a machine where n8n answered at http://localhost:5678.
+// On hosted n8n that address means nothing, and the breakage is quiet: the MCP tool
+// nodes still "work" in the sense that they run, they just call an address that
+// isn't there. So this rewrites every host-dependent value in one pass.
+//
+// It walks the ENTIRE JSON tree, not just parameters.url, because five of the
+// twenty occurrences are buried where a URL-field search never looks:
+//   08-MCPOnboarding  - 2, inside Postgres SQL queries
+//   09-MCPOperations  - 1, inside a Postgres SQL query
+//   13-A2AServer      - 2, inside a Code node's jsCode
+//
+// Usage:
+//   node scripts/retarget-host.js --base https://you.app.n8n.cloud
+//   node scripts/retarget-host.js --base https://you.app.n8n.cloud \
+//        --langfuse https://cloud.langfuse.com --reviewer you@yourbusiness.com
+//   node scripts/retarget-host.js --base ... --out some/dir
+//
+// Reads  n8n/workflows/*.json   (never modified)
+// Writes <out>/*.json           (default: n8n/workflows-retargeted/)
+
+const fs = require('fs');
+const path = require('path');
+
+const OLD_HOST = 'http://localhost:5678';
+const OLD_LANGFUSE = 'http://langfuse-web:3000';
+const OLD_REVIEWER = 'reviewer@example.com';
+
+// Per-instance references this script CANNOT fix: n8n resolves these by id, and the
+// ids only exist on the machine that created them. Reported so they get re-selected.
+const ERROR_WORKFLOW_ID = '7jyaQ5gz8eYDBFJI';
+
+function parseArgs(argv) {
+  const a = {};
+  for (let i = 2; i < argv.length; i += 2) {
+    const k = argv[i];
+    if (!k || !k.startsWith('--')) throw new Error(`unexpected argument: ${k}`);
+    a[k.slice(2)] = argv[i + 1];
+  }
+  return a;
+}
+
+const args = parseArgs(process.argv);
+if (!args.base) {
+  console.error(`Rewrite the workflow exports for your own n8n host.
+
+  --base      REQUIRED  your n8n base URL, e.g. https://you.app.n8n.cloud
+  --langfuse  optional  Langfuse ingestion host, e.g. https://cloud.langfuse.com
+  --reviewer  optional  replaces the reviewer@example.com alert defaults
+  --out       optional  output directory (default n8n/workflows-retargeted)
+
+Nothing under n8n/workflows/ is modified.`);
+  process.exit(1);
+}
+
+const base = String(args.base).replace(/\/+$/, '');
+if (!/^https?:\/\//.test(base)) {
+  console.error(`--base must start with http:// or https:// (got "${args.base}")`);
+  process.exit(1);
+}
+const langfuse = args.langfuse ? String(args.langfuse).replace(/\/+$/, '') : null;
+const reviewer = args.reviewer || null;
+
+const repoRoot = path.resolve(__dirname, '..');
+const srcDir = path.join(repoRoot, 'n8n', 'workflows');
+const outDir = args.out ? path.resolve(repoRoot, args.out) : path.join(repoRoot, 'n8n', 'workflows-retargeted');
+
+// Replace on the raw JSON text so occurrences inside SQL strings and jsCode are
+// caught too. Split/join rather than a regex: no escaping pitfalls, and the
+// author's own CLAUDE.md warns that JS replace() expands $' and $& in the
+// replacement, which would silently corrupt SQL containing those characters.
+function replaceAll(text, needle, replacement) {
+  const parts = text.split(needle);
+  return { text: parts.join(replacement), count: parts.length - 1 };
+}
+
+fs.mkdirSync(outDir, { recursive: true });
+const files = fs.readdirSync(srcDir).filter((f) => f.endsWith('.json')).sort();
+if (!files.length) {
+  console.error(`no .json files found in ${srcDir}`);
+  process.exit(1);
+}
+
+let totalHost = 0, totalLf = 0, totalRev = 0;
+const needsManual = { errorWorkflow: [], executeWorkflow: [] };
+const perFile = [];
+
+for (const file of files) {
+  let text = fs.readFileSync(path.join(srcDir, file), 'utf8');
+
+  const h = replaceAll(text, OLD_HOST, base); text = h.text;
+  let lf = { count: 0 };
+  if (langfuse) { lf = replaceAll(text, OLD_LANGFUSE, langfuse); text = lf.text; }
+  let rv = { count: 0 };
+  if (reviewer) { rv = replaceAll(text, OLD_REVIEWER, reviewer); text = rv.text; }
+
+  totalHost += h.count; totalLf += lf.count; totalRev += rv.count;
+
+  // Must still parse — a broken rewrite is worse than none.
+  let wf;
+  try { wf = JSON.parse(text); }
+  catch (e) { console.error(`FAILED: ${file} no longer parses as JSON after rewrite: ${e.message}`); process.exit(1); }
+
+  if (wf.settings && wf.settings.errorWorkflow === ERROR_WORKFLOW_ID) needsManual.errorWorkflow.push(file);
+  for (const n of wf.nodes || []) {
+    if (n.type === 'n8n-nodes-base.executeWorkflow') {
+      const id = n.parameters && n.parameters.workflowId && (n.parameters.workflowId.value || n.parameters.workflowId);
+      needsManual.executeWorkflow.push(`${file} → node "${n.name}" → workflow id ${id}`);
+    }
+  }
+
+  fs.writeFileSync(path.join(outDir, file), JSON.stringify(wf, null, 2) + '\n');
+  if (h.count || lf.count || rv.count) {
+    perFile.push(`  ${file.padEnd(42)} host:${String(h.count).padStart(2)}  langfuse:${lf.count}  reviewer:${rv.count}`);
+  }
+}
+
+console.log(`Rewrote ${files.length} workflows -> ${path.relative(repoRoot, outDir)}\n`);
+console.log(`  ${OLD_HOST}  ->  ${base}                 ${totalHost} occurrences`);
+console.log(`  ${OLD_LANGFUSE}  ->  ${langfuse || '(unchanged - pass --langfuse to rewrite)'}  ${totalLf} occurrences`);
+console.log(`  ${OLD_REVIEWER}  ->  ${reviewer || '(unchanged - pass --reviewer to rewrite)'}  ${totalRev} occurrences`);
+console.log('\nper file:'); perFile.forEach((l) => console.log(l));
+
+if (!langfuse && totalLf === 0) {
+  console.log(`\nNOTE  ${OLD_LANGFUSE} still appears in these exports. It is a Docker service`);
+  console.log('      name that resolves only inside the author\'s compose network. The "Ship LF"');
+  console.log('      nodes fail silently and harmlessly if left - tracing is simply off. Pass');
+  console.log('      --langfuse https://cloud.langfuse.com to send traces to Langfuse Cloud.');
+}
+
+console.log('\n--- STILL NEEDS A HUMAN, AFTER IMPORT ---');
+console.log('n8n matches these by internal id, not by name, and ids are per-instance.\n');
+console.log(`1. Error workflow (${needsManual.errorWorkflow.length} files reference id ${ERROR_WORKFLOW_ID}):`);
+console.log('   In each, Settings -> Error Workflow -> re-select "VaibhavCapstone-00-ErrorHandler".');
+console.log('   Skip this and failures become invisible.');
+console.log(`   ${needsManual.errorWorkflow.join(', ')}\n`);
+console.log(`2. Execute Workflow nodes (${needsManual.executeWorkflow.length}) - open each and re-select the target:`);
+needsManual.executeWorkflow.forEach((l) => console.log(`   ${l}`));
+console.log('\nImport in this order so sub-workflows exist before their callers:');
+console.log('   00 -> 06 -> 05 -> 04 -> 03 -> 10 -> then 01, 02, 07, 08, 09, 11, 12, 13');

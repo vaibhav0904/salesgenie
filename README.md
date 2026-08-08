@@ -6,11 +6,44 @@ Built on **n8n** (14 workflows, authored via its REST API) + **Postgres** + **Ge
 
 ## ▶ See it work
 
-**[Watch the 10-minute demo](../../releases/tag/demo-v1)** — a business born by chat, an
-enquiry that parks itself until the shop is ready and resumes on its own, two attempts to
-make the AI lie (both fail), the weekly cost report, and another company's AI buying over
-A2A while a human still holds the pen. Recorded live against this system; every number on
-screen traces back to a `vaibhavcapstone_*` row.
+**[Watch the 10-minute demo](https://github.com/vaibhav0904/salesgenie/releases/tag/demo-v1)** —
+a business born by chat, an enquiry that parks itself until the shop is ready and resumes
+on its own, two attempts to make the AI lie (both fail), the weekly cost report, and
+another company's AI buying over A2A while a human still holds the pen. Recorded live
+against this system; every number on screen traces back to a `vaibhavcapstone_*` row.
+
+## Run it for your own business
+
+**→ [The complete setup guide](docs/business-onboarding-guide.md)** — about 45 minutes,
+no command line, free tiers throughout. That is the path to follow if you want to *use*
+this rather than read about it.
+
+**What you need before you start:**
+
+| Piece | Required? | What happens without it |
+|---|---|---|
+| **Hosted n8n** with a public URL (n8n Cloud, or self-hosted anywhere) | Yes | Nothing runs |
+| **A Postgres database** (Supabase / Neon free tier) | Yes | Nothing runs — this is the system of record |
+| **A Google Gemini API key** (free tier) | Yes | No reading, scoring or drafting |
+| **An OpenAI API key** | Optional | No fallback when Gemini is down, and no independent quality judge |
+| **A mailbox with SMTP** (Gmail app password works) | Yes | No approval requests, no alerts — and approval is the whole safety model |
+| **IMAP on that mailbox** | Optional | The email door is off; the webhook, chat and A2A doors still work |
+| **An invented bearer token** | Optional | No chat (MCP) control; you would set up over HTTP instead |
+| **A Langfuse Cloud account** (free) | Optional | No per-call LLM tracing; the Monday report still shows cost and quality from your own database |
+
+Your AI keys and mailbox password go into **n8n's Credentials**, not into `.env` —
+`.env` is only for the helper scripts. [`docs/workflows-reference.md`](docs/workflows-reference.md)
+lists the seven credentials and their exact names.
+
+**One thing you must not skip:** these exports were built against `http://localhost:5678`,
+which appears 20 times across 5 files — five of them buried inside SQL queries and Code
+nodes. Run `node scripts/retarget-host.js --base https://your-n8n-url` before importing;
+it rewrites all of them and prints the handful it cannot fix for you.
+
+**Understanding what you are running:**
+[`docs/workflows-reference.md`](docs/workflows-reference.md) documents all 14 workflows —
+what each does, what starts it, its endpoints, which credentials and database tables it
+uses, and how they call each other. It is generated from the exports, so it cannot drift.
 
 ## Three doors, one pipeline
 

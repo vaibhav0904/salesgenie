@@ -1,8 +1,23 @@
-# Docker setup
+# Docker setup — the optional local path
 
-The platform reuses the existing n8n compose project rather than running a second stack.
+**Most people should not need this.** The supported way to run SalesGenie is hosted
+n8n plus a managed database — see [`../docs/business-onboarding-guide.md`](../docs/business-onboarding-guide.md).
+This is for developing on your own machine.
 
-- **Compose file:** `<your project folder>\n8n - Local Data\docker-compose.yml`
+```bash
+cd docker && docker compose --env-file ../.env up -d
+```
+
+`docker-compose.yml` in this folder is self-contained: its own network and volumes,
+n8n on `http://localhost:5678`, Postgres on `5432`, and the `db/` migrations applied
+automatically on first boot. Because n8n lands on localhost, the workflow exports
+work as shipped — no `retarget-host.js` needed.
+
+Everything below describes the **author's own arrangement**, kept for reference. It
+predates the compose file above and reuses a separate, uncommitted n8n project, so
+the paths are specific to one machine and will not exist on yours.
+
+- **Compose file (author's machine only):** `…\Documents\n8n - Local Data\docker-compose.yml`
 - **Services:** `n8n` (port 5678), `gotenberg` (port 3000, pre-existing), `postgres` (port 5432, added for SalesGenie)
 - **Postgres:** `postgres:16-alpine`, DB/user `salesgenie`, password in this repo's `.env` (`POSTGRES_PASSWORD`). Data persists in the named volume `salesgenie_pg_data` (verified across container restart).
 
