@@ -18,3 +18,8 @@ salesgenie-n8n-workflows.zip
 presentation/video-assets/raw/
 presentation/video-assets/audio/
 presentation/video-assets/work/
+
+# Finished cuts are tens of MB — they ship as GitHub release assets, not in git
+# history, so a clone stays small. A teaser under ~10MB may still be committed
+# by un-ignoring it explicitly (git add -f), per video-assets/packaging.md.
+presentation/video-assets/exports/*.mp4
