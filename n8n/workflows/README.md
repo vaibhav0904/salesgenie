@@ -102,4 +102,8 @@ It writes retargeted copies to `n8n/workflows-retargeted/`, leaves the originals
 
 **What each workflow does** — triggers, endpoints, credentials, tables read and written, and the call graph — is in [`docs/workflows-reference.md`](../../docs/workflows-reference.md), generated from these exports so it cannot drift.
 
+**If you import from the command line** (`n8n import:workflow --separate --input=<dir>` plus `n8n publish:workflow --id=<id>` for each), **restart n8n afterwards.** Publishing this way sets `active` in the database but does not register the webhooks in the running process — every endpoint returns *"the requested webhook is not registered"* until the restart. Verified on a clean instance, 2026-08-09. Importing through the UI does not have this problem.
+
+A credential imported by CLI can carry an explicit `id`. Give it the same id the exports reference (`KR1AzPVfamsVzB1d` for `Capstone-Postgres`) and every node binds automatically, with no re-selection.
+
 **Keeping these files honest.** Editing a workflow in the n8n UI silently changes its stored JSON, so committed exports go stale. Before committing workflow changes, run `node scripts/sync-workflows.js` (or `--check` to just be told). It re-exports every `VaibhavCapstone-*`, regenerates the reference above, and scrubs any real operator email back to the placeholder.

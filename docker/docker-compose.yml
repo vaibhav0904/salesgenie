@@ -24,12 +24,19 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-salesgenie}
     ports:
       # Published so psql and the scripts in scripts/ can reach it from the host.
-      - "5432:5432"
+      # Override the host side to run a second, throwaway stack alongside a live one:
+      #   POSTGRES_HOST_PORT=5433 N8N_HOST_PORT=5679 docker compose -p sg-test up -d
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - salesgenie_pg_data:/var/lib/postgresql/data
       # Everything in here runs once, in filename order, on first boot of an empty
       # volume — so a fresh `up -d` arrives with the schema already applied.
-      # 002 is the optional demo tenant; delete the line below to start clean.
+      #
+      # 002 is the DEMO TENANT (Oak & Ember, 20 products). It is included so a first
+      # `up -d` gives you something to look at. Comment the line out for a clean
+      # platform with no sample data — the README quickstart assumes you have.
+      # (Leave it in and your first catalogue upload lands alongside 20 demo products,
+      # which is confusing if you were expecting an empty shop.)
       - ../db/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
       - ../db/002_seed_oakember.sql:/docker-entrypoint-initdb.d/002_seed_oakember.sql:ro
       - ../db/003_llm_observability.sql:/docker-entrypoint-initdb.d/003_llm_observability.sql:ro
@@ -49,14 +56,14 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "5678:5678"
+      - "${N8N_HOST_PORT:-5678}:5678"
     environment:
-      # The exports assume this exact address. Change it and you must also run
-      # scripts/retarget-host.js.
+      # The exports assume http://localhost:5678. On any other address you must run
+      # scripts/retarget-host.js --base <that address> and import its output.
       N8N_HOST: localhost
       N8N_PORT: 5678
       N8N_PROTOCOL: http
-      WEBHOOK_URL: http://localhost:5678/
+      WEBHOOK_URL: http://localhost:${N8N_HOST_PORT:-5678}/
       GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Kolkata}
       # n8n keeps its OWN data (workflows, credentials, executions) here. This is a
       # different database from the salesgenie one the workflows read and write.
