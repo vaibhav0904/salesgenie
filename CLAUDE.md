@@ -15,10 +15,10 @@ Three intake doors → one pipeline, per `docs/architecture.md`:
 Email/Webhook/MCP chat/A2A → 01-Intake → 03-ClassifyExtract → 04-Qualifier
   → 05-Recommender → 06-DraftHITL → 🧑 approve → send
 ```
-14 workflows total; the rest (00 ErrorHandler, 07 WeeklyInsights, 08/09 MCP
-servers, 10 ResumeParked, 11 NeedsReviewNotify, 12 LLMJudge, 13 A2AServer)
-hang off this spine, all reading/writing `vaibhavcapstone_*` Postgres tables
-keyed by `business_id` (see Gotchas for why that matters).
+14 total; the rest (00 ErrorHandler, 07 WeeklyInsights, 08/09 MCP servers,
+10 ResumeParked, 11 NeedsReviewNotify, 12 LLMJudge, 13 A2AServer) hang off
+this spine, all on `vaibhavcapstone_*` tables keyed by `business_id`.
+Per-workflow detail: `docs/workflows-reference.md` (generated — don't hand-edit).
 
 ## Where things live
 - `docs/architecture.md` — picture; `docs/contracts.md` — Envelope, payloads, state machines; `docs/scoring.md` — rubric + reweight recipes; `docs/traceability.md` — LLM observability
@@ -32,6 +32,7 @@ keyed by `business_id` (see Gotchas for why that matters).
 - Insights: `POST /webhook/vaibhavcapstone-insights-run` · `GET /webhook/vaibhavcapstone-insights-latest?business_id=…`
 - Deploy a workflow edit: PUT via API, then deactivate→activate · A2A demo: `scripts/buyer-agent-demo.js [business_id]`
 - Environments: `docs/environments.md` · reset: `scripts/reset-test-db.js` / `reset-demo-db.js`
+- Ship to others: `scripts/sync-workflows.js [--check]` (re-export + regen reference) · `scripts/retarget-host.js --base <url>` (rewrite exports for another host)
 
 ## Conventions
 - Workflows `VaibhavCapstone-<NN>-<Name>`; tables `vaibhavcapstone_<name>`; every row keyed by `business_id`.
@@ -45,15 +46,16 @@ keyed by `business_id` (see Gotchas for why that matters).
 - Email clients don't run JS: email charts are QuickChart PNG `<img>`s.
 - Missing tenant config is a PRODUCT state (AWAITING_SETUP), not an error.
 - n8n 2.x API: PUT edits DRAFT only, rejects off-schema settings (`binaryMode`) — whitelist; Code-node errors only in `stack`; waiting executions invisible.
-- Exports drift: UI edits strip defaults, move nodes — re-export first.
-- Gmail IMAP SUBJECT search loose — outbound mail can self-ingest; WF-02's self-sender guard (BUG-001).
+- Exports drift: UI edits strip defaults, move nodes — `sync-workflows.js` before committing.
+- Email door needs BOTH `config.intake_email` and `[enquiry]` in the subject (WF-02's IMAP scope); either missing = silence. Gmail's SUBJECT search is loose, so outbound mail can self-ingest — hence the self-sender guard (BUG-001).
+- A2A auth is `platform_config.a2a_bearer`, NOT the MCP bearer — same value here, two secrets everywhere else.
 - No `jq` — validate JSON via `node -e`. JS `String.replace`: `$'`/`$&` expand — use a replacer.
 - `:param` webhook paths get UUID-prefixed — use static paths + query params. Code nodes can't read env vars — use `platform_config`/credentials.
 - `sendAndWait` pauses BEFORE parallel branches — side-effect nodes must sit inline first.
 - n8n's Gemini node strips `usageMetadata` — call sites use HTTP `generateContent` (thinking tokens made estimates 36× low).
 - In `splitInBatches` loops, `$('X').first()` repeats iteration 1 — use `.item`.
 - Test/demo share one credential (`Capstone-Postgres`) — its Database field is the switch.
-- The intake webhook is unauthenticated by design (MVP posture) — MCP endpoints require a bearer token, this one doesn't; production needs per-tenant keys (`docs/assumptions.md`).
+- Intake webhook is unauthenticated by design (MVP); MCP endpoints aren't. Production needs per-tenant keys (`docs/assumptions.md`).
 
 ## Hard rules
 - No customer-facing send without human approval; send node reachable only from APPROVED.
@@ -62,4 +64,4 @@ keyed by `business_id` (see Gotchas for why that matters).
 - No PII in prompts beyond what's needed; none in chart URLs. Never tune labels to match output.
 
 ## Self-improvement
-Living file — update in the same story when conventions/gotchas/commands change; keep under 650 words (raised from 500 when the mandatory Claude Code header + Architecture section were added).
+Living file — update in the same story when conventions/gotchas/commands change; keep under 750 words (500 → 650 for the mandatory header + Architecture; → 750 in E20-S2, which added the two ship-to-others scripts and the email-door and A2A-bearer traps). Trim before raising it again.
