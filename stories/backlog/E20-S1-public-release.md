@@ -73,17 +73,40 @@ intervals across all 9:47, with full-resolution zooms on every window that wasn'
   National Entrepreneurship Network) and `vaibhav0904@gmail.com` on 2. Publishing a repo
   publishes its metadata.
 
-### Open decisions — none of these are mine to make
+### Resolved 2026-08-09
 
-1. **Employer disclosure.** The video's terminal path and the commit author email both
-   name where you work. Fine if intended; if not, the video needs a re-cut or a blur over
-   the prompt line, and the commits need rewriting.
-2. **History rewrite, or not.** The course PDF is untracked but still in history, as is
-   every author email. Removing either means rewriting every commit — which changes all
-   SHAs and orphans the `demo-v1` release tag. Accepting them is entirely reasonable;
-   what is not reasonable is scrubbing the five doc mentions of the gmail address and
-   *calling* it removed while history carries it.
-3. **Gate 2, the seed decision**, is still unmade: keep `db/002` as optional demo data
+**Identity: `vaibhav0904@gmail.com` is the author address.** Set as this repo's git
+identity, so every future commit carries it. The five doc mentions of it stay — it is a
+public identity by decision, not a leak. The work address is what should not be here.
+
+**Video redacted.** `presentation/video-assets/exports/salesgenie-demo-redacted.mp4` —
+the Windows username and employer tenant name are pixelated out of the terminal prompt for
+`433.5–501.5s`, covering both terminal stretches and the Gmail cutaway between them.
+
+- Scope was chosen deliberately: **employer and username only, not the gmail.** Blurring
+  the gmail would have meant tracking it across three scroll positions in the chat and
+  would have obscured the "Reviewer set to …" line the demo is making its point with —
+  to hide an address that is on every commit by design.
+- Verified after encoding, not assumed: sampled the whole terminal section again and
+  checked the full frame *below* the blur strip. The prompt appears only at the top; the
+  visible tail is `…ments\VS Code\Capstones\salesgenie-version2> node scripts/buyer-…`,
+  which discloses nothing. Audio stream copied, duration unchanged at 587s.
+- Method: pixelate (÷16) then blur, rather than blur alone — a heavy blur of known text
+  is not always irreversible.
+
+**⚠ The release asset is still the unredacted cut.** `demo-v1` was published before this,
+so replacing that asset is a required step before the repo goes public — the redacted file
+existing locally does nothing on its own.
+
+### Open decisions
+
+1. **History rewrite, or not.** The course PDF is untracked but still in history, and 25
+   commits still carry `<work email address>`. Removing either means rewriting
+   every commit — all SHAs change and the `demo-v1` tag is orphaned. Accepting them is
+   entirely reasonable; what is not reasonable is calling them removed while history
+   carries them. **Now the sharper question**, since the video no longer names the
+   employer: the commit metadata is the only place left that does.
+2. **Gate 2, the seed decision**, is still unmade: keep `db/002` as optional demo data
    (the docs already describe it that way and the compose loads it), or remove it.
 
 ## Also before any public screenshot / on-camera n8n screen
