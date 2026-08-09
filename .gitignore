@@ -7,8 +7,10 @@
 *.log
 node_modules/
 
-# Course material (Interview Kickstart's copyright — not redistributed; README summarises the brief)
-docs/05_Official_Problem_Statement.pdf
+# Course material (Interview Kickstart's copyright — not redistributed; README summarises the brief).
+# Pattern, not two filenames: the template PDF sat tracked for months because the original
+# rule named only file 05, and nobody adds the next one to a list of exact names.
+docs/0*_Official_*.pdf
 
 # Build artefact — duplicates n8n/workflows/; regenerate with Compress-Archive for Drive uploads
 salesgenie-n8n-workflows.zip

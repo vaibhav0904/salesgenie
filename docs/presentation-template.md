@@ -1,6 +1,9 @@
 # Official Presentation Template (markdown extraction)
 
-> Source: `06_Official_Presentation_Template.pdf`. Slide-by-slide skeleton for the final deck (deck itself is a later-phase deliverable; capstone brief says ≤9 slides for the core narrative).
+> Source: `06_Official_Presentation_Template.pdf` — Interview Kickstart's material, **not
+> redistributed here**; this file is a structural summary written for working against it.
+> Slide-by-slide skeleton for the final deck (deck itself is a later-phase deliverable;
+> capstone brief says ≤9 slides for the core narrative).
 
 ## Core slides (1–9)
 1. **Title** — project/product name, brief description, course, capstone #, name, date.
