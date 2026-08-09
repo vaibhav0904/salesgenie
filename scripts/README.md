@@ -70,3 +70,31 @@ outcome on its next poll.
 | `A2A_POLL_SECONDS` / `A2A_MAX_MINUTES` | 10 / 30 | poll cadence / give-up window |
 
 No dependencies — plain Node ≥ 18 (global `fetch`).
+
+## preflight-publish.js — what would a stranger get if this repo went public?
+
+```
+node scripts/preflight-publish.js
+```
+
+Exits non-zero on anything that needs a decision. Four checks, because a secret hides in
+four different places:
+
+1. **Live values** — every secret-bearing variable in your real `.env`, searched for
+   literally across tracked files. Stronger than pattern matching: not "does this look
+   like a key" but "is THE key here". Config variables (hosts, ports, usernames, database
+   names) are deliberately excluded — an early version flagged 40 files for containing
+   "salesgenie", and a scanner that reports the database name as a leak teaches you to
+   skim past the real one.
+2. **Key-shaped strings** — OpenAI, Google, Langfuse, GitHub, Slack, AWS, JWTs, private
+   key blocks, Postgres URLs with inline passwords. Documentation placeholders are
+   recognised and skipped.
+3. **Files that should never ship** — real `.env`, course PDFs, archives, video, keys.
+4. **Anything ever committed** — the one people skip. `git rm` removes a file from the
+   tree and leaves it perfectly readable in every clone of the history.
+
+It also reports the author emails in commit metadata, which is the disclosure most easily
+forgotten: scrubbing an address out of five markdown files while every commit carries it
+in its author field achieves nothing.
+
+What it cannot judge, and says so: screenshots, video frames, and real names in seed data.

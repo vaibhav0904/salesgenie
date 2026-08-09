@@ -26,6 +26,66 @@ until every box below is ticked.
    The master is `presentation/video-assets/raw/full-take.mp4` (gitignored), so a re-cut
    costs nothing but time.
 
+---
+
+## Audit run 2026-08-09 — gates 3, 4 and 6
+
+**Gate 1 (fresh-install smoke test): PASS**, by E20-S2's TC14–TC18 — 7 credentials and 14
+workflows into a clean instance, business created over the tool webhooks, catalogue
+uploaded, reviewer set, lead → `PENDING_APPROVAL` in ~30s, plus the A2A card and a weekly
+report on that instance's own data. An unknown `business_id` was refused rather than
+guessed.
+
+**Gate 3 (numbers audit): PASS.** Four hits, all annotated: README:201 states the
+hallucination exception inline, README:206 annotates the 98.4% figure, ADR-0013 carries
+its historical-figure note, and `evals/results/2026-07-30-…` *is* the correction record.
+Nothing in `presentation/`.
+
+**Gate 4 (secret scan): the scanner did not exist.** `preflight-publish.js` was cited in
+the criterion as though it did. Written; it asks four questions — live `.env` values in
+tracked files, key-shaped strings, files that should never ship, and *files that were ever
+committed*, since `git rm` hides a file from the tree while leaving it readable in every
+clone.
+
+- **Fixed:** `docs/06_Official_Presentation_Template.pdf` was tracked. `.gitignore`
+  excluded its sibling (file 05) by exact filename, so the intent was never in doubt —
+  file 06 was simply never added to the list. Untracked; the rule is now a pattern.
+  `docs/presentation-template.md` now states the source is not redistributed.
+- **No secret found.** No live `.env` value, no key-shaped string, nothing in `git ls-files`
+  that shouldn't ship.
+
+**Gate 6 (video privacy): audited the published cut, frame by frame** — 49 frames at 12s
+intervals across all 9:47, with full-resolution zooms on every window that wasn't a slide.
+
+- **Gmail, two passages (~2:55–3:10 and ~6:15–6:30 in the published cut).** Legible:
+  `Inbox 8,275 · Drafts 5 · Purchases 415 · Social 92 · Updates 5,248 · Forums 754 ·
+  Promotions 2,691 · Spam 180`, `1 of 10,556`, and the label names
+  `[Gmail]/Trash/shopping …`, `[Imap]/Sent`, `[Imap]/Trash`. **No third-party message
+  content is visible in either** — both frames show a single open message, which is
+  SalesGenie's own generated reply, never the inbox list. The card's concern was correct
+  and is now measured rather than sampled.
+- **NOT anticipated by this card — the terminal prompt.** Part 5 (~7:15–8:25, roughly 70
+  seconds) shows, sharp and readable:
+  `PS <your project folder>\…`
+  That is the Windows username and the **employer's OneDrive tenant name**.
+- **It correlates with the commit metadata**, which is the same disclosure by another
+  route: `<work email address>` on 25 commits (<employer> runs the
+  National Entrepreneurship Network) and `vaibhav0904@gmail.com` on 2. Publishing a repo
+  publishes its metadata.
+
+### Open decisions — none of these are mine to make
+
+1. **Employer disclosure.** The video's terminal path and the commit author email both
+   name where you work. Fine if intended; if not, the video needs a re-cut or a blur over
+   the prompt line, and the commits need rewriting.
+2. **History rewrite, or not.** The course PDF is untracked but still in history, as is
+   every author email. Removing either means rewriting every commit — which changes all
+   SHAs and orphans the `demo-v1` release tag. Accepting them is entirely reasonable;
+   what is not reasonable is scrubbing the five doc mentions of the gmail address and
+   *calling* it removed while history carries it.
+3. **Gate 2, the seed decision**, is still unmade: keep `db/002` as optional demo data
+   (the docs already describe it that way and the compose loads it), or remove it.
+
 ## Also before any public screenshot / on-camera n8n screen
 - Deactivate or delete `ZZ-TEMP-Dispatch03` (leftover test workflow, webhook-only, still Active).
   — done 2026-08-07, confirmed still inactive 2026-08-08.
