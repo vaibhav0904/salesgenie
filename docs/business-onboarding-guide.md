@@ -49,8 +49,17 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 The SalesGenie package contains **14 workflow files** (they end in `.json`) in its `n8n/workflows/` folder. Each one is a department of the back office: reception, the reader, the scorer, the recommender, the drafter-with-approval, the weekly report, and so on.
 
-1. In n8n, choose **Import from file** (in the workflow menu) and import all 14, one by one. Don't worry about red warning marks yet — they just mean the workflows can't see your accounts yet.
-2. Now create the accounts ("credentials") the workflows expect. In n8n's **Credentials** section, create each of these, with exactly these names:
+1. **First, fix the addresses — before importing anything.** Jump to point 4 below, run
+   the one command, and come back. It rewrites the package for *your* n8n address. Doing
+   it afterwards means editing 20 places by hand, five of them hidden.
+
+2. Now, in n8n, choose **Import from file** and import all 14 — **from the
+   `n8n/workflows-retargeted/` folder the script just produced**, not the original
+   `n8n/workflows/`. Don't worry about red warning marks yet; they just mean the
+   workflows can't see your accounts yet.
+
+3. Create the accounts ("credentials") the workflows expect. In n8n's **Credentials**
+   section, create each of these, with exactly these names:
 
 | Credential to create | n8n credential type | What to fill in |
 |---|---|---|
@@ -61,8 +70,8 @@ The SalesGenie package contains **14 workflow files** (they end in `.json`) in i
 | `Capstone-IMA` | IMAP | Your mailbox's incoming-mail settings (same app password) |
 | `Capstone-MCP-Bearer` | Bearer Auth | Invent another long random phrase — this protects your chat controls (Step 6) |
 
-3. Open each imported workflow once. Wherever a step shows a credential warning, click it and select the matching credential you just created. (n8n remembers your choice per credential name, so this goes quickly after the first few.)
-4. **Fix the addresses — do this before importing, with the script, not by hand.**
+4. Open each imported workflow once. Wherever a step shows a credential warning, click it and select the matching credential you just created. (n8n remembers your choice per credential name, so this goes quickly after the first few.)
+5. **The address fix — this is the command point 1 sent you to.**
 
    The package was built on a private machine where n8n answered at
    `http://localhost:5678`. That address appears **20 times across 5 workflows**, and
@@ -79,23 +88,25 @@ The SalesGenie package contains **14 workflow files** (they end in `.json`) in i
    ```
 
    It writes corrected copies into `n8n/workflows-retargeted/` — **import those**
-   instead of the originals — and prints the two things it cannot fix for you, which
-   you handle in Step 4b below.
+   instead of the originals. It also stamps each workflow with the id the others
+   reference, so n8n links the departments together on import and there is nothing
+   for you to re-point by hand. Point 6 is just a confirmation that it worked.
 
    *(`--langfuse` is only useful if you did Step 8; without it the "Ship LF" steps
    keep pointing at a dashboard that isn't there and fail silently and harmlessly.
    `--reviewer` sets who gets error alerts.)*
 
-4b. **Two things only you can do, after importing.** n8n links workflows together by
-   an internal ID that is different on every installation, so these cannot travel in
-   a file:
+6. **Check two things after importing.** The script stamps the workflows with the
+   ids they reference, so n8n links them up on arrival and you should have nothing to
+   fix. Confirm it worked: open any workflow, and
 
-   - **Error handler:** in each workflow, Settings → Error Workflow → choose
-     `VaibhavCapstone-00-ErrorHandler`. Skip this and failures become invisible.
-   - **The eight handoff steps:** open each workflow named in the script's output and
-     re-select the workflow it calls. These are what pass an enquiry from one
-     department to the next; if they are not re-pointed, enquiries stop after the
-     first step.
+   - Settings → Error Workflow should read `VaibhavCapstone-00-ErrorHandler`.
+   - Steps named "Call …" or "Resume Parked …" should name the workflow they call,
+     not show an unresolved id.
+
+   If either looks wrong, select the right one by hand — those links are what pass an
+   enquiry from one department to the next, and without them enquiries stop after the
+   first step.
 
 ---
 

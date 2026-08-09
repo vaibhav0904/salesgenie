@@ -28,9 +28,26 @@ const OLD_HOST = 'http://localhost:5678';
 const OLD_LANGFUSE = 'http://langfuse-web:3000';
 const OLD_REVIEWER = 'reviewer@example.com';
 
-// Per-instance references this script CANNOT fix: n8n resolves these by id, and the
-// ids only exist on the machine that created them. Reported so they get re-selected.
 const ERROR_WORKFLOW_ID = '7jyaQ5gz8eYDBFJI';
+
+// The exports reference six workflows by internal id — the error handler, and the
+// five handoff targets. Normally those ids do not exist on a new instance, so every
+// Execute Workflow node and every error-workflow setting has to be re-selected by
+// hand: fiddly, easy to skip, and it fails silently (the enquiry simply stops after
+// the first step).
+//
+// n8n honours a top-level `id` on import, so stamping each of these six files with
+// the id the others already point at makes every reference resolve on arrival.
+// Verified on a clean instance 2026-08-09: imported with ids, published, and a lead
+// ran the full pipeline to PENDING_APPROVAL with no manual re-pointing at all.
+const STAMP_IDS = {
+  'VaibhavCapstone-00-ErrorHandler.json': '7jyaQ5gz8eYDBFJI',
+  'VaibhavCapstone-03-ClassifyExtract.json': 'BmN8SfRaPZQYYb9m',
+  'VaibhavCapstone-04-Qualifier.json': 'cm1UubLPPirEAUyy',
+  'VaibhavCapstone-05-Recommender.json': 'w5EsrbELebUE2ibV',
+  'VaibhavCapstone-06-DraftHITL.json': '6SDxlPJ5fU1PSwLB',
+  'VaibhavCapstone-10-ResumeParked.json': 'wrGgSDQrj6djOd8C',
+};
 
 function parseArgs(argv) {
   const a = {};
@@ -111,6 +128,10 @@ for (const file of files) {
     }
   }
 
+  // Stamp the referenced workflows with the ids the others point at, so the handoffs
+  // and the error-workflow setting resolve the moment they are imported.
+  if (STAMP_IDS[file]) wf.id = STAMP_IDS[file];
+
   fs.writeFileSync(path.join(outDir, file), JSON.stringify(wf, null, 2) + '\n');
   if (h.count || lf.count || rv.count) {
     perFile.push(`  ${file.padEnd(42)} host:${String(h.count).padStart(2)}  langfuse:${lf.count}  reviewer:${rv.count}`);
@@ -130,13 +151,17 @@ if (!langfuse && totalLf === 0) {
   console.log('      --langfuse https://cloud.langfuse.com to send traces to Langfuse Cloud.');
 }
 
-console.log('\n--- STILL NEEDS A HUMAN, AFTER IMPORT ---');
-console.log('n8n matches these by internal id, not by name, and ids are per-instance.\n');
-console.log(`1. Error workflow (${needsManual.errorWorkflow.length} files reference id ${ERROR_WORKFLOW_ID}):`);
-console.log('   In each, Settings -> Error Workflow -> re-select "VaibhavCapstone-00-ErrorHandler".');
-console.log('   Skip this and failures become invisible.');
-console.log(`   ${needsManual.errorWorkflow.join(', ')}\n`);
-console.log(`2. Execute Workflow nodes (${needsManual.executeWorkflow.length}) - open each and re-select the target:`);
-needsManual.executeWorkflow.forEach((l) => console.log(`   ${l}`));
-console.log('\nImport in this order so sub-workflows exist before their callers:');
+console.log(`\nStamped ${Object.keys(STAMP_IDS).length} workflows with the ids the others reference,`);
+console.log('so the error-workflow setting and all 8 Execute Workflow handoffs resolve on import.');
+console.log('No manual re-selection needed — verified end to end on a clean instance.');
+
+console.log('\n--- IMPORT ---');
+console.log('Import the files from the output directory, NOT n8n/workflows/.');
+console.log('Order still matters, so sub-workflows exist before their callers:');
 console.log('   00 -> 06 -> 05 -> 04 -> 03 -> 10 -> then 01, 02, 07, 08, 09, 11, 12, 13');
+console.log('\nIf you import from the command line, RESTART n8n afterwards: CLI publishing sets');
+console.log('active in the database but does not register the webhooks in the running process,');
+console.log('so every endpoint 404s until it restarts. Importing through the UI is unaffected.');
+console.log('\nAfterwards, confirm in n8n that each workflow\'s Settings -> Error Workflow shows');
+console.log(`"VaibhavCapstone-00-ErrorHandler" (${needsManual.errorWorkflow.length} workflows reference it) and that the`);
+console.log(`${needsManual.executeWorkflow.length} Execute Workflow nodes show a named target rather than an unresolved id.`);
