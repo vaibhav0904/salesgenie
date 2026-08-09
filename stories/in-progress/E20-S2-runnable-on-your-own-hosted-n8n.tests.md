@@ -52,7 +52,7 @@ That removes the most error-prone step in the whole setup — one that failed si
 
 ## The defect TC16 exposed
 
-** must be an address n8n itself can reach, not just your browser.** Twelve of
+**`--base` must be an address n8n itself can reach, not just your browser.** Twelve of
 the rewritten URLs are the chat-tool nodes, which n8n calls from inside its own
 process — server to server, not browser to server.
 
@@ -60,13 +60,13 @@ Measured from inside the container published on host port 5679:
 
 | From inside the n8n container | Result |
 |---|---|
-|  (the host port I retargeted to) | **404** |
-|  (the port n8n listens on internally) | **200** |
+| `http://localhost:5679` (the host port I retargeted to) | **404** |
+| `http://localhost:5678` (the port n8n listens on internally) | **200** |
 
 So retargeting a local Docker install to its *host* port breaks every chat tool,
 silently — the exact failure this script exists to prevent. Hosted n8n is unaffected,
-since its public URL is reachable from both sides.  now detects and
-warns on the risky case, and the guide explains it.
+since its public URL is reachable from both sides. `scripts/retarget-host.js` now
+detects and warns on the risky case, and the guide explains it.
 
 What remains genuinely untested is only a specific chat *application* (Claude Desktop
 and friends) against a public URL. The server, its auth, its tool discovery and the
