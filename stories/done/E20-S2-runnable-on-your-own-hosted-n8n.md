@@ -4,9 +4,13 @@
 **I want** to point it at my own hosted n8n and my own database and have it actually run,
 **so that** the repo is something I can *use*, not just read about.
 
-**Status:** in progress (2026-08-08). **E20-S1 depends on this** — its first acceptance
-criterion is a fresh-install smoke test from the docs verbatim, which cannot pass until
-these gaps are closed.
+**Status:** done (2026-08-09). All 19 test cases pass against a throwaway stack, plus two
+UAT passes over the docs (12 blockers, then the 7 they queued). **E20-S1 is unblocked** —
+its first acceptance criterion, a fresh-install run from the docs verbatim, is TC14–TC18.
+
+**One thing this card cannot claim:** a first-time human reader has not walked the guide
+end to end. Everything here was verified by execution or by adversarial reading, both by
+the person who wrote the docs. That is the remaining risk, and it belongs to E20-S1.
 
 ## Why this card exists
 
@@ -32,36 +36,36 @@ anyone but its author:
 
 ## Acceptance criteria
 
-- [ ] **Hosted-first README.** Leads with what it is, the demo (absolute URL), then
+- [x] **Hosted-first README.** Leads with what it is, the demo (absolute URL), then
       "run it for your business" linking to the onboarding guide. No `<postgres-container>`
       placeholder and no author's-machine handoff anywhere in the primary path.
-- [ ] **"What you need before you start" checklist** stating, for each piece, whether it is
+- [x] **"What you need before you start" checklist** stating, for each piece, whether it is
       required or optional and what degrades without it: hosted n8n with a public URL,
       Postgres (Supabase/Neon free tier), Gemini key (required), OpenAI key (optional —
       fallback model + judge), SMTP (required for approvals), IMAP (only for the email
       door), invented MCP bearer, A2A secret row (optional), Langfuse Cloud (optional).
-- [ ] **`.env.example` lists every variable actually consumed**, grouped by what needs it,
+- [x] **`.env.example` lists every variable actually consumed**, grouped by what needs it,
       with where-to-get comments, and resolves the contradiction about whether LLM keys
       belong in `.env` or in n8n credentials.
-- [ ] **`docs/workflows-reference.md`** covers all 14: purpose, trigger type with exact
+- [x] **`docs/workflows-reference.md`** covers all 14: purpose, trigger type with exact
       method and path (or cron rule), credentials consumed, tables read/written, callers
       and callees, failure behaviour — plus the call graph and one consolidated endpoint
       table. Generated from the exports so it cannot drift from reality.
-- [ ] **`scripts/retarget-host.js`** rewrites every host-dependent value for a supplied base
+- [x] **`scripts/retarget-host.js`** rewrites every host-dependent value for a supplied base
       URL — all 20 localhost occurrences *including those inside SQL and jsCode*, the 7
       Langfuse URLs, and the `reviewer@example.com` defaults in 00 and 12 — and *reports*
       the per-instance references a human must re-select (`settings.errorWorkflow` in 13
       files, 6 `executeWorkflow` node IDs).
-- [ ] **`scripts/sync-workflows.js`** pulls live workflows from the n8n API into
+- [x] **`scripts/sync-workflows.js`** pulls live workflows from the n8n API into
       `n8n/workflows/`, normalises volatile fields, and summarises what changed. `--check`
       exits non-zero when exports are stale.
-- [ ] **`docker/docker-compose.yml`** committed and self-contained (no external network),
+- [x] **`docker/docker-compose.yml`** committed and self-contained (no external network),
       documented as the optional local path; `docker/README.md` no longer contains absolute
       Windows paths.
-- [ ] **Audit fixes:** `evals/run-evals.js` honours `POSTGRES_CONTAINER` and supports a
+- [x] **Audit fixes:** `evals/run-evals.js` honours `POSTGRES_CONTAINER` and supports a
       connection string; credential lists reconciled to one source of truth; README's
       release link absolute.
-- [ ] **Proven, not described:** the whole thing executed verbatim against a throwaway
+- [x] **Proven, not described:** the whole thing executed verbatim against a throwaway
       instance that is not the demo rig (see `.tests.md`).
 
 ## Depends on

@@ -97,6 +97,13 @@ volumes:
   langfuse_minio_data:
 
 networks:
+  # Langfuse must sit on the SAME docker network as the postgres container it uses,
+  # because it reaches it as the hostname `postgres`.
+  #
+  # Started the committed stack with `cd docker && docker compose --env-file ../.env up -d`?
+  # Then compose named that network after this folder, and the default below is correct.
+  # Anything else - a different folder name, `-p`, or your own n8n stack - and you must
+  # set N8N_DOCKER_NETWORK in .env. Find the real name with:  docker network ls
   n8n-net:
     external: true
-    name: n8n-localdata_default
+    name: ${N8N_DOCKER_NETWORK:-docker_default}

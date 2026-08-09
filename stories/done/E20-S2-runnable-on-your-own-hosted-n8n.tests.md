@@ -124,6 +124,31 @@ existing setups are untouched (verified: the resolver still finds the token in t
 `.env.example` corrected — it *described* the distinction accurately while the code
 ignored it.
 
+### Third pass — closing the card found three more, in the Docker path
+
+Ticking the acceptance criteria meant re-checking each, and two were not actually met.
+
+1. **`docker/README.md` still carried two absolute Windows paths** — the exact defect the
+   criterion names. The author's arrangement is now a clearly-fenced reference section
+   with no machine-specific paths, and the `docker exec` example names the container the
+   committed compose actually creates instead of the author's.
+2. **`langfuse-compose.yml` still joined `external: name: n8n-localdata_default`** — a
+   network that exists only on this machine, so it could not start standalone. Now
+   `${N8N_DOCKER_NETWORK:-docker_default}`, defaulting to what `docker-compose.yml`
+   creates, with the "find yours with `docker network ls`" escape documented in three
+   places. Verified: `docker compose config` resolves the default to `docker_default`.
+3. **Found by running it: the committed compose could not run twice.** Its own comment
+   recommended `docker compose -p sg-test up -d` for a throwaway stack beside a live one —
+   but `container_name: salesgenie-postgres` is absolute and ignores `-p`, so the second
+   stack collides on the name. (Noticed because my verification container appeared as
+   `salesgenie-postgres` under project `sg-dbinit-check`.) Now
+   `${CONTAINER_PREFIX:-salesgenie}-postgres`; verified both forms resolve correctly.
+
+Also proven rather than assumed while there: the init service creates the extra databases.
+Brought up a throwaway stack and queried `pg_database` — `salesgenie`, `n8n` and
+`langfuse` all present, so the optional tracing stack no longer needs a manual
+`CREATE DATABASE`. Torn down with `down -v`; the live rig was never touched.
+
 **Still outstanding:** a real first-time human reader walking it end to end. Everything
 above was found by adversarial reading and by testing the code paths the docs point at;
 neither substitutes for someone who has never seen this system.

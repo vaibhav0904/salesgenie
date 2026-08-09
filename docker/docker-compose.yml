@@ -15,8 +15,11 @@
 
 services:
   postgres:
+    # A fixed name would defeat `-p`: compose scopes networks and volumes to the
+    # project, but container_name is absolute, so a second stack collides on it.
+    # Change the prefix and `-p` together for a throwaway stack — see the ports note.
+    container_name: ${CONTAINER_PREFIX:-salesgenie}-postgres
     image: postgres:16-alpine
-    container_name: salesgenie-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-salesgenie}
@@ -24,8 +27,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-salesgenie}
     ports:
       # Published so psql and the scripts in scripts/ can reach it from the host.
-      # Override the host side to run a second, throwaway stack alongside a live one:
-      #   POSTGRES_HOST_PORT=5433 N8N_HOST_PORT=5679 docker compose -p sg-test up -d
+      # To run a second, throwaway stack alongside a live one, move the host ports AND
+      # the container prefix, or the two stacks fight over both:
+      #   POSTGRES_HOST_PORT=5433 N8N_HOST_PORT=5679 CONTAINER_PREFIX=sg-test \
+      #     docker compose -p sg-test up -d
+      # Tear it down with `docker compose -p sg-test down -v` (the -v drops its data).
       - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - salesgenie_pg_data:/var/lib/postgresql/data
@@ -49,8 +55,8 @@ services:
       retries: 20
 
   n8n:
+    container_name: ${CONTAINER_PREFIX:-salesgenie}-n8n
     image: n8nio/n8n:latest
-    container_name: salesgenie-n8n
     restart: unless-stopped
     depends_on:
       postgres:
@@ -78,8 +84,11 @@ services:
     volumes:
       - salesgenie_n8n_data:/home/node/.n8n
 
-  # Creates the separate `n8n` database the service above needs. Postgres' own
-  # init scripts only ever create one database, so this fills the gap and exits.
+  # Creates the extra databases the stack needs beside `salesgenie`: `n8n` for n8n's
+  # own storage, and `langfuse` in case you later start langfuse-compose.yml (which
+  # expects it to exist). Postgres' own init scripts only ever create one database,
+  # so this fills the gap and exits. Creating an unused `langfuse` database costs
+  # nothing; being asked to create one by hand later costs a confusing failure.
   n8n-db-init:
     image: postgres:16-alpine
     depends_on:
@@ -91,10 +100,12 @@ services:
       - sh
       - -c
       - |
-        psql -h postgres -U ${POSTGRES_USER:-salesgenie} -d ${POSTGRES_DB:-salesgenie} \
-          -tc "SELECT 1 FROM pg_database WHERE datname='n8n'" | grep -q 1 \
-          || psql -h postgres -U ${POSTGRES_USER:-salesgenie} -d ${POSTGRES_DB:-salesgenie} \
-             -c "CREATE DATABASE n8n"
+        for db in n8n langfuse; do
+          psql -h postgres -U ${POSTGRES_USER:-salesgenie} -d ${POSTGRES_DB:-salesgenie} \
+            -tc "SELECT 1 FROM pg_database WHERE datname='$$db'" | grep -q 1 \
+            || psql -h postgres -U ${POSTGRES_USER:-salesgenie} -d ${POSTGRES_DB:-salesgenie} \
+               -c "CREATE DATABASE $$db"
+        done
     restart: "no"
 
 volumes:

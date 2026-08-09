@@ -1,4 +1,4 @@
-# Status — last updated 2026-08-08 by Claude
+# Status — last updated 2026-08-09 by Claude
 
 The live dashboard. `stories/README.md` is the (static) process description —
 this file is the current state. Updated at every `/prd`, `/story`,
@@ -21,8 +21,10 @@ Next `/story` run should confirm real order with Vaibhav before picking one.
 
 1. `BUG-009` — catalogue CSV silently loads zero stock (no PRD needed — bug)
 2. `E19-S2` — swap plumbing code for native nodes (deliberately deferred, see card)
-3. `E20-S1` — flip the repo public (**now unblocked** — video recorded and shipped as
-   release `demo-v1`; card gained a 6th gate: privacy pass over the video's Gmail shots)
+3. `E20-S1` — flip the repo public (**fully unblocked** — video shipped as release
+   `demo-v1`, and E20-S2 closed the reproducibility gate. Card has a 6th gate: privacy
+   pass over the video's Gmail shots. Its one open risk is that a first-time human
+   reader has still never walked the setup guide end to end)
 4. `E22-S1` — store the full conversation, not just one message
 5. `E22-S2` — a reply reopens the same lead (depends on E22-S1)
 6. `E22-S3` — drafts/recommendations use conversation context (depends on E22-S2)
@@ -31,11 +33,8 @@ Next `/story` run should confirm real order with Vaibhav before picking one.
 
 ## In progress
 
-`E20-S2` — anyone can run this on their own hosted n8n — stage: **build done,
-TC14–TC19 outstanding**. Tooling and docs are complete and self-verified
-(TC1–TC13); the claim itself is unproven until the guide is followed verbatim
-against a throwaway instance. **E20-S1 depends on this** — its first acceptance
-criterion is that same fresh-install run.
+Nothing. Next card comes off the backlog below — `E20-S1` is the obvious one,
+now that its blocker is cleared.
 
 ## Rig state (post-demo, 2026-08-08)
 
@@ -49,6 +48,10 @@ spending OpenAI tokens. Reactivate those three before demoing again.
 
 ## Recently done
 
+- `E20-S2` — anyone can run this on their own hosted n8n (2026-08-09) — retarget
+  and sync tooling, generated per-workflow reference, self-contained compose,
+  rewritten README/guide/`.env.example`; proven by a full fresh install on a
+  throwaway stack, then two UAT passes over the docs (19 defects fixed)
 - `E24-S1` — presenter deck + demo setup, verified environment (2026-08-04);
   video recorded, cut to 9:47, published as release `demo-v1` (2026-08-08)
 - `E21-S1` — test/demo/production environments (2026-08-03)
