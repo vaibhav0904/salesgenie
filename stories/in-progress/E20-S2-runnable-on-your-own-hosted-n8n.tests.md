@@ -98,28 +98,32 @@ including one I had introduced myself.
 | 9 | README line 76 told you to put Gemini/OpenAI keys in `.env`, contradicting line 34 forty lines above | Corrected to point at n8n Credentials |
 | 10 | Step 6 dead-ended a non-developer: Claude Desktop cannot take a bare MCP URL, and the guide had no alternative | Added the `mcp-remote` requirement **and** a full `curl` route that needs no chat client |
 
-### Known, not yet fixed
+### Second pass — the seven queued issues, now fixed
 
-- **`intake_email` is never set by the guide**, so the email door matches nothing even
-  though Step 6 says "enquiries to your mailbox flow through automatically". Needs either
-  a setup step or an honest statement that the email door requires extra configuration.
-- **Prerequisites still missing** from the requirements table: 2-step verification on the
-  Google account (required before an app password can exist), IMAP being enabled, and a
-  publicly reachable n8n URL for the A2A door.
-- **"Free" is overstated** — n8n Cloud is not free after its trial, and OpenAI is
-  pay-per-use. The guide says "you do not need to pay anyone" eight lines above a table
-  admitting a paid service.
-- **`Capstone-Langfuse` missing** from the Step 3 credential table (six listed, seven
-  needed), so the "Ship LF" nodes show a warning the reader cannot resolve.
-- **`Capstone-IMA`** is listed without the note that the truncated name is deliberate;
-  a tidy-minded reader will "correct" it to `Capstone-IMAP` and break the email door.
-- **README jargon** — "headless, multi-tenant agentic sales platform", "cross-vendor
-  judge", "per-token LLM observability" — fails the project's own plain-words-first rule
-  in the very first file a newcomer opens.
-- **Dead ends without a success signal**: the activation order in Step 4, the `a2a_bearer`
-  insert in Step 1, and the agent card in Step 7 (which never mentions
-  `scripts/buyer-agent-demo.js`, the thing that would actually prove it works).
+| # | Defect | Fix |
+|---|---|---|
+| 11 | **`intake_email` is never set**, so the email door matches nothing while Step 6 claimed enquiries flow through automatically. Reading the adapter showed it is worse than logged: the IMAP trigger is scoped to `[["UNSEEN"],["SUBJECT","[enquiry]"]]`, so **two** undocumented conditions had to hold | New "Opening the email door" section: the `update_business_config` sentence (and `curl`) that sets `intake_email`, the subject tag and how to remove it, the same-mailbox requirement, the anti-loop guard, and a success signal. The false claim is replaced with an honest pointer |
+| 12 | Prerequisites missing: Google 2-step verification, IMAP enablement, a publicly reachable n8n URL | All three added to both requirement tables. 2-step is framed by its consequence — Google will not *offer* an app password until it is on, so the credential simply cannot be filled in |
+| 13 | **"Free" overstated** — "you do not need to pay anyone" eight lines above a paid service | Replaced with a short honest costs block naming the two that are not free (n8n Cloud after trial, OpenAI pay-per-use) and what stays free. Mirrored in the README |
+| 14 | `Capstone-Langfuse` missing from the Step 3 credential table (six listed, seven needed) | Added, marked as Step 8 only, with what the unresolved warning means if skipped |
+| 15 | `Capstone-IMA` listed without noting the truncated name is deliberate | Called out explicitly: n8n matches by name character for character, so "correcting" it breaks the email door |
+| 16 | **README jargon** in the first paragraph a newcomer reads | Opening rewritten plain-words-first; the terms follow the explanation rather than replacing it. The doors section now explains MCP and A2A instead of naming them |
+| 17 | **Dead ends without success signals** — Step 4 activation, the `a2a_bearer` insert, the agent card | Each now says what "worked" looks like: 14 Active and what a bounced toggle means (plus the CLI-restart trap); *"Success. No rows returned"* being the pass for a write; and Step 7 now runs `scripts/buyer-agent-demo.js` end to end, naming `input-required` as the thing to watch for |
 
-These are queued rather than done because the ten above were the ones that stop an
-install dead. A real first-time reader should still walk it end to end before the repo
-goes public.
+### The defect the fixes exposed
+
+**The A2A demo authenticated with the wrong secret.** `scripts/buyer-agent-demo.js` read
+`MCP_BEARER_TOKEN`, but `13-A2AServer` checks the caller against the `a2a_bearer` row in
+`vaibhavcapstone_platform_config`. On this rig both hold the same string, which is exactly
+why it was never noticed — anyone setting up fresh invents two different phrases, follows
+Step 7, and gets a bare `unauthorized`.
+
+Fixed by preferring `A2A_BEARER_TOKEN`, keeping `MCP_BEARER_TOKEN` as a fallback so
+existing setups are untouched (verified: the resolver still finds the token in this repo's
+`.env`), and printing the SQL that reveals the right value when neither is set.
+`.env.example` corrected — it *described* the distinction accurately while the code
+ignored it.
+
+**Still outstanding:** a real first-time human reader walking it end to end. Everything
+above was found by adversarial reading and by testing the code paths the docs point at;
+neither substitutes for someone who has never seen this system.

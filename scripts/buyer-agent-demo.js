@@ -17,16 +17,28 @@ const AGENT_NAME = process.env.A2A_AGENT_NAME || 'Northwind Procurement Agent (d
 const POLL_SECONDS = Number(process.env.A2A_POLL_SECONDS || 10);
 const MAX_MINUTES = Number(process.env.A2A_MAX_MINUTES || 30);
 
+// The A2A door checks the caller's token against the `a2a_bearer` row in
+// vaibhavcapstone_platform_config — NOT against the MCP credential. On the author's rig
+// both happen to hold the same string, which hid the difference; anyone setting up fresh
+// invents two separate phrases and would get a bare "unauthorized" here. So prefer the
+// correctly-named variable, keep the old one working, and say which row must match.
 function bearerToken() {
-  if (process.env.MCP_BEARER_TOKEN) return process.env.MCP_BEARER_TOKEN;
+  const names = ['A2A_BEARER_TOKEN', 'MCP_BEARER_TOKEN'];
+  for (const name of names) {
+    if (process.env[name]) return process.env[name];
+  }
   const envFile = path.join(__dirname, '..', '.env');
   if (fs.existsSync(envFile)) {
     for (const line of fs.readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-      const m = line.match(/^MCP_BEARER_TOKEN=(.*)$/);
-      if (m) return m[1].trim();
+      for (const name of names) {
+        const m = line.match(new RegExp(`^${name}=(.*)$`));
+        if (m && m[1].trim()) return m[1].trim();
+      }
     }
   }
-  console.error('No MCP_BEARER_TOKEN in env or ../.env — cannot authenticate.');
+  console.error('No A2A_BEARER_TOKEN (or MCP_BEARER_TOKEN) in the environment or ../.env.');
+  console.error('It must equal the `a2a_bearer` row in vaibhavcapstone_platform_config:');
+  console.error("  SELECT value FROM vaibhavcapstone_platform_config WHERE key = 'a2a_bearer';");
   process.exit(1);
 }
 

@@ -1,8 +1,23 @@
-# SalesGenie v2 — a headless, multi-tenant agentic sales platform
+# SalesGenie v2 — an AI back office for your sales inbox
 
-A business describes itself in one English sentence and inherits a complete AI sales pipeline: lead intake, classification and entity extraction, deterministic scoring, stock-grounded product recommendations, human-approved replies, and a weekly self-explaining insights report. No admin screen exists anywhere in the system — everything is done by talking to it, calling it, or emailing it.
+**What it does.** Every enquiry that reaches your business gets read, understood, scored
+for how promising it is, matched against products you actually have in stock, and answered
+with a draft reply in your own voice — which then **waits for a human to click Approve**
+before a word of it reaches the customer. Every Monday you get a report on how the week
+went, including what the AI cost you.
 
-Built on **n8n** (14 workflows, authored via its REST API) + **Postgres** + **Gemini 2.5 Flash** (gpt-4o-mini fallback) with **GPT-4o as a cross-vendor judge**, **Langfuse** for per-token LLM observability, QuickChart for email-safe charts. All free-tier, all local.
+**What's unusual about it.** There is no settings screen anywhere. You set your business
+up by *talking* to it in a chat app — describe your shop in a sentence, paste your product
+list, name who approves replies, and you're running. One installation serves any number of
+separate businesses, each seeing only its own data. (Software people call this multi-tenant
+and headless: many customers on one system, and no screens.)
+
+Under the hood it is 14 automations running on **n8n** — a tool where each automation is a
+visual flowchart — with **Postgres** as the permanent record book. **Google's Gemini** does
+the reading and writing, with an **OpenAI** model standing by if Google has an outage, and a
+*second* OpenAI model acting as an independent examiner that grades the first one's work for
+invented facts. Costs are counted per enquiry, to the fraction of a cent, from real usage
+figures rather than estimates.
 
 ## ▶ See it work
 
@@ -15,21 +30,29 @@ against this system; every number on screen traces back to a `vaibhavcapstone_*`
 ## Run it for your own business
 
 **→ [The complete setup guide](docs/business-onboarding-guide.md)** — about 45 minutes,
-no command line, free tiers throughout. That is the path to follow if you want to *use*
-this rather than read about it.
+written for a business owner rather than an engineer. One command to run; everything else
+is pointing and clicking. That is the path to follow if you want to *use* this rather than
+read about it.
 
 **What you need before you start:**
 
 | Piece | Required? | What happens without it |
 |---|---|---|
-| **Hosted n8n** with a public URL (n8n Cloud, or self-hosted anywhere) | Yes | Nothing runs |
-| **A Postgres database** (Supabase / Neon free tier) | Yes | Nothing runs — this is the system of record |
+| **An n8n instance reachable from the open internet** (n8n Cloud, or self-hosted anywhere) | Yes | Nothing runs. It must be publicly reachable — your chat app, other companies' AI, and n8n's own internal calls all arrive over the internet |
+| **A Postgres database** (Supabase / Neon free tier) | Yes | Nothing runs — this is the permanent record |
 | **A Google Gemini API key** (free tier) | Yes | No reading, scoring or drafting |
-| **An OpenAI API key** | Optional | No fallback when Gemini is down, and no independent quality judge |
+| **An OpenAI API key** (pay-per-use; no free tier) | Optional | No fallback when Gemini is down, and no independent quality examiner |
 | **A mailbox with SMTP** (Gmail app password works) | Yes | No approval requests, no alerts — and approval is the whole safety model |
-| **IMAP on that mailbox** | Optional | The email door is off; the webhook, chat and A2A doors still work |
+| **Two-step verification on that mail account** | Yes, in practice | Google never offers you an app password, so the SMTP and IMAP credentials cannot be filled in at all |
+| **IMAP enabled on that mailbox**, plus an `intake_email` set for your business | Optional | The email door stays shut; the webhook, chat and A2A doors still work. Both halves are needed — see the guide's "Opening the email door" |
 | **An invented bearer token** | Optional | No chat (MCP) control; you would set up over HTTP instead |
+| **A second invented token in `platform_config.a2a_bearer`** | Optional | The A2A door refuses every caller |
 | **A Langfuse Cloud account** (free) | Optional | No per-call LLM tracing; the Monday report still shows cost and quality from your own database |
+
+**On cost:** most of this is genuinely free, but two pieces are not, and it is better to
+know now — **n8n Cloud** is free only for a trial and paid thereafter (self-hosting is free
+but you run the server), and **OpenAI** is pay-per-use with no free tier. Its role here is
+optional. Everything else stays inside a free plan at small-business volumes.
 
 Your AI keys and mailbox password go into **n8n's Credentials**, not into `.env` —
 `.env` is only for the helper scripts. [`docs/workflows-reference.md`](docs/workflows-reference.md)
@@ -54,11 +77,15 @@ MCP chat ─▶ 09-MCPOperations┘
 Other AI ─▶ 13-A2AServer      (A2A protocol: agent card + JSON-RPC; the human gate is visible as `input-required`)
 ```
 
-- **Email** — a tagged mailbox; the adapter turns mail into the same canonical payload as everything else.
-- **MCP chat** — 12 tools over two MCP servers; a business onboards, uploads a catalogue, checks status, approves drafts, entirely in natural language (Claude Desktop or any MCP client).
-- **A2A** — another company's agent discovers the public agent card, sends an enquiry via `message/send`, polls `tasks/get`, and *sees the human approval gate* as the protocol state `input-required`.
+Every enquiry, however it arrives, is turned into one identical shape before the pipeline
+sees it — so nothing after the front door knows or cares which door was used.
 
-Four invariants hold everywhere:
+- **Email** — watches a real mailbox and turns each message into that shape. Needs `intake_email` set and (by default) `[enquiry]` in the subject; see the guide.
+- **Webhook** — a plain web address anything can post to: your website's contact form, another system, a test command.
+- **Chat** — 12 things a chat app can do on your behalf, split across two servers: create the business, upload the catalogue, check status, see and approve pending replies. The standard that lets a chat app safely operate outside software is called **MCP**; Claude Desktop and others speak it.
+- **Another company's AI** — it fetches a public "business card" describing you, sends an enquiry, then polls for progress. The standard for software agents transacting with each other is called **A2A**, and it has a state meaning *waiting for a human* — which is exactly what your approval gate shows, honestly, rather than pretending to be autonomous.
+
+Four rules hold everywhere, by construction rather than by convention:
 
 1. **No customer-facing send without a human click.** The send node is only reachable from an `APPROVED` record — enforced by a guarded SQL transition, not workflow shape.
 2. **Recommendations only from SQL-verified, in-stock, own-tenant SKUs** — checked before *and* after the model picks. No verifiable option → the system says so and routes to a human.

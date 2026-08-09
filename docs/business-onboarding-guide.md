@@ -2,19 +2,42 @@
 
 SalesGenie is an AI back office for your sales inbox. It reads every enquiry, captures the customer's details perfectly, scores how promising the lead is, recommends only products you actually have in stock, and writes a draft reply in your brand's voice — then **stops and waits for you to click Approve** before anything reaches a customer. Every Monday it emails you a report on how your funnel is doing.
 
-This guide takes you from nothing to your first approved reply. You do not need to be technical, and you do not need to pay anyone: every piece runs on free plans, and you bring your own (free) AI key.
+This guide takes you from nothing to your first approved reply. You do not need to be technical.
+
+**What it costs, honestly.** Most of this runs on free plans, but two pieces do not, and
+you should know before you start rather than at the checkout page:
+
+- **n8n** — free forever if you install it on your own server, but that is a system
+  administrator's job. The easy route, **n8n Cloud**, is free only for a trial period and
+  is a paid subscription afterwards.
+- **OpenAI** — pay-per-use, no free tier. It is optional here. Typical spend is a fraction
+  of a cent per enquiry.
+
+Everything else — the database, the Google AI key, your mailbox, the SalesGenie files —
+is genuinely free at the volumes a small business generates.
 
 **What you'll use:**
 
 | Piece | What it does | Cost |
 |---|---|---|
-| Your **n8n** account | Runs the SalesGenie machinery (n8n is a tool where automations run as visual flowcharts) | Your existing account |
+| An **n8n** instance with a public web address | Runs the SalesGenie machinery (n8n is a tool where automations run as visual flowcharts). The address must be reachable from the open internet, because your chat app, other companies' AI, and n8n's own internal calls all go to it | n8n Cloud: free trial, then paid. Self-hosted: free, but you run the server |
 | A **Supabase** account | Your free database — the permanent record book where enquiries, decisions and reports live | Free plan, no card needed |
 | A **Google Gemini key** | The AI that reads, scores and writes | Free tier |
-| An **OpenAI key** *(optional but recommended)* | Powers two extras: a backup AI if Google has an outage, and an independent "examiner" AI that checks the quality of every AI output | Pay-per-use, fractions of a cent |
+| An **OpenAI key** *(optional but recommended)* | Powers two extras: a backup AI if Google has an outage, and an independent "examiner" AI that checks the quality of every AI output | Pay-per-use, fractions of a cent. No free tier |
 | Your **email mailbox** | Where enquiries arrive and approval requests are sent | You have this |
 | **The SalesGenie files** | Download the repository from GitHub — the green **Code → Download ZIP** button — and unzip it somewhere you can find | Free |
 | **Node.js** | Needed for exactly one command in Step 3. Install from **nodejs.org** (the "LTS" version), then restart your terminal | Free |
+
+**Two mailbox settings to sort out first**, because they take a few minutes and are easy
+to hit as a surprise halfway through Step 3:
+
+- **Two-step verification must be switched on** for the Google account whose mailbox you
+  use. Not for security theatre — Google will not *offer* you an app password until it is
+  on, and an app password is what n8n needs. (Google Account → Security → 2-Step
+  Verification, then App passwords.) Other mail providers have their own equivalent.
+- **IMAP must be enabled** on that mailbox if you want the email door — the part that
+  reads enquiries out of your inbox. In Gmail: Settings → Forwarding and POP/IMAP →
+  Enable IMAP. Without it, the other three doors still work fine.
 
 Total setup time: about 45 minutes, once. It is almost all pointing and clicking; there
 is **one** command to run, in Step 3, and it is copy-paste.
@@ -37,6 +60,11 @@ INSERT INTO vaibhavcapstone_platform_config (key, value)
 VALUES ('a2a_bearer', 'choose-a-long-random-secret-here')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 ```
+
+   **How you know it worked:** Supabase reports *"Success. No rows returned."* That is the
+   pass — this statement writes a row, it doesn't read one, so an empty result is correct.
+   **Keep the phrase you chose**; Step 7 needs it. If you skip this entirely, everything
+   works except the door for other companies' AI, which will refuse every caller.
 
 5. Finally, find your database's connection details: **Project Settings → Database**. Note down the **host**, **port**, **database name**, **user**, and the password from step 1. (Use the "connection pooling" host if offered — it's the more reliable one.)
 
@@ -74,6 +102,11 @@ The SalesGenie package contains **14 workflow files** (they end in `.json`) in i
 | `Capstone-SMTP` | SMTP | Your mailbox's outgoing-mail settings (for Gmail: an "app password", not your normal password) |
 | `Capstone-IMA` | IMAP | Your mailbox's incoming-mail settings (same app password) |
 | `Capstone-MCP-Bearer` | Bearer Auth | Invent another long random phrase — this protects your chat controls (Step 6) |
+| `Capstone-Langfuse` *(only if you do Step 8)* | Header Auth | Leave this until Step 8, which tells you what to put in it. Skip it and the steps named "Ship LF" show a warning mark you can safely ignore — they only send viewing data to an optional dashboard |
+
+**`Capstone-IMA` is not a typo — do not "fix" it.** The name really is stored without the
+final `P`. n8n matches credentials to workflows **by name, character for character**, so
+naming it `Capstone-IMAP` means the email door never finds it.
 
 4. Open each imported workflow once. Wherever a step shows a credential warning, click it and select the matching credential you just created. (n8n remembers your choice per credential name, so this goes quickly after the first few.)
 5. **The address fix — this is the command point 1 sent you to.**
@@ -130,6 +163,16 @@ Some departments call other departments, so the inner ones must be switched on f
 **00 → 06 → 05 → 04 → 03 → 10 → 01 → 02 → 07 → 08 → 09 → 11 → 12 → 13**
 
 (That's: error-catcher first, then the assembly line from the end backwards, then the doors, then the report, chat controls, the nudger, the examiner, and the AI-to-AI door.)
+
+**How you know it worked.** Your workflow list should show all 14 marked **Active**, with
+no toggle that refused to stay on. If one springs back to off with a complaint about a
+workflow it calls, that department's target isn't switched on yet — switch that one on
+first and come back. Step 5 is the real proof.
+
+*(If you imported from a command line rather than through the n8n screen, restart n8n
+before Step 5. Command-line activation records the workflows as on, but the running
+program doesn't start listening at their web addresses until it restarts — every address
+answers "not registered" until then. Importing through the screen has no such problem.)*
 
 ---
 
@@ -203,12 +246,13 @@ Then just talk. A real first conversation looks like this:
 > *(It answers plainly: no product list yet, no reviewer named.)*
 > **You:** Here's my catalog: *(paste your product list — name, category, price, and how many you have)*
 
+> **You:** I'm the reviewer — myname@mybusiness.com. Replies should come from "Terracotta Tales &lt;hello@…&gt;".
+
 **If you paste a spreadsheet or CSV, the stock column must be headed `stock_qty`.** A
 column called `stock` is accepted but loads every product as *zero in stock* — after
 which nothing can ever be recommended, and the system will correctly but confusingly
 tell you it has nothing to offer. (Known issue, BUG-009.) Listing products in plain
 sentences avoids this entirely.
-> **You:** I'm the reviewer — myname@mybusiness.com. Replies should come from "Terracotta Tales &lt;hello@…&gt;".
 
 Three things worth knowing:
 
@@ -216,7 +260,14 @@ Three things worth knowing:
 - **The catalog is law.** SalesGenie will only ever recommend products from your list that are marked in stock — it double-checks against the database at the moment of recommending. If nothing fits, it says so to *you*, and drafts nothing misleading to the customer.
 - **The reviewer is the gate.** No reply reaches a customer without that person clicking Approve — in the approval email, or right in the chat: *"What's pending?" → "Approve the first one."* This is built into the machinery, not a setting you could accidentally turn off.
 
-From now on, enquiries to your mailbox flow through automatically, and every Monday your report arrives: funnel, lead quality, response speed, best-selling interests — plus exactly what the AI cost you that week, to the fraction of a rupee.
+From now on you can send enquiries in from anywhere — the test-lead command above, your
+website's contact form, another company's AI — and every Monday your report arrives:
+funnel, lead quality, response speed, best-selling interests, plus exactly what the AI
+cost you that week, to the fraction of a rupee.
+
+**Two things are still not what you'd assume**, and both are below before you go on:
+approved replies are not yet reaching customers, and your actual mailbox is not yet
+being read.
 
 ### ⚠ Until you say otherwise, approved replies come back to *you* — not to the customer
 
@@ -246,6 +297,56 @@ Check it worked by approving one more draft: the subject should no longer start 
 To switch the safety net back on later — say, while you are trying something new —
 set it to your own address the same way.
 
+### Opening the email door (~2 minutes)
+
+Reading enquiries straight out of your inbox is the door most people want most, and it is
+the one that does **not** switch itself on. Two things are missing, and both fail quietly
+— mail simply sits in your inbox and nothing happens.
+
+**1. Tell SalesGenie which mailbox is yours.** One mailbox-watcher serves every business
+on the platform, so it decides who an email belongs to by looking at the address it was
+sent *to*. Until your business claims an address, no email can be matched to it. Say in
+chat:
+
+> **You:** The address my customers write to is sales@mybusiness.com.
+
+(The tool is `update_business_config`; the setting is `intake_email`. By `curl`:)
+
+```bash
+curl -X POST https://your-team.app.n8n.cloud/webhook/vaibhavcapstone-tool-update-config \
+  -H "Content-Type: application/json" \
+  -d '{"business_id":"biz_yourbusiness","config":{"intake_email":"sales@mybusiness.com"}}'
+```
+
+This must be an address that arrives in the **same mailbox** you gave the `Capstone-IMA`
+credential in Step 3. If your enquiries land at `sales@` but n8n is watching `hello@`,
+nothing matches. A plus-address like `you+enquiries@gmail.com` works well and is free.
+
+**2. Know about the subject tag.** Out of the box the watcher only picks up unread mail
+with **`[enquiry]` in the subject line**. That is a deliberate guard so that switching
+this on does not tip your entire inbox — newsletters, invoices, your mother — into the
+sales pipeline on day one.
+
+So the first email you send yourself to test it must be subject-tagged, for example
+`[enquiry] Do you make dining tables?`. If you later want *every* unread message treated
+as a possible enquiry, open `VaibhavCapstone-02-GmailAdapter`, click **Email Trigger
+(IMAP)** → Options → Custom Email Config, and change it to `[["UNSEEN"]]`. Think before
+you do: everything unread then goes to the AI, which costs a little and generates noise.
+(Gmail's own subject search is loose rather than exact, so treat the tag as a strong
+filter, not a perfect one.)
+
+**How you know it worked.** Send yourself a tagged email from a *different* address, wait
+about a minute, then ask in chat *"What's pending?"* or check your leads table — a new
+enquiry should be there. Nothing arriving? Ask in chat for recent activity: an email that
+reached the mailbox but matched no business is recorded as `ADAPTER_UNMAPPED_MAILBOX`,
+which means step 1 above is wrong or the tag was missing. **Mail that can't be placed is
+never guessed at and never attached to the nearest business.**
+
+**Why the email must come from a different address:** the door deliberately ignores mail
+sent *from* your own reply address or intake address. Without that, SalesGenie's own
+approved replies would land back in the mailbox it watches and be read as fresh enquiries
+— a loop that feeds on itself. That was a real bug found in testing, not a theory.
+
 ---
 
 ## Step 7 — The door you didn't know you had
@@ -256,7 +357,31 @@ Your business is now also reachable by *other companies' AI assistants*. More an
 https://your-team.app.n8n.cloud/webhook/a2a-agent-card?business_id=YOUR_BUSINESS_ID
 ```
 
+Open that address in a browser. You should get a page of settings describing your business
+by name — that page *is* the business card, and the fact that it answers means the door is
+open. It needs no password, exactly like a business card.
+
 Their AI can read it, send an enquiry, and track progress — it will even see, honestly, "a human reviewer is checking the proposed offer" while you decide. You approve exactly as always; their AI receives your approved offer in a form its own systems can process. You've just become sellable to robots, with a human hand still on the pen.
+
+**Try it yourself — play the other company's AI.** The package includes a small program
+that does exactly what a buying agent would: reads your card, sends an enquiry, then waits
+and watches while you decide.
+
+```bash
+A2A_BASE_URL=https://your-team.app.n8n.cloud/webhook \
+A2A_BEARER_TOKEN=the-phrase-you-chose-in-step-1 \
+node scripts/buyer-agent-demo.js biz_yourbusiness
+```
+
+The secret is the one you invented for the `a2a_bearer` row in Step 1 — **not** your chat
+password from Step 3. They are two different secrets, and using the wrong one gets you a
+flat "unauthorized" with no further explanation.
+
+**What you want to see:** it prints your business's name from the card, sends its enquiry,
+and then reports the state `input-required` — meaning *waiting for the human*. At that
+moment an approval email lands with you. Approve it, and within a poll or two the same
+program prints your approved offer. That is the whole point of the door in one run: another
+company's software transacted with yours, and a person still signed off.
 
 ---
 
@@ -283,4 +408,6 @@ Skip this entirely and nothing is lost — your Monday report already includes A
 - **Status says NEEDS_REVIEW** → the system chose to hand this one to a human: the AI wasn't confident, or no product could be honestly recommended. That's it working as designed.
 - **Status says AWAITING_SETUP** → it's parked, waiting for a missing piece of your setup. Ask *"What do I still need?"* and complete it — the enquiry resumes on its own.
 - **No approval emails arriving** → check the `Capstone-SMTP` credential (for Gmail, it must be an app password) and that a reviewer email is set for your business.
+- **Emails to my inbox produce nothing** → four usual causes, in the order worth checking: the subject was missing `[enquiry]`; `intake_email` was never set or doesn't match the address it was sent to; IMAP isn't enabled on the mailbox; or you sent it from your own reply address, which the anti-loop guard ignores on purpose. All four are covered in "Opening the email door" above.
+- **Approved replies keep coming back to me, with `[DEMO -> …]` in the subject** → that is the safety net, still on. See the warning section in Step 6 for the one sentence that turns it off.
 - **Something truly broke** → the error-catcher will have quarantined the enquiry and emailed the operator with its tracking number. Nothing is ever silently lost.
