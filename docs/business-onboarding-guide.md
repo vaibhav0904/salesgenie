@@ -13,18 +13,23 @@ This guide takes you from nothing to your first approved reply. You do not need 
 | A **Google Gemini key** | The AI that reads, scores and writes | Free tier |
 | An **OpenAI key** *(optional but recommended)* | Powers two extras: a backup AI if Google has an outage, and an independent "examiner" AI that checks the quality of every AI output | Pay-per-use, fractions of a cent |
 | Your **email mailbox** | Where enquiries arrive and approval requests are sent | You have this |
+| **The SalesGenie files** | Download the repository from GitHub — the green **Code → Download ZIP** button — and unzip it somewhere you can find | Free |
+| **Node.js** | Needed for exactly one command in Step 3. Install from **nodejs.org** (the "LTS" version), then restart your terminal | Free |
 
-Total setup time: about 45 minutes, once.
+Total setup time: about 45 minutes, once. It is almost all pointing and clicking; there
+is **one** command to run, in Step 3, and it is copy-paste.
 
 ---
 
 ## Step 1 — Create your free database (~5 minutes)
 
-Everything SalesGenie knows lives in a database. Supabase gives you one free, with a browser page where you can paste setup text — you'll never touch a command line.
+Everything SalesGenie knows lives in a database. Supabase gives you one free, with a browser page where you can paste setup text — no command line needed for this step.
 
 1. Go to **supabase.com**, sign up (free), and click **New project**. Name it `salesgenie`, choose a strong database password, and **save that password** — you'll need it in Step 3.
 2. When the project is ready, open **SQL Editor** in the left menu. This is a box where you paste setup text and press **Run**.
-3. The SalesGenie package includes five setup files in its `db/` folder, numbered `001` to `005`. Open them one at a time in any text editor, copy the whole content, paste into the SQL Editor, and press **Run** — in number order. Each should finish with a success message. (These create the record book's "pages": leads, products, decisions, reports, AI logs.)
+3. The SalesGenie package's `db/` folder holds setup files numbered `001` to `005`. Open them one at a time in any text editor, copy the whole content, paste into the SQL Editor, and press **Run** — in number order. Each should finish with a success message. (These create the record book's "pages": leads, products, decisions, reports, AI logs.)
+
+   **Skip `002`.** That one loads a fictional demo furniture shop ("Oak & Ember") with 20 sample products, which is useful for exploring but is not your business. Run `001`, then `003`, `004`, `005`. (Ignore `init_test_db.sql` — it is for the project's own testing.)
 4. One more small paste. This sets the secret password that protects the door where other companies' AIs can reach you (Step 7). Replace the middle part with any long random phrase of your own and run:
 
 ```sql
@@ -49,9 +54,9 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
 The SalesGenie package contains **14 workflow files** (they end in `.json`) in its `n8n/workflows/` folder. Each one is a department of the back office: reception, the reader, the scorer, the recommender, the drafter-with-approval, the weekly report, and so on.
 
-1. **First, fix the addresses — before importing anything.** Jump to point 4 below, run
-   the one command, and come back. It rewrites the package for *your* n8n address. Doing
-   it afterwards means editing 20 places by hand, five of them hidden.
+1. **First, fix the addresses — before importing anything.** Jump to **point 5** below,
+   run the one command there, and come back. It rewrites the package for *your* n8n
+   address. Doing it afterwards means editing 20 places by hand, five of them hidden.
 
 2. Now, in n8n, choose **Import from file** and import all 14 — **from the
    `n8n/workflows-retargeted/` folder the script just produced**, not the original
@@ -130,13 +135,28 @@ Some departments call other departments, so the inner ones must be switched on f
 
 ## Step 5 — The two-minute smoke test
 
-Let's prove it's alive before onboarding your real business. In n8n, open workflow **…09-MCPOperations** — but the simplest test is from Step 6's chat, so if you're impatient, skip ahead. Prefer a direct test? Any tool or teammate who can send a web request can POST a test enquiry to:
+Before setting up your real business, let's confirm the front door is answering. Run this
+(replace the address with yours):
 
-```
-https://your-team.app.n8n.cloud/webhook/vaibhavcapstone-intake
+```bash
+curl -X POST https://your-team.app.n8n.cloud/webhook/vaibhavcapstone-intake \
+  -H "Content-Type: application/json" \
+  -d '{"business_id":"not_a_real_business","channel":"webhook","external_id":"t1","from_email":"t@example.com","from_name":"T","subject":"test","body":"test"}'
 ```
 
-Either way, the proof of life is the same: within about a minute, an email titled **"[Approval needed] …"** arrives in the reviewer mailbox you'll configure next. (If you test before onboarding a business, the enquiry will politely be refused with "unknown business" — that's correct behavior! The system never guesses who an enquiry belongs to.)
+**What you want to see:**
+
+```json
+{"ok":false,"error":"unknown business_id: not_a_real_business"}
+```
+
+That refusal *is* the pass. It proves the door is open, the database is connected, and
+the system will not invent an owner for an enquiry it cannot place. If you instead get
+"webhook is not registered", the workflows are imported but not switched on — go back to
+Step 4. If you get nothing at all, check the address.
+
+You will send a real enquiry — and get a real approval email — at the end of Step 6,
+once your business actually exists.
 
 ---
 
@@ -151,12 +171,43 @@ https://your-team.app.n8n.cloud/mcp/vaibhavcapstone-onboarding
 https://your-team.app.n8n.cloud/mcp/vaibhavcapstone-operations
 ```
 
+**Claude Desktop needs a helper to reach a remote address like this.** It cannot simply
+be given a URL. Install the bridge once with `npm install -g mcp-remote`, then add both
+servers to its config file, launching them with `node <full path to mcp-remote>` — **not**
+`npx -y`, which is slow enough that Claude Desktop gives up before the tools appear.
+`scripts/verify-desktop-mcp.js` in the package checks the connection for you and tells you
+whether it succeeded.
+
+**Don't want to set up a chat client at all? You don't have to.** Every one of these tools
+is also a plain web address, so you can do the whole of this step with `curl` instead:
+
+```bash
+# create your business
+curl -X POST https://your-team.app.n8n.cloud/webhook/vaibhavcapstone-tool-create-business \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Terracotta Tales","industry":"pottery","tone":"warm and artisanal","currency":"INR"}'
+
+# ask what is still missing  (use the business_id the previous call returned)
+curl -X POST https://your-team.app.n8n.cloud/webhook/vaibhavcapstone-tool-setup-status \
+  -H "Content-Type: application/json" -d '{"business_id":"biz_terracottata"}'
+```
+
+The same pattern works for `-tool-upload-catalog`, `-tool-set-reviewer`,
+`-tool-pending-approvals` and `-tool-approve-draft`. Every address is listed in
+`docs/workflows-reference.md`. The chat route is friendlier; this one is always available.
+
 Then just talk. A real first conversation looks like this:
 
 > **You:** Set up my business: Terracotta Tales, a pottery studio in Jaipur. Our tone is warm and artisanal. Currency INR.
 > **You:** What do I still need before going live?
 > *(It answers plainly: no product list yet, no reviewer named.)*
-> **You:** Here's my catalog: *(paste your product list — even a simple list of name, price and stock works)*
+> **You:** Here's my catalog: *(paste your product list — name, category, price, and how many you have)*
+
+**If you paste a spreadsheet or CSV, the stock column must be headed `stock_qty`.** A
+column called `stock` is accepted but loads every product as *zero in stock* — after
+which nothing can ever be recommended, and the system will correctly but confusingly
+tell you it has nothing to offer. (Known issue, BUG-009.) Listing products in plain
+sentences avoids this entirely.
 > **You:** I'm the reviewer — myname@mybusiness.com. Replies should come from "Terracotta Tales &lt;hello@…&gt;".
 
 Three things worth knowing:
@@ -166,6 +217,34 @@ Three things worth knowing:
 - **The reviewer is the gate.** No reply reaches a customer without that person clicking Approve — in the approval email, or right in the chat: *"What's pending?" → "Approve the first one."* This is built into the machinery, not a setting you could accidentally turn off.
 
 From now on, enquiries to your mailbox flow through automatically, and every Monday your report arrives: funnel, lead quality, response speed, best-selling interests — plus exactly what the AI cost you that week, to the fraction of a rupee.
+
+### ⚠ Until you say otherwise, approved replies come back to *you* — not to the customer
+
+This is deliberate, and it is the single most important thing to know before you trust
+this with real enquiries.
+
+When you named a reviewer, SalesGenie also switched on a safety net: every approved
+reply is delivered to the **reviewer's** inbox instead of the customer's, with the real
+recipient shown in the subject like `[DEMO -> priya@herbusiness.com] Re: your enquiry`.
+The point is that you can practise on real-looking enquiries — approve things, get them
+wrong, approve again — without a single stranger receiving anything.
+
+It also means that **while it is on, no customer ever hears from you.** You will see
+replies arriving in your own inbox and it can look like everything is working.
+
+When you are ready for real customers, say this in chat:
+
+> **You:** Turn off the customer email redirect for my business — send approved replies straight to the customer.
+
+(Under the hood it clears one setting, `customer_email_redirect`. If your chat client
+asks for exact wording, the tool is `update_business_config` and the change is
+`{"customer_email_redirect": null}`.)
+
+Check it worked by approving one more draft: the subject should no longer start with
+`[DEMO -> …]`, and it should land with the customer rather than with you.
+
+To switch the safety net back on later — say, while you are trying something new —
+set it to your own address the same way.
 
 ---
 
@@ -187,7 +266,12 @@ Want to *see* the AI working — every call, its speed, its exact token cost, an
 
 1. Sign up at **cloud.langfuse.com** (free plan), create a project, and copy its two keys (public + secret).
 2. In n8n, create a credential named `Capstone-Langfuse` of type **Header Auth**: name `Authorization`, value `Basic ` followed by the two keys joined by a colon and base64-encoded (any "base64 encode" web page can do this: encode `pk-lf-xxx:sk-lf-xxx`).
-3. In each workflow that has steps starting with **"Ship LF"**, open those steps and change the address to `https://cloud.langfuse.com/api/public/ingestion`, and select the credential.
+3. Open each step starting with **"Ship LF"** and select the `Capstone-Langfuse` credential you just made.
+
+   You do **not** need to change their addresses by hand — if you passed
+   `--langfuse https://cloud.langfuse.com` to the script in Step 3, all seven were
+   already rewritten. If you skipped that flag, re-run the script with it and re-import
+   rather than editing seven steps across six workflows.
 
 Skip this entirely and nothing is lost — your Monday report already includes AI cost and quality, computed from your own database.
 

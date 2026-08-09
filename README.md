@@ -73,7 +73,7 @@ The platform needs **zero seed files**. The demo tenant in `db/002` is optional 
 
 - Docker, Node ≥ 18.
 - An **n8n ≥ 2.x + Postgres 16** stack. Any arrangement works; the author's compose reference (ports, volumes, network) is in [`docker/README.md`](docker/README.md). Postgres needs a `salesgenie` database.
-- `cp .env.example .env` and fill it: Postgres password, Gemini + OpenAI keys, Gmail app password (only if using the email door), an MCP bearer token you invent, Langfuse init values.
+- `cp .env.example .env` — needed only for the helper scripts in `scripts/` and the optional local Docker stack. **Your Gemini, OpenAI and mailbox credentials do not go here**; they live in n8n's own Credentials store, which is where the workflows read them from. `.env.example` says which variable is for what.
 - Optional but worth it — **Langfuse** (self-hosted, compose file included):
   ```bash
   cd docker && docker compose --env-file ../.env -f langfuse-compose.yml up -d

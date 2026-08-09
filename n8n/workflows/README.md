@@ -42,6 +42,14 @@ Any channel ──── webhook ──┘                      │             
 
 ## Importing into a fresh n8n
 
+> **Do step 0 first.** Run `node scripts/retarget-host.js --base <your n8n url>` and import
+> from the `n8n/workflows-retargeted/` folder it produces — **not** from this folder. The
+> exports here are addressed to `http://localhost:5678`, and 20 of those references (five
+> of them buried in SQL and Code nodes) must be rewritten for your host first. Importing
+> these files directly gives you an instance that looks fine and quietly reaches nothing.
+>
+> Running n8n locally on port 5678? Then these files are already correct and you can skip it.
+
 **1. Create these credentials.** n8n matches them by name on import, so use these names exactly:
 
 | Type | Name | Used by |
@@ -87,7 +95,7 @@ The call graph, for reference:
 10-ResumeParked  ──▶ 05-Recommender, 06-DraftHITL
 ```
 
-**5. Re-point the `Execute Workflow` nodes.** Workflow IDs are per-instance; the **eight** handoff nodes reference IDs, not names, so they must be re-selected after import. `node scripts/retarget-host.js --base <your-url>` prints the exact list (and rewrites the host URLs below in the same pass).
+**5. Check the `Execute Workflow` nodes — you should not have to fix them.** Workflow IDs are per-instance, and the eight handoff nodes reference IDs rather than names. `retarget-host.js` stamps the six referenced workflows with the IDs the others point at, so they resolve on import. Open one and confirm it names its target instead of showing an unresolved ID; only re-select by hand if it does not.
 
 **6. Re-point the error workflow.** All 13 non-handler workflows already carry `00-ErrorHandler` as their error workflow in these exports, but that setting is also stored as an ID — so re-select it (Settings → Error Workflow) after import, or failures will be invisible.
 

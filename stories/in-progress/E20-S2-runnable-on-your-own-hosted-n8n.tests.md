@@ -74,3 +74,52 @@ retargeted URLs are all covered.
 
 UAT: Vaibhav follows the rewritten onboarding guide himself against a throwaway
 instance, without consulting me, and confirms he never had to guess.
+
+## UAT — run 2026-08-09
+
+Vaibhav asked me to run the UAT rather than doing it himself. **Caveat worth stating: I
+wrote these docs, so I cannot be genuinely surprised by them.** A fresh human reader is
+still the real test. What I did instead was an adversarial read-through against the
+question "could a non-developer actually follow this?" — which found 12 blockers,
+including one I had introduced myself.
+
+### Fixed in this pass
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | **Step 3 point 1 said "jump to point 4"; the command is in point 5.** My own fix from earlier today, off by one — and load-bearing: point 4 tells you to open already-imported workflows, so a reader would import the un-retargeted files, the exact failure the step exists to prevent | Corrected to point 5 |
+| 2 | Guide invited pasting a catalogue with a `stock` column, which loads everything as zero stock (BUG-009) and then reports "nothing suitable" as correct behaviour | Names `stock_qty`, explains the symptom, suggests plain sentences |
+| 3 | "You'll never touch a command line" / "no command line" — false; Step 3 runs Node | Reworded; Node and the download added to the requirements table |
+| 4 | Guide never said where to get the package | "Code → Download ZIP" added to the table |
+| 5 | Step 5's smoke test had no request body, no finished sentence, and promised an approval email that cannot arrive before a business exists | Replaced with a runnable `curl` whose **expected output is the refusal** — that refusal being the pass |
+| 6 | Step 1 told a real business to run `002`, the fictional demo tenant | Says to skip it, and names the stray `init_test_db.sql` |
+| 7 | Step 8 told you to hand-edit 7 Langfuse URLs the script already rewrote | Now says select the credential only, and to re-run the script rather than hand-edit |
+| 8 | `n8n/workflows/README.md` still ordered import-before-retarget, and still said the eight handoffs must be re-pointed — both stale since the id-stamping change | Retarget promoted to step 0; re-pointing downgraded to a check |
+| 9 | README line 76 told you to put Gemini/OpenAI keys in `.env`, contradicting line 34 forty lines above | Corrected to point at n8n Credentials |
+| 10 | Step 6 dead-ended a non-developer: Claude Desktop cannot take a bare MCP URL, and the guide had no alternative | Added the `mcp-remote` requirement **and** a full `curl` route that needs no chat client |
+
+### Known, not yet fixed
+
+- **`intake_email` is never set by the guide**, so the email door matches nothing even
+  though Step 6 says "enquiries to your mailbox flow through automatically". Needs either
+  a setup step or an honest statement that the email door requires extra configuration.
+- **Prerequisites still missing** from the requirements table: 2-step verification on the
+  Google account (required before an app password can exist), IMAP being enabled, and a
+  publicly reachable n8n URL for the A2A door.
+- **"Free" is overstated** — n8n Cloud is not free after its trial, and OpenAI is
+  pay-per-use. The guide says "you do not need to pay anyone" eight lines above a table
+  admitting a paid service.
+- **`Capstone-Langfuse` missing** from the Step 3 credential table (six listed, seven
+  needed), so the "Ship LF" nodes show a warning the reader cannot resolve.
+- **`Capstone-IMA`** is listed without the note that the truncated name is deliberate;
+  a tidy-minded reader will "correct" it to `Capstone-IMAP` and break the email door.
+- **README jargon** — "headless, multi-tenant agentic sales platform", "cross-vendor
+  judge", "per-token LLM observability" — fails the project's own plain-words-first rule
+  in the very first file a newcomer opens.
+- **Dead ends without a success signal**: the activation order in Step 4, the `a2a_bearer`
+  insert in Step 1, and the agent card in Step 7 (which never mentions
+  `scripts/buyer-agent-demo.js`, the thing that would actually prove it works).
+
+These are queued rather than done because the ten above were the ones that stop an
+install dead. A real first-time reader should still walk it end to end before the repo
+goes public.
