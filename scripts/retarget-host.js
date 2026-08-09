@@ -77,6 +77,24 @@ if (!/^https?:\/\//.test(base)) {
   console.error(`--base must start with http:// or https:// (got "${args.base}")`);
   process.exit(1);
 }
+
+// --base must be reachable BY N8N ITSELF, not just by your browser. Twelve of the
+// rewritten URLs are the MCP tool nodes, and n8n calls those from inside its own
+// process: they are server-to-server, not browser-to-server.
+//
+// Verified 2026-08-09 on a container published as host port 5679: from inside the
+// container http://localhost:5679 returned 404 while http://localhost:5678 (the port
+// n8n actually listens on) returned 200. Retargeting to the host port there would
+// have broken every chat tool, silently.
+const m = base.match(/^https?:\/\/(localhost|127\.0\.0\.1)(?::(\d+))?/i);
+if (m && m[2] && m[2] !== '5678') {
+  console.warn(`WARNING  --base is ${base}, a localhost address on port ${m[2]}.`);
+  console.warn('         If n8n runs in Docker published on that host port, it does NOT listen');
+  console.warn('         on it internally - n8n listens on 5678 inside the container, so its own');
+  console.warn('         tool calls to this address will 404 and the chat tools will fail quietly.');
+  console.warn('         For a local container use --base http://localhost:5678 (the internal port).');
+  console.warn('         For hosted n8n use your public URL, which is reachable either way.\n');
+}
 const langfuse = args.langfuse ? String(args.langfuse).replace(/\/+$/, '') : null;
 const reviewer = args.reviewer || null;
 

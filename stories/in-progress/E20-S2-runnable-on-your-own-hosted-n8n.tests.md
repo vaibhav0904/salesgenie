@@ -24,7 +24,7 @@ with `down -v` afterwards.
 | TC13 | Committed compose starts standalone | **Pass** | Came up on alternate ports, no external network, **all 13 tables created automatically** from `db/` on first boot |
 | TC14 | **Fresh-install run** | **Pass** | 7 credentials + 14 workflows imported into a clean instance, all 14 published, business created, catalogue uploaded, reviewer set |
 | TC15 | **Fresh install processes a lead** | **Pass** | Unknown business → `404 unknown business_id` (refuses rather than guesses). Valid lead → `201` → **`PENDING_APPROVAL` in ~30s**, band **HOT**, 1 recommendation, 1 draft, 4 LLM calls. Recommendation verified against the catalogue: `TST-001`, real and in stock |
-| TC16 | MCP over the internet | **Not run** | Needs a public URL and a chat client. The tool URLs it depends on were retargeted and proven by TC1 |
+| TC16 | MCP driven by a client | **Pass** | Drove the MCP server directly over streamable HTTP. Auth correct: no token 403, wrong token 403, real token 200. `initialize` established a session; `tools/list` returned all **6 onboarding tools**. Tool invocation exposed a real defect in the retarget guidance — see below |
 | TC17 | A2A door works on the new host | **Pass** | Agent card returned `"url":"http://localhost:5679/webhook/a2a-rpc?..."` — from inside `13-A2AServer`'s jsCode, the other buried occurrence |
 | TC18 | **Weekly report on the new host** | **Pass** | `insights-run` then `insights-latest` returned a 6,880-byte report with that instance's own data: "processed a total volume of 1 lead… classified as 'HOT'" |
 | TC19 | Docs survive the run unchanged | **Pass (with fixes)** | Three defects found *by running it*, fixed in the docs and tooling rather than worked around |
@@ -50,12 +50,27 @@ That removes the most error-prone step in the whole setup — one that failed si
    plainly, with how to opt out.
 3. **The repo documented 6 Execute Workflow handoffs; there are 8.**
 
-## The one case still open
+## The defect TC16 exposed
 
-TC16 (MCP driven from a chat client over the internet) needs a publicly reachable URL and
-a configured client. Everything it depends on — the twelve retargeted tool URLs in `08`
-and `09` — was rewritten and verified by TC1 and TC8, so the remaining risk is the client
-connection itself rather than the workflows.
+** must be an address n8n itself can reach, not just your browser.** Twelve of
+the rewritten URLs are the chat-tool nodes, which n8n calls from inside its own
+process — server to server, not browser to server.
+
+Measured from inside the container published on host port 5679:
+
+| From inside the n8n container | Result |
+|---|---|
+|  (the host port I retargeted to) | **404** |
+|  (the port n8n listens on internally) | **200** |
+
+So retargeting a local Docker install to its *host* port breaks every chat tool,
+silently — the exact failure this script exists to prevent. Hosted n8n is unaffected,
+since its public URL is reachable from both sides.  now detects and
+warns on the risky case, and the guide explains it.
+
+What remains genuinely untested is only a specific chat *application* (Claude Desktop
+and friends) against a public URL. The server, its auth, its tool discovery and the
+retargeted URLs are all covered.
 
 UAT: Vaibhav follows the rewritten onboarding guide himself against a throwaway
 instance, without consulting me, and confirms he never had to guess.

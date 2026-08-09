@@ -96,6 +96,14 @@ The SalesGenie package contains **14 workflow files** (they end in `.json`) in i
    keep pointing at a dashboard that isn't there and fail silently and harmlessly.
    `--reviewer` sets who gets error alerts.)*
 
+   **Use the address n8n itself can reach, not just the one your browser uses.**
+   Twelve of those URLs are the chat tools, and n8n calls them from inside its own
+   process — server to server. For hosted n8n they are the same thing, so your
+   `https://your-team.app.n8n.cloud` address is correct and you can ignore this. It
+   only bites if you run n8n locally in Docker on a non-standard port: the port you
+   type in your browser is not the port n8n listens on inside its container, and the
+   chat tools would fail quietly. The script warns you if it spots that case.
+
 6. **Check two things after importing.** The script stamps the workflows with the
    ids they reference, so n8n links them up on arrival and you should have nothing to
    fix. Confirm it worked: open any workflow, and
