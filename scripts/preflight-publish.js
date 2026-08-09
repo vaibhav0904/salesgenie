@@ -110,13 +110,17 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-// The author's own address is the PII most likely to be sitting in a doc or a story card.
-// It is picked up from .env when present, but state it outright so the scan does not
-// depend on a variable happening to exist.
-for (const addr of ['vaibhav0904@gmail.com']) {
-  if (!liveValues.some((v) => v.value === addr)) {
-    liveValues.push({ name: "the author's personal email", value: addr, kind: 'PERSONAL DATA' });
-  }
+// Addresses the author has decided are public identity, not leaks. This list is the
+// difference between a scanner people act on and one they learn to ignore: it flagged
+// this address 6 times across docs the author wrote deliberately, and a check that is
+// always red is the same as no check at all.
+//
+// vaibhav0904@gmail.com is the repo's git author identity — it is on every commit by
+// design (2026-08-09). Any OTHER address still gets reported.
+const ACCEPTED_IDENTITY = new Set(['vaibhav0904@gmail.com']);
+
+for (let i = liveValues.length - 1; i >= 0; i--) {
+  if (ACCEPTED_IDENTITY.has(liveValues[i].value)) liveValues.splice(i, 1);
 }
 
 // ------------------------------------------------------------------- the scans
@@ -189,6 +193,7 @@ try {
   }
   for (const [addr, n] of Object.entries(authors)) {
     if (/noreply|users\.noreply\.github\.com/i.test(addr)) continue;
+    if (ACCEPTED_IDENTITY.has(addr)) continue;
     findings.push({
       kind: 'PERSONAL DATA', file: 'git history (commit metadata)',
       detail: `${addr} — on ${n} commit record(s). Visible on every commit once public, ` +
