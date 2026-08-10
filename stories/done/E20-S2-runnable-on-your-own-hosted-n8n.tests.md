@@ -152,3 +152,45 @@ Brought up a throwaway stack and queried `pg_database` — `salesgenie`, `n8n` a
 **Still outstanding:** a real first-time human reader walking it end to end. Everything
 above was found by adversarial reading and by testing the code paths the docs point at;
 neither substitutes for someone who has never seen this system.
+
+## Re-validation 2026-08-10 — the docs changed, so the run had to be repeated
+
+TC14–TC18 were executed against the docs *as they stood on 2026-08-09*. Since then the
+guide gained a whole "Opening the email door" section, a `curl` route through Step 6, a
+success signal for the `a2a_bearer` insert, a `buyer-agent-demo.js` step in Step 7, and
+BUG-009 changed catalogue upload behaviour. **A passing run against superseded docs is not
+evidence about the current ones**, so the whole path was run again, verbatim, on a
+throwaway stack — n8n on :5679, Postgres on :5433, own volumes, `CONTAINER_PREFIX=sg-uat`,
+torn down with `down -v`. The live rig was never touched (verified after: still 0
+businesses).
+
+| Step of the guide | Result |
+|---|---|
+| Compose comes up beside a live stack | **Pass** — `sg-uat-postgres` / `sg-uat-n8n`, no collision. This exercised the `CONTAINER_PREFIX` fix made the same day; before it, container names were absolute and the second stack could not start |
+| 13 tables auto-created; skip `002` as the guide says | **Pass** |
+| Step 1.4 `a2a_bearer` insert | **Pass** |
+| Step 3 retarget → import 14 + 7 credentials | **Pass** — id-stamping meant nothing needed re-pointing |
+| Step 4 activate in dependency order | **Pass** — all 14, none refused |
+| Restart after CLI activation | **Required, as documented** |
+| Step 5 smoke test | **Pass** — returned exactly the documented refusal, `{"ok":false,"error":"unknown business_id: not_a_real_business"}` |
+| Step 6 `curl` route: create business | **Pass** — `biz_terracottatale` |
+| Step 6 upload catalogue **headed `stock`** | **Pass** — `stock_column_used: "stock"`, `catalog_size: 3`. Before the BUG-009 fix this loaded 3 products at zero stock and the run would have ended in `NEEDS_REVIEW` |
+| Step 6 set reviewer | **Pass** — and `customer_email_redirect` was set automatically, exactly as the ⚠ section warns |
+| A lead, end to end | **Pass** — `PENDING_APPROVAL`, **HOT score 100**, grounded, 2 recommendations (`POT-001`, `POT-002`), 4 LLM calls. Both SKUs came from the uploaded catalogue, which is only possible because stock loaded — BUG-009 proven end to end, not just unit-tested |
+| "Opening the email door" — the `update_business_config` call | **Pass** — `intake_email` landed exactly where `02-GmailAdapter`'s lookup reads it |
+| Switching the demo redirect off, as documented | **Pass** — cleared; replies would now reach the customer |
+| Step 7 agent card | **Pass** — served the tenant's own card |
+| Step 7 `buyer-agent-demo.js` with `A2A_BEARER_TOKEN` | **Pass** — discovery → `message/send` → polled through EXTRACTED, QUALIFIED, RECOMMENDED → **`input-required`**, the human gate visible over the protocol. This exercised the bearer-name fix; the old `MCP_BEARER_TOKEN` would have returned a bare `unauthorized` here |
+| Weekly report | **Pass** — 6,832 bytes, correct tenant name and date window, from that instance's own data |
+
+**No defects found this time.** Every step behaved as written, including all seven areas
+rewritten on 2026-08-09 that had never actually been executed.
+
+Credentials were reused via `n8n export:credentials --decrypted` rather than recreated, with
+only the seven `Capstone-*`/AI credentials imported — the four belonging to the owner's other
+projects were filtered out and left alone. The decrypted copies were deleted from both the
+container and disk afterwards.
+
+**What this still is not:** a first-time human reader. It is the author executing his own
+instructions. Every mechanical claim in the guide is now verified against the current text;
+whether the *prose* is followable by a stranger remains untested.
