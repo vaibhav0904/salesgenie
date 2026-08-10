@@ -1,4 +1,4 @@
-# Status — last updated 2026-08-09 by Claude
+# Status — last updated 2026-08-10 by Claude
 
 The live dashboard. `stories/README.md` is the (static) process description —
 this file is the current state. Updated at every `/prd`, `/story`,
@@ -15,21 +15,19 @@ of band without also fixing the folder it disagrees with.
 
 ## Backlog (priority order, top = next — set together, re-order anytime)
 
-Not yet fully prioritized — the 5 new E22/E23 stories are appended below
-the existing 3, in PRD order, not yet weighed against them or each other.
+Not yet fully prioritized — the 5 E22/E23 stories are appended below the
+existing 2, in PRD order, not yet weighed against them or each other.
 Next `/story` run should confirm real order with Vaibhav before picking one.
 
-1. `BUG-009` — catalogue CSV silently loads zero stock (no PRD needed — bug)
-2. `E19-S2` — swap plumbing code for native nodes (deliberately deferred, see card)
-3. `E20-S1` — flip the repo public (**fully unblocked** — video shipped as release
-   `demo-v1`, and E20-S2 closed the reproducibility gate. Card has a 6th gate: privacy
-   pass over the video's Gmail shots. Its one open risk is that a first-time human
-   reader has still never walked the setup guide end to end)
-4. `E22-S1` — store the full conversation, not just one message
-5. `E22-S2` — a reply reopens the same lead (depends on E22-S1)
-6. `E22-S3` — drafts/recommendations use conversation context (depends on E22-S2)
-7. `E23-S1` — customer identity table + detection at intake
-8. `E23-S2` — personalized returning-customer draft (depends on E23-S1)
+1. `E19-S2` — swap plumbing code for native nodes (deliberately deferred, see card)
+2. `E20-S1` — flip the repo public — **on hold at the owner's request (2026-08-10):
+   not going public at this point.** All six gates now pass (video redacted, history
+   rewritten, scan clean); the card stays open for whenever that changes
+3. `E22-S1` — store the full conversation, not just one message
+4. `E22-S2` — a reply reopens the same lead (depends on E22-S1)
+5. `E22-S3` — drafts/recommendations use conversation context (depends on E22-S2)
+6. `E23-S1` — customer identity table + detection at intake
+7. `E23-S2` — personalized returning-customer draft (depends on E23-S1)
 
 ## In progress
 
@@ -38,15 +36,27 @@ now that its blocker is cleared.
 
 ## Rig state (post-demo, 2026-08-08)
 
-Demo is closed and the stack is quiet. `salesgenie` holds Oak & Ember and its 20
-products only — all demo leads and the on-camera "Aurora Lamps" tenant were
-cleared; `platform_config` (A2A bearer) survives. Reviewer stays
-`vaibhav0904@gmail.com`, so a future demo needs no re-setup. 11 of 14 workflows
-active: `02-GmailAdapter`, `07-WeeklyInsights` and `12-LLMJudge` are deactivated
-so nothing polls, no Monday cron fires, and the half-hourly judge sweep stops
+Demo is closed and the stack is quiet.
+
+**Seed data now lives in `salesgenie_test` only** (2026-08-10, owner's call). The live
+`salesgenie` database holds **no businesses and no products** — Oak & Ember and its 20
+products were removed. `platform_config` (the A2A bearer) survives in both, so the test
+database is a complete environment rather than a partial one. `db/002` stays in the repo
+and rebuilds the demo shop in one command.
+
+11 of 14 workflows active: `02-GmailAdapter`, `07-WeeklyInsights` and `12-LLMJudge` are
+deactivated so nothing polls, no Monday cron fires, and the half-hourly judge sweep stops
 spending OpenAI tokens. Reactivate those three before demoing again.
 
+**History was rewritten 2026-08-10** — every commit is now authored
+`vaibhav0904@gmail.com` and the course PDF is gone from all of it. Commit ids therefore
+differ from anything noted before that date. Pre-rewrite backup bundle:
+`../salesgenie-backup-pre-rewrite-2026-08-10.bundle`.
+
 ## Recently done
+
+- `BUG-009` — catalogue CSV silently loaded zero stock; stock column aliases +
+  ignored-column reporting, verified live (2026-08-10)
 
 - `E20-S2` — anyone can run this on their own hosted n8n (2026-08-09) — retarget
   and sync tooling, generated per-workflow reference, self-contained compose,

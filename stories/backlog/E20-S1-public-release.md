@@ -98,16 +98,27 @@ the Windows username and employer tenant name are pixelated out of the terminal 
 so replacing that asset is a required step before the repo goes public — the redacted file
 existing locally does nothing on its own.
 
-### Open decisions
+### Closed 2026-08-10
 
-1. **History rewrite, or not.** The course PDF is untracked but still in history, and 25
-   commits still carry `<work email address>`. Removing either means rewriting
-   every commit — all SHAs change and the `demo-v1` tag is orphaned. Accepting them is
-   entirely reasonable; what is not reasonable is calling them removed while history
-   carries them. **Now the sharper question**, since the video no longer names the
-   employer: the commit metadata is the only place left that does.
-2. **Gate 2, the seed decision**, is still unmade: keep `db/002` as optional demo data
-   (the docs already describe it that way and the compose loads it), or remove it.
+**History rewritten.** All 31 commits now carry `vaibhav0904@gmail.com` — the confirmed
+author identity — and `docs/06_Official_Presentation_Template.pdf` is gone from every
+commit, not merely untracked. The `demo-v1` tag was rewritten with it and force-pushed;
+the release survived the move and still serves the redacted video. Backup taken first and
+verified as a complete history: `../salesgenie-backup-pre-rewrite-2026-08-10.bundle`.
+`preflight-publish.js` now reports **CLEAN**.
+
+The course PDFs remain on disk, untracked and gitignored by pattern. `docs/problem-statement.md`
+and `docs/presentation-template.md` are the author's own summaries and stay — checked that
+nothing else depends on the PDFs themselves.
+
+**Gate 2 settled: seed data lives in the test database only.** Oak & Ember and its 20
+products were removed from `salesgenie`; `salesgenie_test` keeps them and gained the
+`a2a_bearer` row so it is a complete environment rather than a partial one. `db/002` stays
+in the repo — it is what rebuilds the shop, and every eval email is addressed to
+`biz_oakember`, so removing it would make the published eval results unreproducible.
+
+**Release status: on hold.** All six gates pass, but the owner has decided not to make the
+repo public at this point (2026-08-10). Nothing here expires; the card waits.
 
 ## Also before any public screenshot / on-camera n8n screen
 - Deactivate or delete `ZZ-TEMP-Dispatch03` (leftover test workflow, webhook-only, still Active).

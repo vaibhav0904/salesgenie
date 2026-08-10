@@ -7,9 +7,14 @@ on top of that single stack, used **one at a time**:
 
 | System | What it is |
 |---|---|
-| **Test** | `salesgenie_test` database — free to break, reset anytime |
-| **Demo** | `salesgenie` database — clean, curated dummy data only |
+| **Test** | `salesgenie_test` database — free to break, reset anytime. **The only place seeded demo data lives** (Oak & Ember + its 20 products) |
+| **Demo / live** | `salesgenie` database — **kept empty of seed data** (2026-08-10). Only `platform_config` persists. Any tenant here is one you created deliberately |
 | **Production** | The GitHub `main` branch — the versioned, deployable record |
+
+**Why live is empty.** Seeded sample data in the live database is indistinguishable from
+real data at a glance, and a demo shop sitting there invites the question of whether any
+given number came from a real run. `db/002_seed_oakember.sql` stays in the repo and
+recreates it in one command whenever a demo needs it — load it into `salesgenie_test`.
 
 ## The switch: one credential, one field
 
