@@ -248,11 +248,11 @@ Then just talk. A real first conversation looks like this:
 
 > **You:** I'm the reviewer — myname@mybusiness.com. Replies should come from "Terracotta Tales &lt;hello@…&gt;".
 
-**If you paste a spreadsheet or CSV, the stock column must be headed `stock_qty`.** A
-column called `stock` is accepted but loads every product as *zero in stock* — after
-which nothing can ever be recommended, and the system will correctly but confusingly
-tell you it has nothing to offer. (Known issue, BUG-009.) Listing products in plain
-sentences avoids this entirely.
+**If you paste a spreadsheet or CSV, head the stock column any sensible way** — `stock_qty`,
+`stock`, `qty`, `quantity`, `available` and `units` are all understood. The reply tells you
+which one it used, names any column it did not recognise, and warns you outright if every
+product ended up with zero stock, since that means nothing can be recommended yet. Listing
+your products in plain sentences works too.
 
 Three things worth knowing:
 

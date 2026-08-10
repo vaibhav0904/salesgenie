@@ -140,7 +140,7 @@ http://localhost:5678/mcp/vaibhavcapstone-operations    send_test_lead · get_le
 Then just talk:
 
 > *"Set up a new business on SalesGenie: Green Thumb, a garden retailer in Pune. Tone: warm and practical. Currency INR."*
-> *"Here's the catalogue: …"* — CSV header must say **`stock_qty`** (a column named `stock` silently loads as zero stock; BUG-009)
+> *"Here's the catalogue: …"* — the stock column may be headed `stock_qty`, `stock`, `qty`, `quantity`, `available` or `units`; the reply says which it used and names anything it ignored
 > *"Set the reviewer to you@example.com"*
 
 **Route B — plain HTTP** (each MCP tool is also a webhook; no chat client needed):

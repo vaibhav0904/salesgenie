@@ -59,3 +59,43 @@ Item 2 is the general lesson: an import that discards a column the user supplied
 
 ## Related
 `catalog_size` in the same tool's response always reports the count **before** the insert (0 on a first upload), because the CTE reads the pre-insert snapshot. Cosmetic — `upserted` is correct — but worth fixing in the same pass.
+
+---
+
+## Fixed 2026-08-10 — product fix, not just the script
+
+Deployed to `VaibhavCapstone-08-MCPOnboarding`; three nodes changed.
+
+**`Parse + Validate Catalog`**
+- Stock is read from any of `stock_qty`, `stock`, `qty`, `quantity`, `stock_quantity`,
+  `available`, `units` — first one present wins, and the response says which was used.
+- Columns that are still unrecognised are returned as `ignored_columns` with a warning.
+  This is the general lesson from the bug: an import that discards what the caller
+  supplied has to admit it. Silence was the defect; the column name was only the trigger.
+- If every valid row loads with stock 0, it says so outright — that is nearly always an
+  import mistake rather than a sold-out shop, and it used to be indistinguishable from
+  success until the first enquiry came up empty.
+
+**`Catalog Result`** surfaces `warnings`, `ignored_columns` and `stock_column_used` in the
+tool response, so the fix is visible to whoever uploaded rather than buried in the run.
+
+**`Upsert Products`** — the `catalog_size` note in Related is fixed in the same pass. The
+count read the products table as it looked *before* the statement, so a first upload always
+reported 0; it now counts the union of what was there and what was just written.
+
+### Verified
+
+20 checks against the parsing code outside n8n (every alias, the ignored-column report, the
+all-zero warning, and that rejection rules and the `items[]` path are unchanged), then live
+against the running instance with the bug's own scenario:
+
+```json
+{"ok":true,"upserted":"2","catalog_size":"2","stock_column_used":"stock",
+ "ignored_columns":["warehouse_bin"],
+ "warnings":["ignored column(s) not recognised: warehouse_bin. Nothing from them was stored."]}
+```
+
+Rows landed as stock 40 and 7 — both would previously have been 0. `catalog_size` reporting
+2 rather than 0 confirms the second fix. The throwaway tenant was removed afterwards.
+
+Docs updated: the guide and README no longer warn about a header that now works.
