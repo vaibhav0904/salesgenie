@@ -123,6 +123,42 @@ for (let i = liveValues.length - 1; i >= 0; i--) {
   if (ACCEPTED_IDENTITY.has(liveValues[i].value)) liveValues.splice(i, 1);
 }
 
+// ------------------------------------- identity strings that never touch .env
+//
+// The gap that made this scanner lie. On 2026-08-10 it reported CLEAN over a repo where
+// two tracked files contained the author's employer name and full home-directory path in
+// plain text - the exact strings a video redaction pass had just been built to hide.
+//
+// It missed them because every content check above starts from .env: it looks for values
+// it can see. An employer name is never in .env. Neither is C:\Users\<you>. So the scan
+// searched confidently and found nothing, because it was not looking.
+//
+// These patterns are the answer: things that identify a person or an organisation and
+// have no business in a public repo, matched on shape rather than on a known value.
+const IDENTITY_PATTERNS = [
+  [/\b[A-Za-z]:\\Users\\[A-Za-z0-9._-]+/g, 'absolute home-directory path (names the OS account)'],
+  // Service accounts inside containers (/home/node, /home/runner) name nobody.
+  [/\/(?:home|Users)\/(?!node\/|root\/|app\/|runner\/|ubuntu\/)[A-Za-z0-9._-]+\//g,
+    'absolute home-directory path (names the OS account)'],
+  [/\bOneDrive\s*-\s*[A-Z][A-Za-z0-9 &.,'-]{3,}/g, 'OneDrive business tenant (names the employer)'],
+  [/@(?!example\.|example$)[A-Za-z0-9-]+\.(?:org|net|co|io|ai)\b/g, 'work-looking email domain'],
+  [/@(?!example\.|example$|gmail\.|outlook\.|yahoo\.|hotmail\.|proton)[A-Za-z0-9-]+\.com\b/g, 'work-looking email domain'],
+];
+
+// Documentation has to be able to *discuss* these without tripping the scan - a line that
+// says "do not commit your home directory path" is not a leak. Anything matching here is
+// the scanner's own rules or a placeholder, not a disclosure.
+// `mybusiness.com` / `herbusiness.com` are how the guide addresses its reader; they name
+// nobody. Left in, they were five of eight findings on an otherwise clean tree - which is
+// precisely how a scanner teaches you to stop reading it.
+const IDENTITY_ALLOWED = new RegExp([
+  'example', 'placeholder', '<the ', '\\$\\{',
+  'names the (?:OS account|employer)', 'work-looking', 'IDENTITY_',
+  '@example', 'user@', 'someone@', 'reviewer@',
+  '\\byour[-_a-z]*',                                     // your-team, yourbusiness
+  '\\b(?:my|his|her|their|the|a|some)[a-z]*business\\b',  // mybusiness, herbusiness
+].join('|'), 'i');
+
 // ------------------------------------------------------------------- the scans
 const findings = [];
 
@@ -154,6 +190,16 @@ for (const file of tracked) {
       for (const match of line.match(re) || []) {
         if (PLACEHOLDER.test(match) || PLACEHOLDER.test(line)) continue;
         findings.push({ kind: 'looks like a secret', file, line: i + 1, detail: `${label}: ${redact(match)}` });
+      }
+    });
+  }
+
+  for (const [re, label] of IDENTITY_PATTERNS) {
+    lines.forEach((line, i) => {
+      for (const match of line.match(re) || []) {
+        if (IDENTITY_ALLOWED.test(match) || IDENTITY_ALLOWED.test(line)) continue;
+        if (ACCEPTED_IDENTITY.has(match.replace(/^@/, ''))) continue;
+        findings.push({ kind: 'IDENTIFIES A PERSON', file, line: i + 1, detail: `${label}: ${match}` });
       }
     });
   }
@@ -205,7 +251,7 @@ try {
 } catch { /* no history — nothing to report */ }
 
 // ------------------------------------------------------------------- report
-const order = { 'LIVE SECRET': 0, 'IN HISTORY': 1, 'tracked file': 2, 'looks like a secret': 3, 'PERSONAL DATA': 4 };
+const order = { 'LIVE SECRET': 0, 'IDENTIFIES A PERSON': 1, 'IN HISTORY': 2, 'tracked file': 3, 'looks like a secret': 4, 'PERSONAL DATA': 5 };
 findings.sort((a, b) => (order[a.kind] - order[b.kind]) || a.file.localeCompare(b.file));
 
 console.log(`Pre-publication scan — ${tracked.length} tracked files, ` +

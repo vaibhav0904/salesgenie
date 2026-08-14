@@ -15,26 +15,22 @@ of band without also fixing the folder it disagrees with.
 
 ## Backlog (priority order, top = next — set together, re-order anytime)
 
-Not yet fully prioritized — the 5 E22/E23 stories are appended below the
-existing 2, in PRD order, not yet weighed against them or each other.
+Not yet fully prioritized — the 5 E22/E23 stories are appended below
+`E19-S2`, in PRD order, not yet weighed against it or each other.
 Next `/story` run should confirm real order with Vaibhav before picking one.
 
 1. `E19-S2` — swap plumbing code for native nodes (deliberately deferred, see card)
-2. `E20-S1` — flip the repo public — **on hold at the owner's request (2026-08-10):
-   not going public at this point.** All six gates now pass (video redacted, history
-   rewritten, scan clean); the card stays open for whenever that changes
-3. `E22-S1` — store the full conversation, not just one message
-4. `E22-S2` — a reply reopens the same lead (depends on E22-S1)
-5. `E22-S3` — drafts/recommendations use conversation context (depends on E22-S2)
-6. `E23-S1` — customer identity table + detection at intake
-7. `E23-S2` — personalized returning-customer draft (depends on E23-S1)
+2. `E22-S1` — store the full conversation, not just one message
+3. `E22-S2` — a reply reopens the same lead (depends on E22-S1)
+4. `E22-S3` — drafts/recommendations use conversation context (depends on E22-S2)
+5. `E23-S1` — customer identity table + detection at intake
+6. `E23-S2` — personalized returning-customer draft (depends on E23-S1)
 
 ## In progress
 
-Nothing. Next card comes off the backlog below — `E20-S1` is the obvious one,
-now that its blocker is cleared.
+Nothing.
 
-## Rig state (post-demo, 2026-08-08)
+## Rig state (2026-08-10)
 
 Demo is closed and the stack is quiet.
 
@@ -54,6 +50,12 @@ differ from anything noted before that date. Pre-rewrite backup bundle:
 `../salesgenie-backup-pre-rewrite-2026-08-10.bundle`.
 
 ## Recently done
+
+- `E20-S1` — **repo made public** (2026-08-10). Six gates plus a final three-way
+  audit, which caught a real blocker on the day: two tracked files had republished
+  the employer name and local path the video redaction existed to hide — and
+  `preflight-publish.js` reported CLEAN over both. Values removed, history scrubbed
+  a second time, scanner taught to read file content
 
 - `BUG-009` — catalogue CSV silently loaded zero stock; stock column aliases +
   ignored-column reporting, verified live (2026-08-10)

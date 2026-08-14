@@ -4,10 +4,9 @@
 **I want** the README quickstart to actually work on a machine that has never seen this project,
 **so that** the public repo is evidence of the system, not just a description of it.
 
-**Status:** **unblocked** (2026-08-08) — the demo video is recorded, cut, and published as
-release `demo-v1`; the rig has been cleaned down (demo leads and Aurora Lamps removed,
-scheduled workflows deactivated), so it is free to be disturbed now. Repo is **private**
-until every box below is ticked.
+**Status:** **done — repo made public 2026-08-10.** All six gates passed, plus a final
+three-way audit (docs simplicity, publication safety, repo integrity) which caught one
+genuine blocker on the day; see "The audit that nearly didn't happen" below.
 
 ## Acceptance criteria — all must pass before `--visibility public`
 
@@ -57,21 +56,23 @@ clone.
 **Gate 6 (video privacy): audited the published cut, frame by frame** — 49 frames at 12s
 intervals across all 9:47, with full-resolution zooms on every window that wasn't a slide.
 
-- **Gmail, two passages (~2:55–3:10 and ~6:15–6:30 in the published cut).** Legible:
-  `Inbox 8,275 · Drafts 5 · Purchases 415 · Social 92 · Updates 5,248 · Forums 754 ·
-  Promotions 2,691 · Spam 180`, `1 of 10,556`, and the label names
-  `[Gmail]/Trash/shopping …`, `[Imap]/Sent`, `[Imap]/Trash`. **No third-party message
-  content is visible in either** — both frames show a single open message, which is
-  SalesGenie's own generated reply, never the inbox list. The card's concern was correct
-  and is now measured rather than sampled.
+- **Gmail, two passages (~2:55–3:10 and ~6:15–6:30 in the published cut).** The mailbox's
+  unread counts, its total message count and several custom label names were all legible.
+  **No third-party message content is visible in either** — both frames show a single open
+  message, which is SalesGenie's own generated reply, never the inbox list. The card's
+  concern was correct and is now measured rather than sampled.
 - **NOT anticipated by this card — the terminal prompt.** Part 5 (~7:15–8:25, roughly 70
-  seconds) shows, sharp and readable:
-  `PS <your project folder>\…`
-  That is the Windows username and the **employer's OneDrive tenant name**.
-- **It correlates with the commit metadata**, which is the same disclosure by another
-  route: `<work email address>` on 25 commits (<employer> runs the
-  National Entrepreneurship Network) and `vaibhav0904@gmail.com` on 2. Publishing a repo
-  publishes its metadata.
+  seconds) shows, sharp and readable, a local filesystem path containing the author's
+  operating-system account name and the name of the organisation whose cloud storage the
+  folder sat in.
+- **It correlates with the commit metadata**, which was the same disclosure by another
+  route: a work email address on 25 of the commits. Publishing a repo publishes its
+  metadata.
+
+*(The specific values are deliberately not written down here. An earlier revision of this
+card quoted them in full — which meant this file republished, in searchable text, exactly
+what the video redaction existed to hide. Found by the pre-publication audit on
+2026-08-10; see "Closed 2026-08-10" below.)*
 
 ### Resolved 2026-08-09
 
@@ -88,15 +89,16 @@ the Windows username and employer tenant name are pixelated out of the terminal 
   would have obscured the "Reviewer set to …" line the demo is making its point with —
   to hide an address that is on every commit by design.
 - Verified after encoding, not assumed: sampled the whole terminal section again and
-  checked the full frame *below* the blur strip. The prompt appears only at the top; the
-  visible tail is `…ments\VS Code\Capstones\salesgenie-version2> node scripts/buyer-…`,
-  which discloses nothing. Audio stream copied, duration unchanged at 587s.
-- Method: pixelate (÷16) then blur, rather than blur alone — a heavy blur of known text
-  is not always irreversible.
+  checked the full frame *below* the blur strip. The prompt appears only at the top, and
+  the tail that stays visible is the project folder alone, which discloses nothing. Audio
+  stream copied, duration unchanged at 587s.
+- Method: pixelate then blur, rather than blur alone — a heavy blur of known text is not
+  always irreversible.
 
-**⚠ The release asset is still the unredacted cut.** `demo-v1` was published before this,
-so replacing that asset is a required step before the repo goes public — the redacted file
-existing locally does nothing on its own.
+**The release asset was replaced 2026-08-10.** `demo-v1` was published before the
+redaction, so for two days the release served the unredacted cut. The redacted file is now
+the attached asset (verified by byte size on the release, and again after the tag was
+rewritten). The repo was private throughout, so it was never publicly reachable.
 
 ### Closed 2026-08-10
 
@@ -117,8 +119,30 @@ products were removed from `salesgenie`; `salesgenie_test` keeps them and gained
 in the repo — it is what rebuilds the shop, and every eval email is addressed to
 `biz_oakember`, so removing it would make the published eval results unreproducible.
 
-**Release status: on hold.** All six gates pass, but the owner has decided not to make the
-repo public at this point (2026-08-10). Nothing here expires; the card waits.
+## The audit that nearly didn't happen (2026-08-10)
+
+Before flipping, three independent read-only audits ran over every tracked file: one on
+whether the docs are followable by a non-engineer, one on publication safety, one on
+whether everything the docs reference actually exists.
+
+The safety audit found the blocker. **Two tracked files republished, in searchable
+plaintext, the employer name and local path that the video redaction pass existed to
+hide** — one of them this very card, which had quoted the finding in full, along with a
+work email address and the owner's personal mailbox statistics. A redaction described
+precisely enough is not a redaction.
+
+Worse, **`preflight-publish.js` reported CLEAN over both files.** The scanner checked
+`.env` values, key-shaped strings, forbidden filenames, git history and commit metadata —
+but never the *content* of tracked files for identity strings, because those strings were
+never in `.env` to begin with. The tool built to answer "is this safe to publish?" had a
+blind spot precisely where the answer was no.
+
+Fixed in three parts: the values removed from both files, the strings scrubbed from all
+history (second rewrite, backed up first), and the scanner taught to scan file content for
+employer/username/work-address patterns — so the check that failed here now exists.
+
+**Lesson worth keeping:** a scanner that has never failed is not evidence that it works.
+This one had reported CLEAN twice before, over a repo that was not clean.
 
 ## Also before any public screenshot / on-camera n8n screen
 - Deactivate or delete `ZZ-TEMP-Dispatch03` (leftover test workflow, webhook-only, still Active).
