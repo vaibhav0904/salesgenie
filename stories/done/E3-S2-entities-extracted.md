@@ -22,5 +22,6 @@
 ## Outcome (2026-07-26)
 - Implemented inside WF-03 (single Gemini call with E3-S1, as planned in that story TN).
 - Extraction rows for every ENQUIRY lead; nulls stay null; grounding rule enforced by prompt + eval.
-- EVAL PASS (evals/results/2026-07-26-extraction.md): field accuracy 61/64 = 95.3% (threshold 90%), hallucinated fields 0 (hard requirement). Remaining 3 misses are adjacent urgency judgment calls (medium<->low), documented.
+- EVAL PASS as reported on 2026-07-26: field accuracy 61/64 = 95.3% (threshold 90%), hallucinated fields 0 (hard requirement). Remaining 3 misses are adjacent urgency judgment calls (medium<->low), documented.
+  - **Citation repointed 2026-08-10.** This pointed at `evals/results/2026-07-26-extraction.md`, which BUG-010's hardcoded date later overwrote — that file now holds a 30-Jul run reading 92.2% / 1 hallucinated / FAIL, so the link contradicted the sentence it was supporting. The reproducible figure is the five-run spread: `evals/results/2026-07-30-extraction-spread.md` (92.2–96.9%, median 95.3%).
 - Eval runner reusable at evals/run-evals.js. LinkedIn-style enrichment beyond the email explicitly out of scope (assumption).

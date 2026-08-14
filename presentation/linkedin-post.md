@@ -1,50 +1,103 @@
 # LinkedIn post
 
-Upload the video natively (LinkedIn favours native video over a link to one), and put the
-repo link in your **own first comment** — posts with external links in the body get shown
-to fewer people.
+Upload the video natively — LinkedIn shows native video to more people than a link to one.
+Put the links in your **own first comment**; posts with external links in the body get
+throttled.
 
 ---
 
 ## The post
 
-> Most AI sales tools will happily send your customer something that isn't true.
+> I'm a product manager. I can't read a stack trace at speed, and I'm not going to pretend
+> otherwise.
 >
-> I spent a few weeks building one that can't.
+> That one fact decided how I built this.
 >
-> It reads an enquiry, scores how promising it is, recommends only what's actually in
-> stock, and drafts the reply in the business's own voice — then stops and waits for a
-> human to click Approve. That isn't a setting you can switch off. The send step can't be
-> reached any other way.
+> AI writes decent code now. I could have had it generate a service and it probably would
+> have run. But the first time something broke at 11pm, I'd be staring at a log I didn't
+> really understand, asking the model to explain its own bug back to me.
 >
-> Three things I'd point at:
+> So I built it as visual workflows in n8n instead, with Claude Code driving them over MCP.
+> Fourteen of them. When an enquiry arrives I can watch it move — read, scored, matched
+> against stock, drafted — and when a step fails I can open that step, see exactly what went
+> in and what came out, and fix it myself.
 >
-> → A business sets itself up by talking to it. There's no admin screen anywhere.
-> → Every recommendation is checked against the catalogue before *and* after the AI picks.
->    No stock, no suggestion — it tells the owner instead of inventing something.
-> → A second AI, from a different vendor, grades the first one's work for made-up facts.
+> Slower to build. But it's the version I can stand behind.
 >
-> I built it with Claude Code driving n8n over MCP — 14 workflows, authored through the
-> API rather than clicked together by hand.
+> What it does: reads an enquiry, scores it, recommends only what's actually in stock,
+> drafts a reply in the business's voice — then stops and waits for a human to click
+> Approve. The send step cannot be reached any other way.
 >
-> The demo is above. It's the real system, running live. Nothing staged.
+> I measured three things, and the why matters more than the number:
+>
+> **Is it actually right?** 10 labelled emails, written before I'd tuned a single prompt,
+> with a rule in the file saying never edit them to match the output. Classification 10/10
+> across five runs. Extraction median 95.3%. It invented a fact once in five runs — on a
+> gibberish email that had already been routed to a human — and I published that run too.
+> I also had a second AI, from a different vendor, grade the first one's work. A model
+> marking its own homework isn't marking.
+>
+> **How long does it take?** Under 30 seconds from enquiry to a draft waiting for approval.
+> I don't know what your team's number is today. That's exactly why the system measures it.
+>
+> **What does it cost?** Well under a cent per lead, counted from the provider's own token
+> usage. My first estimate was 36 times too low — these models think silently before they
+> answer, and you're billed for the thinking.
+>
+> None of this replaces anyone. It takes the transactional half — reading, matching, typing
+> the first draft — and leaves the judgement with the person who should be making it.
 
 ---
 
 ## First comment
 
-> Code, architecture docs, the eval dataset and every bug write-up:
-> github.com/vaibhav0904/salesgenie
+> Code, architecture and the eval results — including the run where it did invent
+> something: github.com/vaibhav0904/salesgenie
+>
+> The five-run eval table:
+> github.com/vaibhav0904/salesgenie/blob/main/evals/results/2026-07-30-extraction-spread.md
 
 ---
 
-## Notes
+## Every number in the post, and where it comes from
 
-- **Length:** ~150 words. LinkedIn truncates at roughly 200 characters, so the first two
-  lines carry the whole hook — they are the only part most people read.
-- **No cost figure in the post.** The deck quotes ₹0.62 per enquiry in one place and
-  $0.0066 in another; both are defensible but they are not the same claim. Pick one and
-  say where it comes from, or leave it out.
-- **If you want a version naming the capstone**, add a closing line: *"Built as the
-  capstone for an applied agentic AI course."* It trades some of the "I chose to build
-  this" energy for the credential.
+| Claim | Source |
+|---|---|
+| 10 labelled emails, labels written before prompts, never edited to match output | `evals/datasets/seed-emails-labeled.json` (the rule is in the file's own header) |
+| Classification 10/10 across five runs | `evals/results/2026-07-30-extraction-spread.md` |
+| Extraction median 95.3% | same — range 92.2–96.9% over five full replays |
+| Invented a fact once in five runs, on gibberish already routed to a human | same — run 4, marked FAIL |
+| A second AI from a different vendor grades the work | `n8n/workflows/VaibhavCapstone-12-LLMJudge.json` — OpenAI gpt-4o grading Gemini 2.5 Flash |
+| Under 30 seconds to a draft awaiting approval | every measured run in the repo: 22s, ~30s, 31s, 37s |
+| Well under a cent per lead | exact token accounting, `docs/adr/0012-observability-backend.md` |
+| 36 times too low | same ADR — character-count estimates couldn't see Gemini's thinking tokens |
+
+## Deliberately not claimed
+
+- **No "humans take X hours" comparison.** There is no measured human baseline in this
+  repo; `docs/metrics.md` calls its own figures "illustrative… to be replaced by real
+  Week-0 data". The post turns this into the point instead — the system measures response
+  time so a business can find its own number.
+- **Not "19 seconds."** That figure is a single run, and the presenter deck itself says to
+  quote the number you actually see. Every measured run clears 30 seconds.
+- **No precise cost figure.** Observed cost per lead across the repo spans $0.00346 to
+  $0.026, and one deck slide contradicts itself. "Well under a cent" survives the whole
+  range; the 36× story is the stronger material anyway.
+- **Not "4.9" for the judge's reasons score.** The source record says 4.82; 4.9 is a
+  rounding that spread into the decks. The post gives no decimal at all.
+
+## If you want a longer version
+
+Material that didn't fit but is strong, in rough order of impact:
+
+1. **The tamper test.** Five fabrications planted in a draft — invented discount, delivery
+   promise, warranty, product, expiry pressure. The judge caught all five, quoted them back
+   verbatim, scored it 1/5 and fired an alert.
+2. **Why the judge has no backup model.** Every other AI step falls back to a second vendor
+   if the first is down. The judge deliberately doesn't, because its only fallback would be
+   Gemini grading Gemini. Your line for it: *"I'd rather the marking pause for an hour than
+   be marked by the student."*
+3. **BUG-010.** The published accuracy figure was 98.4% until it turned out the harness was
+   grading a random one of four identical-timestamped replays. The honest spread replaced
+   it everywhere. From the bug card: *"A metric that changes when you re-measure it was
+   never a metric."*

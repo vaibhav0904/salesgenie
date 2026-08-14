@@ -27,7 +27,7 @@ Five metrics, each tied to a stated pain in the brief, each computable from `vai
 | Metric | Value | Source |
 |---|---|---|
 | Time to first response | 34.5 min average lead→draft, including human approval wait; pipeline-only latency is **~19 s** | `avg_mins_to_draft` in the weekly insight; the 19s figure timed on a fresh webhook lead |
-| Extraction accuracy | **95.3%** field-level, **0** hallucinated | `evals/results/2026-07-26-extraction.md` |
+| Extraction accuracy | **92.2–96.9%** field-level across 5 runs, median **95.3%**; hallucinated fields 0 in 4 of 5 runs | `evals/results/2026-07-30-extraction-spread.md` |
 | Auto-qualified rate | 7 of 10 enquiries fully automatic; 3 routed to humans by design | `evals/results/2026-07-26-final-regression.md` |
 | Grounding rate | **100%** (16/16 SKUs verified) | same |
 | Approval rate | 86% (6 approved, 1 rejected) | weekly insight `approval` block |

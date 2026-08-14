@@ -130,7 +130,7 @@ The demo earned its keep: the tenant B run exposed a real matching bug (plural "
 | Claim | Source |
 |---|---|
 | Classification 10/10 · spam 100% | evals/results/2026-07-26-classification.md |
-| Extraction 95.3% · 0 hallucinated | evals/results/2026-07-26-extraction.md |
+| Extraction median 95.3% (92.2–96.9% over 5 runs) · 0 hallucinated in 4 of 5 | evals/results/2026-07-30-extraction-spread.md |
 | Qualification 85.7% · no HOT→COLD | evals/results/2026-07-26-qualification.md |
 | Grounding 100% (39/39) | evals/results/2026-07-26-grounding.md + post-fix re-join |
 | ~19 s pipeline · 34.5 min incl. approval | docs/metrics.md |
