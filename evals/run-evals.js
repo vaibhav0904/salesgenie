@@ -35,7 +35,7 @@ try {
 } catch (e) {
   console.error('Could not reach the database.\n');
   console.error('  Set DATABASE_URL for a hosted Postgres, e.g.');
-  console.error('    DATABASE_URL=postgresql://user:pass@host:5432/salesgenie node evals/run-evals.js\n');
+  console.error('    DATABASE_URL=postgresql://user:password@host:5432/salesgenie node evals/run-evals.js\n');
   console.error('  ...or POSTGRES_CONTAINER for a local one:');
   console.error('    POSTGRES_CONTAINER=salesgenie-postgres node evals/run-evals.js\n');
   console.error(String(e.stderr || e.message).trim().split('\n').slice(0, 3).join('\n'));
