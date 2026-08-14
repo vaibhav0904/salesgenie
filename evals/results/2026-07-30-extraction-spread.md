@@ -2,7 +2,7 @@
 
 **Why this exists:** BUG-010 showed the previously published single-run figure (98.4%) was a favourable draw from a nondeterministic sample — the harness graded an arbitrary replay when several shared a tied sort key. After the deterministic fix (`DISTINCT ON … ORDER BY created_at DESC`), the honest question became: *what does this pipeline actually score, run over run?* This file answers with five full cycles — each one replaying all 10 seed emails through the live pipeline (fresh Gemini calls), waiting for terminal states, then grading.
 
-**Method:** `spread.js` → per cycle: POST all 10 seed emails to the intake webhook → poll until no fresh lead is non-terminal → `node evals/run-evals.js`. Labels untouched throughout (`git diff evals/datasets/` empty). Model: gemini-2.5-flash, prompt v2, unchanged across runs.
+**Method:** per cycle — POST all 10 seed emails from `data/seed-emails/` to the intake webhook, poll until no fresh lead is still in a non-terminal state, then `node evals/run-evals.js` to grade that cycle. Driven from the shell, one cycle at a time; the loop itself was never committed as a script, so reproducing this means repeating those three steps five times rather than running one file. Labels untouched throughout (`git diff evals/datasets/` empty). Model: gemini-2.5-flash, prompt v2, unchanged across runs.
 
 ## Results
 

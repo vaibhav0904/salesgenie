@@ -25,8 +25,45 @@ const cmd = process.env.DATABASE_URL
   ? `psql "${process.env.DATABASE_URL}" -t -A -c "${q}"`
   : `docker exec ${process.env.POSTGRES_CONTAINER || 'n8n-localdata-postgres-1'} ` +
     `psql -U ${process.env.POSTGRES_USER || 'salesgenie'} -d ${process.env.POSTGRES_DB || 'salesgenie'} -t -A -c "${q}"`;
-const raw = execSync(cmd).toString().trim();
-const actuals = Object.fromEntries(JSON.parse(raw).map(r => [r.id, r]));
+// This grades a run that has ALREADY happened; it does not create one. Without the seed
+// emails replayed first, the query returns nothing and JSON.parse used to die on an empty
+// string with "Unexpected end of JSON input" - a stranger's likely first command, failing
+// with no idea what was expected of them.
+let raw;
+try {
+  raw = execSync(cmd, { stdio: ['pipe', 'pipe', 'pipe'] }).toString().trim();
+} catch (e) {
+  console.error('Could not reach the database.\n');
+  console.error('  Set DATABASE_URL for a hosted Postgres, e.g.');
+  console.error('    DATABASE_URL=postgresql://user:pass@host:5432/salesgenie node evals/run-evals.js\n');
+  console.error('  ...or POSTGRES_CONTAINER for a local one:');
+  console.error('    POSTGRES_CONTAINER=salesgenie-postgres node evals/run-evals.js\n');
+  console.error(String(e.stderr || e.message).trim().split('\n').slice(0, 3).join('\n'));
+  process.exit(1);
+}
+
+let parsed;
+try { parsed = raw ? JSON.parse(raw) : null; } catch { parsed = null; }
+
+if (!parsed || !parsed.length) {
+  console.error('No graded runs found: the database has no leads with an external_id like "seed-email-%".\n');
+  console.error('This script GRADES a replay, it does not perform one. Replay the dataset first —');
+  console.error('POST each file in data/seed-emails/ to your intake webhook, wait for every lead to');
+  console.error('reach a terminal state, then run this again:\n');
+  console.error('  for f in data/seed-emails/email-*.json; do');
+  console.error('    curl -s -X POST <your n8n address>/webhook/vaibhavcapstone-intake \\');
+  console.error('      -H "Content-Type: application/json" -d @"$f"; done\n');
+  console.error('The published spread in evals/results/ was produced by repeating that five times.');
+  process.exit(1);
+}
+
+const actuals = Object.fromEntries(parsed.map(r => [r.id, r]));
+const missing = labels.filter((L) => !actuals[L.id]).map((L) => L.id);
+if (missing.length) {
+  console.error(`The database is missing ${missing.length} of ${labels.length} seed emails: ${missing.join(', ')}`);
+  console.error('Replay the full dataset before grading, or the score is computed over a partial run.');
+  process.exit(1);
+}
 
 // Real date, not a constant: a hardcoded '2026-07-26' here caused later runs to
 // overwrite that day's archived results (BUG-010). Results are append-per-day now.

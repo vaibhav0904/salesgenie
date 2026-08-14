@@ -4,6 +4,16 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 
+// Windows-only: it reads Claude Desktop's config from %APPDATA%. On macOS/Linux APPDATA is
+// undefined, which used to produce an ENOENT stack trace on the literal path
+// "undefined\Claude\..." — an alarming failure for a script that only checks a config file.
+if (!process.env.APPDATA) {
+  console.error('This check is Windows-only: it reads Claude Desktop\'s config from %APPDATA%.');
+  console.error('On macOS the equivalent file is:');
+  console.error('  ~/Library/Application Support/Claude/claude_desktop_config.json');
+  console.error('Point your chat client at the two /mcp/ addresses in docs/workflows-reference.md.');
+  process.exit(1);
+}
 const CFG = process.env.APPDATA + '\\Claude\\claude_desktop_config.json';
 const servers = JSON.parse(fs.readFileSync(CFG, 'utf8')).mcpServers;
 const DEADLINE = 60000;

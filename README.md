@@ -1,4 +1,4 @@
-# SalesGenie v2 — an AI back office for your sales inbox
+# SalesGenie — an AI back office for your sales inbox
 
 **What it does.** Every enquiry that reaches your business gets read, understood, scored
 for how promising it is, matched against products you actually have in stock, and answered
@@ -6,228 +6,120 @@ with a draft reply in your own voice — which then **waits for a human to click
 before a word of it reaches the customer. Every Monday you get a report on how the week
 went, including what the AI cost you.
 
-**What's unusual about it.** There is no settings screen anywhere. You set your business
-up by *talking* to it in a chat app — describe your shop in a sentence, paste your product
-list, name who approves replies, and you're running. One installation serves any number of
-separate businesses, each seeing only its own data. (Software people call this multi-tenant
-and headless: many customers on one system, and no screens.)
-
-Under the hood it is 14 automations running on **n8n** — a tool where each automation is a
-visual flowchart — with **Postgres** as the permanent record book. **Google's Gemini** does
-the reading and writing, with an **OpenAI** model standing by if Google has an outage, and a
-*second* OpenAI model acting as an independent examiner that grades the first one's work for
-invented facts. Costs are counted per enquiry, to the fraction of a cent, from real usage
-figures rather than estimates.
+**What's unusual about it.** There is no settings screen anywhere. You set your business up
+by *talking* to it in a chat app — describe your shop in a sentence, paste your product
+list, say who approves replies, and you're running. One installation serves any number of
+separate businesses, each seeing only its own data.
 
 ## ▶ See it work
 
-**[Watch the 10-minute demo](https://github.com/vaibhav0904/salesgenie/releases/tag/demo-v1)** —
-a business born by chat, an enquiry that parks itself until the shop is ready and resumes
-on its own, two attempts to make the AI lie (both fail), the weekly cost report, and
-another company's AI buying over A2A while a human still holds the pen. Recorded live
-against this system; every number on screen traces back to a `vaibhavcapstone_*` row.
+**[Watch the 10-minute demo](https://github.com/vaibhav0904/salesgenie/releases/tag/demo-v1)**
+— a business created by chat, an enquiry that arrives too early and parks itself until the
+shop is ready, two deliberate attempts to make the AI lie (both fail), the weekly cost
+report, and another company's AI buying something while a human still holds the pen.
+
+Recorded against the real system. Nothing staged, nothing sped up to hide a wait.
 
 ## Run it for your own business
 
 **→ [The complete setup guide](docs/business-onboarding-guide.md)** — about 45 minutes,
-written for a business owner rather than an engineer. One command to run; everything else
-is pointing and clicking. That is the path to follow if you want to *use* this rather than
-read about it.
+written for a business owner rather than an engineer.
 
-**What you need before you start:**
+You'll need an **n8n account** (n8n is a tool where automations run as visual flowcharts),
+a free **Supabase** database, and a free **Google Gemini** key for the AI. The guide walks
+through each one. There are three commands to copy and paste; everything else is pointing
+and clicking.
 
-| Piece | Required? | What happens without it |
-|---|---|---|
-| **An n8n instance reachable from the open internet** (n8n Cloud, or self-hosted anywhere) | Yes | Nothing runs. It must be publicly reachable — your chat app, other companies' AI, and n8n's own internal calls all arrive over the internet |
-| **A Postgres database** (Supabase / Neon free tier) | Yes | Nothing runs — this is the permanent record |
-| **A Google Gemini API key** (free tier) | Yes | No reading, scoring or drafting |
-| **An OpenAI API key** (pay-per-use; no free tier) | Optional | No fallback when Gemini is down, and no independent quality examiner |
-| **A mailbox with SMTP** (Gmail app password works) | Yes | No approval requests, no alerts — and approval is the whole safety model |
-| **Two-step verification on that mail account** | Yes, in practice | Google never offers you an app password, so the SMTP and IMAP credentials cannot be filled in at all |
-| **IMAP enabled on that mailbox**, plus an `intake_email` set for your business | Optional | The email door stays shut; the webhook, chat and A2A doors still work. Both halves are needed — see the guide's "Opening the email door" |
-| **An invented bearer token** | Optional | No chat (MCP) control; you would set up over HTTP instead |
-| **A second invented token in `platform_config.a2a_bearer`** | Optional | The A2A door refuses every caller |
-| **A Langfuse Cloud account** (free) | Optional | No per-call LLM tracing; the Monday report still shows cost and quality from your own database |
+*Prefer to run it free on your own machine instead? See [`docker/README.md`](docker/README.md)
+— same system, one command, but you look after the server.*
 
-**On cost:** most of this is genuinely free, but two pieces are not, and it is better to
-know now — **n8n Cloud** is free only for a trial and paid thereafter (self-hosting is free
-but you run the server), and **OpenAI** is pay-per-use with no free tier. Its role here is
-optional. Everything else stays inside a free plan at small-business volumes.
+## How it works
 
-Your AI keys and mailbox password go into **n8n's Credentials**, not into `.env` —
-`.env` is only for the helper scripts. [`docs/workflows-reference.md`](docs/workflows-reference.md)
-lists the seven credentials and their exact names.
-
-**One thing you must not skip:** these exports were built against `http://localhost:5678`,
-which appears 20 times across 5 files — five of them buried inside SQL queries and Code
-nodes. Run `node scripts/retarget-host.js --base https://your-n8n-url` before importing;
-it rewrites all of them and prints the handful it cannot fix for you.
-
-**Understanding what you are running:**
-[`docs/workflows-reference.md`](docs/workflows-reference.md) documents all 14 workflows —
-what each does, what starts it, its endpoints, which credentials and database tables it
-uses, and how they call each other. It is generated from the exports, so it cannot drift.
-
-## Three doors, one pipeline
+Four ways an enquiry can arrive. All of them turn into the same thing before anything else
+happens, so nothing downstream knows or cares which door was used.
 
 ```
-Email  ──▶ 02-GmailAdapter ─┐
-Webhook ────────────────────┼─▶ 01-Intake ─▶ 03-ClassifyExtract ─▶ 04-Qualifier ─▶ 05-Recommender ─▶ 06-DraftHITL ─▶ 🧑 approve ─▶ send
-MCP chat ─▶ 09-MCPOperations┘
-Other AI ─▶ 13-A2AServer      (A2A protocol: agent card + JSON-RPC; the human gate is visible as `input-required`)
+Email      ──▶ 02-GmailAdapter ─┐
+Web form   ──────────────────────┼─▶ Intake ─▶ Read it ─▶ Score it ─▶ Recommend ─▶ Draft ─▶ 🧑 approve ─▶ send
+Chat app   ──▶ 09-MCPOperations ─┘
+Another AI ──▶ 13-A2AServer
 ```
 
-Every enquiry, however it arrives, is turned into one identical shape before the pipeline
-sees it — so nothing after the front door knows or cares which door was used.
+- **Email** — watches a real mailbox and turns each message into an enquiry.
+- **Web form** — a plain web address anything can post to: your contact form, another system.
+- **Chat app** — 12 things a chat app can do on your behalf: create the business, upload the
+  catalogue, check status, approve replies. The standard that lets a chat app safely operate
+  outside software is called **MCP**.
+- **Another company's AI** — it reads a public "business card" describing you, sends an
+  enquiry, then polls for progress. The standard for software agents transacting with each
+  other is called **A2A**, and it has a state meaning *waiting for a human* — which is
+  exactly what your approval gate shows, rather than pretending to be autonomous.
 
-- **Email** — watches a real mailbox and turns each message into that shape. Needs `intake_email` set and (by default) `[enquiry]` in the subject; see the guide.
-- **Webhook** — a plain web address anything can post to: your website's contact form, another system, a test command.
-- **Chat** — 12 things a chat app can do on your behalf, split across two servers: create the business, upload the catalogue, check status, see and approve pending replies. The standard that lets a chat app safely operate outside software is called **MCP**; Claude Desktop and others speak it.
-- **Another company's AI** — it fetches a public "business card" describing you, sends an enquiry, then polls for progress. The standard for software agents transacting with each other is called **A2A**, and it has a state meaning *waiting for a human* — which is exactly what your approval gate shows, honestly, rather than pretending to be autonomous.
+## Why you can trust what it sends
 
-Four rules hold everywhere, by construction rather than by convention:
+Four rules hold by construction, not by convention:
 
-1. **No customer-facing send without a human click.** The send node is only reachable from an `APPROVED` record — enforced by a guarded SQL transition, not workflow shape.
-2. **Recommendations only from SQL-verified, in-stock, own-tenant SKUs** — checked before *and* after the model picks. No verifiable option → the system says so and routes to a human.
-3. **Tenant behaviour comes only from config.** No workflow branches on a business id (regression-tested by grep).
-4. **A half-finished setup is a product state, not an error.** Leads that arrive early park in `AWAITING_SETUP` and resume by themselves when the missing piece lands.
+1. **Nothing reaches a customer without a human clicking Approve.** The send step is only
+   reachable from an approved record — enforced in the database, not by how the flowchart
+   is drawn.
+2. **It only ever recommends products you really have.** Every suggestion is checked against
+   your catalogue before *and* after the AI picks. If nothing genuinely fits, it says so to
+   you and drafts nothing misleading.
+3. **Every business's behaviour comes from its own settings.** No step anywhere contains a
+   rule about one specific business.
+4. **A half-finished setup is a normal state, not an error.** An enquiry arriving before
+   you're ready parks itself and resumes on its own once the missing piece lands.
 
-## Quickstart — a brand-new business, no seed data
+And the numbers are measured, not asserted:
 
-The platform needs **zero seed files**. The demo tenant in `db/002` is optional test data, nothing more.
+- **Classification:** 10/10 across all 5 replay runs; spam caught every time.
+- **Extraction:** 92–97% across 5 runs, median **95.3%**.
+- **Invented facts:** none in 4 of 5 runs. The one exception invented an urgency for a
+  gibberish email that had already been routed to a human, so nothing downstream used it.
+  Counted and reported anyway.
 
-### 0. Prerequisites
+An earlier single-run figure of 98.4% turned out to be a lucky draw from a sampling bug.
+The bug, the fix and the honest spread are all in
+[`evals/results/`](evals/results/2026-07-30-extraction-spread.md) — the spread is the number.
 
-- Docker, Node ≥ 18.
-- An **n8n ≥ 2.x + Postgres 16** stack. Any arrangement works; the author's compose reference (ports, volumes, network) is in [`docker/README.md`](docker/README.md). Postgres needs a `salesgenie` database.
-- `cp .env.example .env` — needed only for the helper scripts in `scripts/` and the optional local Docker stack. **Your Gemini, OpenAI and mailbox credentials do not go here**; they live in n8n's own Credentials store, which is where the workflows read them from. `.env.example` says which variable is for what.
-- Optional but worth it — **Langfuse** (self-hosted, compose file included):
-  ```bash
-  cd docker && docker compose --env-file ../.env -f langfuse-compose.yml up -d
-  ```
-  First boot provisions the org/project/user headlessly from `.env` — there is no signup screen.
+## For developers
 
-### 1. Database
-
-Apply migrations in order (`002` is the **optional** demo tenant — skip it for a clean platform):
-
-```bash
-docker exec -i <postgres-container> psql -U salesgenie -d salesgenie < db/001_schema.sql
-docker exec -i <postgres-container> psql -U salesgenie -d salesgenie < db/003_llm_observability.sql
-docker exec -i <postgres-container> psql -U salesgenie -d salesgenie < db/004_a2a.sql
-docker exec -i <postgres-container> psql -U salesgenie -d salesgenie < db/005_exact_usage.sql
-```
-
-Skipping 003–005 leaves the core pipeline working but silently disables the LLM judge, the A2A door and the AI-health section of the weekly report — see [`n8n/workflows/README.md`](n8n/workflows/README.md).
-
-### 2. Import the workflows
-
-Follow [`n8n/workflows/README.md`](n8n/workflows/README.md) — it lists the seven credentials (exact names matter), the publish order (sub-workflows deepest-first: `06 → 05 → 04 → 03 → 10`, then the rest), and the two per-instance re-pointing steps (`Execute Workflow` nodes and the error workflow reference IDs, not names).
-
-### 3. Onboard your business — pick either route
-
-**Route A — MCP chat** (Claude Desktop or any MCP client). Two servers, both bearer-authenticated:
-
-```
-http://localhost:5678/mcp/vaibhavcapstone-onboarding    create_business · upload_catalog · set_reviewer ·
-                                                        get_setup_status · update_business_config · get_intake_endpoint
-http://localhost:5678/mcp/vaibhavcapstone-operations    send_test_lead · get_lead_status · list_pending_approvals ·
-                                                        approve_draft · reject_draft · get_insights
-```
-
-> **Claude Desktop on Windows:** launch the servers with `node <absolute path to mcp-remote>`, **never `npx -y`** — npx re-resolves on every start and blows Desktop's 60-second initialize deadline, which surfaces as "MCP tools are not available" (full writeup: `stories/done/BUG-007-…`). `scripts/verify-desktop-mcp.js` proves the connection in one command.
-
-Then just talk:
-
-> *"Set up a new business on SalesGenie: Green Thumb, a garden retailer in Pune. Tone: warm and practical. Currency INR."*
-> *"Here's the catalogue: …"* — the stock column may be headed `stock_qty`, `stock`, `qty`, `quantity`, `available` or `units`; the reply says which it used and names anything it ignored
-> *"Set the reviewer to you@example.com"*
-
-**Route B — plain HTTP** (each MCP tool is also a webhook; no chat client needed):
-
-```bash
-curl -s -X POST http://localhost:5678/webhook/vaibhavcapstone-tool-create-business \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Green Thumb","industry":"garden-retail","city":"Pune","currency":"INR"}'
-# → {"business_id":"biz_greenthumb", ..., "next_steps":["catalog: use upload_catalog","reviewer: use set_reviewer"]}
-
-curl -s -X POST http://localhost:5678/webhook/vaibhavcapstone-tool-upload-catalog \
-  -H "Content-Type: application/json" \
-  -d '{"business_id":"biz_greenthumb","csv":"sku,name,category,price,currency,stock_qty\nGRD-001,Terracotta Planter,planters,1499,INR,40"}'
-
-curl -s -X POST http://localhost:5678/webhook/vaibhavcapstone-tool-set-reviewer \
-  -H "Content-Type: application/json" \
-  -d '{"business_id":"biz_greenthumb","reviewer_email":"you@example.com"}'
-```
-
-### 4. Send the first lead
-
-```bash
-curl -s -X POST http://localhost:5678/webhook/vaibhavcapstone-intake \
-  -H "Content-Type: application/json" \
-  -d '{"business_id":"biz_greenthumb","from_name":"Ananya Rao","from_email":"ananya@byteleaf.example",
-       "subject":"Planters for our terrace",
-       "body":"We need 15 large outdoor planters plus soil, budget Rs. 40,000, within 3 weeks."}'
-```
-
-~30 seconds later the lead sits at `PENDING_APPROVAL` — scored, matched against your real stock, drafted in your tone — and the reviewer has an email with **Approve / Reject** buttons. Send a lead *before* uploading a catalogue and it parks in `AWAITING_SETUP` instead, then resumes on its own when the catalogue arrives. That is deliberate.
-
-### 5. The other doors
-
-```bash
-# A2A: what other companies' agents see
-curl -s "http://localhost:5678/webhook/a2a-agent-card?business_id=biz_greenthumb"
-node scripts/buyer-agent-demo.js biz_greenthumb          # plays an external procurement agent end to end
-
-# Weekly insights (also runs on cron, Mon 08:00)
-curl -s -X POST http://localhost:5678/webhook/vaibhavcapstone-insights-run
-curl -s "http://localhost:5678/webhook/vaibhavcapstone-insights-latest?business_id=biz_greenthumb"
-```
-
-## Scoring — deterministic, per-tenant, no code to change it
-
-The AI extracts facts; **a plain rubric computes the score** (LLMs never do arithmetic here). Defaults: specific products +20, stated budget +25 (+15 if it fits the catalogue, **−40** if below the cheapest item), real time pressure +20, B2B +10 … clamped 0–100; **HOT ≥ 70, WARM ≥ 40**. Every lead stores its factor-by-factor breakdown for audit.
-
-Any tenant can reweight any factor or threshold — by one MCP chat sentence, one HTTP call, or one SQL update. Full rubric and all three override recipes: [`docs/scoring.md`](docs/scoring.md).
-
-## Evals — labels written before prompts, sampling fixed in the open
-
-A 10-email labelled dataset (every branch: bulk B2B, vague browser, budget-below-catalog, out-of-stock ask, vendor pitch, spam, gibberish) gates changes to prompts. Ground truth was written **before** the first prompt existed and has never been edited to match output.
-
-Current, reproducible results (`evals/run-evals.js`, deterministic row selection):
-
-- **Classification:** 10/10 in **all 5** replay runs; spam recall 100% in every run.
-- **Extraction:** 92.2–96.9% across 5 runs, median **95.3%** (8 ENQUIRY emails × 8 fields). 12 of the 17 total misses are the same three adjacent urgency judgment calls, documented in `docs/assumptions.md`.
-- **Hallucination:** zero invented fields in 4 of 5 runs; the single exception invented an urgency for the *gibberish* email — which the confidence gate had already routed to a human, so nothing downstream consumed it. Counted and reported anyway.
-- **Grounding:** every recommended SKU verified in-stock for its own tenant, before and after model choice.
-
-Full spread with every miss tallied: [`evals/results/2026-07-30-extraction-spread.md`](evals/results/2026-07-30-extraction-spread.md).
-
-An earlier single-run figure (98.4%) turned out to be a favourable draw from a nondeterministic sample — the harness was grading an arbitrary replay. The bug, the fix and the honest spread are documented in `stories/done/BUG-010-…` and `evals/results/`. The spread is the number; the story of finding it is part of the submission.
-
-## Security posture (MVP — stated, not hidden)
-
-- Secrets live only in `.env` (gitignored; template in `.env.example`). n8n exports contain credential *references*, never contents.
-- MCP endpoints require a bearer token; **the intake webhook is unauthenticated** — fine locally, a per-tenant key in production. This is the biggest known gap.
-- One shared bearer for all tenants (per-tenant keys are the production fix); prompts receive only the fields a step needs; chart URLs carry aggregates, never PII.
-- Full list with reasoning: [`docs/assumptions.md`](docs/assumptions.md).
-
-## Repo map
-
-| Path | What |
+| Path | What's in it |
 |---|---|
-| `n8n/workflows/` | The 14 workflow exports + import guide (every canvas annotated with sticky notes) |
-| `db/` | Migrations (001 schema · 002 **optional** demo tenant · 003 LLM observability · 004 A2A · 005 exact token usage) |
-| `docs/` | `architecture.md` · `contracts.md` (Envelope, state machines) · `scoring.md` · `traceability.md` · `assumptions.md` · `metrics.md` · ADRs |
-| `evals/` | Labelled dataset, harness, dated results |
-| `stories/` | Every unit of work as a card — including every bug, with root cause (`BUG-001…010`) |
-| `data/` | Fictional seed enquiries (all `.example` addresses) + demo catalogues |
-| `scripts/` | `buyer-agent-demo.js` (A2A client) · `verify-desktop-mcp.js` (MCP rig check) |
-| `presentation/` | Demo video script, deck content |
+| [`docs/workflows-reference.md`](docs/workflows-reference.md) | All 14 workflows: what starts each one, its web addresses, credentials, database tables, and how they call each other. Generated from the exports, so it can't drift |
+| [`n8n/workflows/`](n8n/workflows/) | The 14 exports (every canvas annotated) + the import guide and the seven credentials to create |
+| [`docs/`](docs/) | `architecture.md` · `contracts.md` (message shapes, state machines) · `scoring.md` · `assumptions.md` · `environments.md` · design decisions in `adr/` |
+| [`stories/`](stories/) | Every unit of work as a card — including all ten bugs, each with root cause and fix |
+| [`evals/`](evals/) | The 10-email labelled dataset, the grading harness, and dated results |
+| [`scripts/`](scripts/) | `retarget-host.js` (rewrite the exports for your own address) · `sync-workflows.js` · `preflight-publish.js` · `buyer-agent-demo.js` · `verify-desktop-mcp.js` · database reset helpers |
+| [`db/`](db/) | Migrations. `002` is an optional demo shop — skip it for a clean platform |
+| [`docker/`](docker/) | Self-contained n8n + Postgres for local development |
 
-## The brief (summarised — course PDF not redistributed)
+**Before importing the workflows into your own n8n**, run
+`node scripts/retarget-host.js --base https://your-n8n-address`. The exports were built
+against a local address that appears 20 times across 4 files, five of them buried inside
+database queries and code steps where find-and-replace misses them. The script rewrites all
+of them and prints anything it can't fix.
 
-Interview Kickstart "Applied Agentic AI for PMs" capstone: build an AI sales assistant for a furniture retailer — qualify inbound leads, recommend products from the catalogue, draft replies, report weekly. This project answers with a *platform*: the furniture retailer is simply tenant #1.
+**Built with:** n8n (14 workflows, authored through its API rather than clicked together) ·
+Postgres · Google Gemini 2.5 Flash, with an OpenAI model as backup and a second OpenAI model
+as an independent judge · Langfuse for per-call AI tracing · QuickChart for email-safe charts.
+
+## Security posture — stated, not hidden
+
+- Secrets live only in `.env` (never committed; template in `.env.example`). The workflow
+  exports contain references to credentials, never their contents.
+- The chat and agent doors require a token. **The intake web address does not** — fine for a
+  local trial, and the biggest known gap for production, where it needs a key per business.
+- Prompts receive only the fields a step needs; chart links carry totals, never personal data.
+- The full list, with reasoning: [`docs/assumptions.md`](docs/assumptions.md).
+
+## The brief
+
+Built as a capstone: an AI sales assistant for a furniture retailer — qualify inbound leads,
+recommend from the catalogue, draft replies, report weekly. This answers with a *platform*
+instead, where the furniture retailer is simply the first tenant. The course brief itself is
+summarised rather than redistributed.
 
 ## License
 

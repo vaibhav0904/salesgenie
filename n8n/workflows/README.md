@@ -62,7 +62,9 @@ Any channel ──── webhook ──┘                      │             
 | Bearer Auth | `Capstone-MCP-Bearer` | 08, 09 MCP triggers |
 | Header Auth | `Capstone-Langfuse` | 03, 04, 05, 06, 07, 12 — trace shipping |
 
-**2. Apply the database migrations, in order** — all five, not just the first two:
+**2. Apply the database migrations, in order.** Run `001`, `003`, `004`, `005` — and treat
+`002` as optional: it loads a fictional demo shop (Oak & Ember, 20 products), which is
+useful for exploring and wrong for a real business. Skip it unless you want the sample data.
 
 ```
 db/001_schema.sql            core tables
@@ -97,7 +99,7 @@ The call graph, for reference:
 
 **5. Check the `Execute Workflow` nodes — you should not have to fix them.** Workflow IDs are per-instance, and the eight handoff nodes reference IDs rather than names. `retarget-host.js` stamps the six referenced workflows with the IDs the others point at, so they resolve on import. Open one and confirm it names its target instead of showing an unresolved ID; only re-select by hand if it does not.
 
-**6. Re-point the error workflow.** All 13 non-handler workflows already carry `00-ErrorHandler` as their error workflow in these exports, but that setting is also stored as an ID — so re-select it (Settings → Error Workflow) after import, or failures will be invisible.
+**6. Confirm the error workflow resolved.** All 13 non-handler workflows carry `00-ErrorHandler` as their error workflow, stored as an ID — and `retarget-host.js` stamps that same ID onto the handler, so it resolves on import. Open any workflow's Settings → Error Workflow and confirm it names `VaibhavCapstone-00-ErrorHandler`; only re-select by hand if it shows an unresolved ID.
 
 **Host URLs.** The exports ship with `http://localhost:5678`, which appears **20 times across 5 files** — and five of those are inside Postgres SQL queries and Code nodes, where a find-and-replace over node URLs will miss them. There are also 7 hardcoded `http://langfuse-web:3000` trace URLs (a Docker service name that resolves nowhere else). Do not hand-edit these:
 
