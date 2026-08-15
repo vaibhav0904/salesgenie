@@ -28,6 +28,19 @@ throttled.
 > drafts a reply in the business's voice — then stops and waits for a human to click
 > Approve. The send step cannot be reached any other way.
 >
+> Two doors I'm glad I built.
+>
+> A business sets itself up by talking to it. "Set up my pottery studio in Jaipur, warm and
+> artisanal." Paste the product list. Say who approves replies. There is no settings screen
+> anywhere in the system. That runs on MCP — the standard that lets a chat app safely
+> operate other software.
+>
+> The second was an experiment: another company's AI can send an enquiry and follow it all
+> the way to a quote, over an authenticated channel, seeing only the status of its own
+> request and nothing about how the shop works inside. While a person is reviewing, the
+> other agent is simply told a human is reviewing. That felt like the right shape for
+> agents dealing with each other — useful, and fenced in.
+>
 > I measured three things, and the why matters more than the number:
 >
 > **Is it actually right?** 10 labelled emails, written before I'd tuned a single prompt,
@@ -68,6 +81,9 @@ throttled.
 | Extraction median 95.3% | same — range 92.2–96.9% over five full replays |
 | Invented a fact once in five runs, on gibberish already routed to a human | same — run 4, marked FAIL |
 | A second AI from a different vendor grades the work | `n8n/workflows/VaibhavCapstone-12-LLMJudge.json` — OpenAI gpt-4o grading Gemini 2.5 Flash |
+| A business sets itself up by chatting; no settings screen exists | `n8n/workflows/VaibhavCapstone-08-MCPOnboarding.json` — six onboarding tools over MCP |
+| Another AI sees only its request's status, never the internals | `n8n/workflows/VaibhavCapstone-13-A2AServer.json` — bearer-authenticated; the buyer polls task states only. the demo client narrates it as *"the seller's internals are opaque to me — I only see task states"* (`scripts/buyer-agent-demo.js:91`), and a live run against a fresh install reached `input-required` exactly as designed |
+| While a human reviews, the other agent is told exactly that | same — the approval gate surfaces as the protocol state `input-required` |
 | Under 30 seconds to a draft awaiting approval | every measured run in the repo: 22s, ~30s, 31s, 37s |
 | Well under a cent per lead | exact token accounting, `docs/adr/0012-observability-backend.md` |
 | 36 times too low | same ADR — character-count estimates couldn't see Gemini's thinking tokens |
