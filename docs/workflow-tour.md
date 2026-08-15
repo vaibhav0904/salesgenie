@@ -75,7 +75,7 @@ Some enquiries are deliberately routed to a person (low confidence, or no honest
 
 ## The examiner — "who checks the AI's homework?"
 
-A few times an hour, a *different company's* AI (OpenAI's, while the work is done by Google's — a student never grades its own homework) reviews every new AI output: were the extracted facts really in the email? Does the draft promise anything untrue? Marks go in the record book; anything scoring 2 out of 5 or below alerts a human instantly. It was tested with a sting: five lies planted in a copy of a draft — fake discount, invented delivery date, false stock claim. The examiner scored it 1/5, quoted all five lies verbatim, and the alert fired. Real marks on real work average 5.0, 5.0 and 4.9 out of 5.
+A few times an hour, a *different company's* AI (OpenAI's, while the work is done by Google's — a student never grades its own homework) reviews every new AI output: were the extracted facts really in the email? Does the draft promise anything untrue? Marks go in the record book; anything scoring 2 out of 5 or below alerts a human instantly. It was tested with a sting: five lies planted in a copy of a draft — fake discount, invented delivery date, false stock claim. The examiner scored it 1/5, quoted all five lies verbatim, and the alert fired. Real marks on real work average 5.0, 5.0 and 4.82 out of 5.
 
 ## The robot door — "what if the buyer is an AI?"
 

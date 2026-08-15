@@ -211,7 +211,7 @@ I took a real draft reply, and deliberately planted five lies in a copy: a fake 
 
 Result: score 1 out of 5, with all five fabrications quoted back word-for-word in its report — and the alert email arrived in the operator's inbox. Then I removed the planted fake from the records. The examiner is not a rubber stamp.
 
-Getting here took honest iteration, and I kept the receipts: my first marking rubric was too harsh (it punished the AI for leaving fields blank — which is exactly what we want it to do), so I rewrote the rubric twice. And the first examiner model I tried — a cheaper one — couldn't follow the final rubric reliably, so I upgraded to a stronger one and wrote down why. On the current setup, the examiner's average marks across all real work: 5.0, 5.0 and 4.9 out of 5.
+Getting here took honest iteration, and I kept the receipts: my first marking rubric was too harsh (it punished the AI for leaving fields blank — which is exactly what we want it to do), so I rewrote the rubric twice. And the first examiner model I tried — a cheaper one — couldn't follow the final rubric reliably, so I upgraded to a stronger one and wrote down why. On the current setup, the examiner's average marks across all real work: 5.0, 5.0 and 4.82 out of 5.
 
 Why this matters: compliance and legal get a machine that hunts fabrications continuously, before customers ever could. Leadership gets a weekly quality score they didn't have to staff. And when the AI drifts — new model version, changed prompt — the falling score raises its hand on its own.
 
@@ -295,7 +295,7 @@ Lead ranking 6/7, no hot lead buried | evals/results/2026-07-26-qualification.md
 
 Estimates were 36× too low | decision record ADR-0012 — the before/after rows are both preserved | 
 
-Examiner caught 5/5 planted lies; averages 5.0/5.0/4.9 | the judge-scores ledger + story E11-S3's write-up of the sting | 
+Examiner caught 5/5 planted lies; averages 5.0/5.0/4.82 | the judge-scores ledger + story E11-S3's write-up of the sting | 
 
 Bookstore onboarded by chat; too-early enquiry parked, then auto-resumed | the event ledger for tenant 2 + stories E8/E10 | 
 

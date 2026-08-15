@@ -351,7 +351,7 @@
         432
       ],
       "parameters": {
-        "content": "## The test that proves the marker actually works\n\nA grader that never catches anything is worthless — so it was tested with a trap.\n\nFive false claims were deliberately planted in a copy of a real draft: a product that didn't exist, a price that was wrong, a promise nobody had made.\n\n**It caught all five, quoted each one back, scored the draft 1 out of 5, and sent the alert.** Genuine work scores 5.0, 5.0 and 4.9.",
+        "content": "## The test that proves the marker actually works\n\nA grader that never catches anything is worthless — so it was tested with a trap.\n\nFive false claims were deliberately planted in a copy of a real draft: a product that didn't exist, a price that was wrong, a promise nobody had made.\n\n**It caught all five, quoted each one back, scored the draft 1 out of 5, and sent the alert.** Genuine work scores 5.0, 5.0 and 4.82.",
         "height": 280,
         "width": 900,
         "color": 3

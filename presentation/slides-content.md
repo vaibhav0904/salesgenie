@@ -68,7 +68,7 @@ Assumptions I'm making on purpose (docs/assumptions.md): one enquiry = one lead 
 
 **C · Another company's AI buys from ours.** A procurement agent discovers our tenant's A2A card, enquires, and polls. It sees `input-required` — the human gate, visible over the protocol — then `completed`, with the approved offer as the artifact.
 
-**Scoreboard (5 independent replay runs, 2026-07-30):** classification 10/10 in all 5 (spam recall 100%) · extraction 92–97%, median 95.3% · 0 hallucinated in 4/5 runs — the single exception was on gibberish input already gated to a human · qualification 85.7%, no HOT→COLD · grounding 100% (39/39) · judge averages 5.0/5.0/4.9. Full spread: evals/results/2026-07-30-extraction-spread.md.
+**Scoreboard (5 independent replay runs, 2026-07-30):** classification 10/10 in all 5 (spam recall 100%) · extraction 92–97%, median 95.3% · 0 hallucinated in 4/5 runs — the single exception was on gibberish input already gated to a human · qualification 85.7%, no HOT→COLD · grounding 100% (39/39) · judge averages 5.0/5.0/4.82. Full spread: evals/results/2026-07-30-extraction-spread.md.
 
 ## Slide 7 — Limitations & Trade-offs
 
@@ -135,7 +135,7 @@ The demo earned its keep: the tenant B run exposed a real matching bug (plural "
 | Grounding 100% (39/39) | evals/results/2026-07-26-grounding.md + post-fix re-join |
 | ~19 s pipeline · 34.5 min incl. approval | docs/metrics.md |
 | Exact $0.0074/lead · estimates 36× low | llm_calls (usage_source='exact_api') · Langfuse · ADR-0012 |
-| Judge 5.0/5.0/4.9 · tamper 5/5 | judge_scores · Langfuse scores · E11-S3 outcome |
+| Judge 5.0/5.0/4.82 · tamper 5/5 | judge_scores · Langfuse scores · E11-S3 outcome |
 | Exact-API swap behavior-neutral | full seed replay, identical eval scores (E14-S1) |
 | Langfuse down ⇒ pipeline fine | live kill test (E14-S2) |
 | Tenant B via MCP, parked & resumed | E8/E10 outcomes · events table |

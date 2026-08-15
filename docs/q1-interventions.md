@@ -48,4 +48,4 @@
 
 **Risk.** Report numbers drifting from the underlying data → mitigated by the hand-reproducibility rule: every figure must be re-derivable by a documented query (this rule caught a real discrepancy during the build — the report's own LLM call landing after its snapshot).
 
-**Evidence from the build.** Weekly report live for both tenants with funnel/band/volume charts + AI health (exact $0.0074 cost/lead from API-reported tokens, p50 5.5 s / p95 8.9 s, 100% schema-valid, judge averages 5.0/5.0/4.9 — every call also visible as a priced trace in self-hosted Langfuse).
+**Evidence from the build.** Weekly report live for both tenants with funnel/band/volume charts + AI health (exact $0.0074 cost/lead from API-reported tokens, p50 5.5 s / p95 8.9 s, 100% schema-valid, judge averages 5.0/5.0/4.82 — every call also visible as a priced trace in self-hosted Langfuse).

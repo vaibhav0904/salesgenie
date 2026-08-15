@@ -97,10 +97,27 @@ throttled.
 - **Not "19 seconds."** That figure is a single run, and the presenter deck itself says to
   quote the number you actually see. Every measured run clears 30 seconds.
 - **No precise cost figure.** Observed cost per lead across the repo spans $0.00346 to
-  $0.026, and one deck slide contradicts itself. "Well under a cent" survives the whole
-  range; the 36× story is the stronger material anyway.
-- **Not "4.9" for the judge's reasons score.** The source record says 4.82; 4.9 is a
-  rounding that spread into the decks. The post gives no decimal at all.
+  $0.026 depending on the week and the traffic mix, and the figure is per *lead* (spam
+  included), not per enquiry. "Well under a cent" survives the whole range; the 36× story
+  is the stronger material anyway.
+- **Not "4.9" for the judge's reasons score.** The source record says **4.82** (n=11); 4.9
+  was a rounding. The post gives no decimal at all.
+
+**Two of these were repo defects, not just post decisions — so they were fixed rather than
+written around** (2026-08-10):
+
+- The cost slide in `demo-deck.html` showed `$0.0074` in its chart and `$0.0066` in the
+  tile directly beneath it. The tile now carries the same exact-accounting figure as the
+  chart, and says "per lead" rather than "per enquiry this week" — a weekly snapshot means
+  nothing on a published artifact.
+- `4.9` is corrected to `4.82` everywhere it appeared in current material: both decks, the
+  explainer, the slide content, `docs/q1-interventions.md`, `docs/workflow-tour.md`, and
+  the sticky note inside the judge workflow's own canvas.
+
+Two completed story cards (`E14-S3`, `E17-S3`) still record `4.9`, and that is deliberate.
+They are dated records of what was reported at the time. Editing finished cards so they
+agree with a later correction is the same instinct as editing eval labels to match output —
+the project refuses that on principle, and the correction lives in `BUG-010` beside them.
 
 ## If you want a longer version
 
