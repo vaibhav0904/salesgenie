@@ -88,6 +88,8 @@ The bug, the fix and the honest spread are all in
 |---|---|
 | [`docs/workflows-reference.md`](docs/workflows-reference.md) | All 14 workflows: what starts each one, its web addresses, credentials, database tables, and how they call each other. Generated from the exports, so it can't drift |
 | [`n8n/workflows/`](n8n/workflows/) | The 14 exports (every canvas annotated) + the import guide and the seven credentials to create |
+| [`n8n/labs/`](n8n/labs/) | A replay tool: pick one of the 10 seed emails and post it through the pipeline. Tags its leads separately so the eval set stays clean |
+| [`presentation/`](presentation/) | [`deck.html`](presentation/deck.html) — the whole system explained in plain English, no jargon; and [`demo-deck.html`](presentation/demo-deck.html), the 14-slide version |
 | [`docs/`](docs/) | `architecture.md` · `contracts.md` (message shapes, state machines) · `scoring.md` · `assumptions.md` · `environments.md` · design decisions in `adr/` |
 | [`stories/`](stories/) | Every unit of work as a card — including all ten bugs, each with root cause and fix |
 | [`evals/`](evals/) | The 10-email labelled dataset, the grading harness, and dated results |

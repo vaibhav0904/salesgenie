@@ -55,8 +55,7 @@ Database field before starting either.
 2. Run `node scripts/reset-demo-db.js` — truncates every tenant table and
    re-seeds Oak & Ember, clearing out any businesses/leads created during
    rehearsals (e.g. the runbook's throwaway "Aurora Lamps"-style names).
-3. Demo using `presentation/hero-demo-runbook.md` /
-   `presentation/demo-deck.html`.
+3. Demo using `presentation/demo-deck.html`.
 
 ## Promote-to-production loop
 

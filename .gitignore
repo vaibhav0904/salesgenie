@@ -22,9 +22,29 @@ presentation/video-assets/audio/
 presentation/video-assets/work/
 
 # Finished cuts are tens of MB — they ship as GitHub release assets, not in git
-# history, so a clone stays small. A teaser under ~10MB may still be committed
-# by un-ignoring it explicitly (git add -f), per video-assets/packaging.md.
+# history, so a clone stays small. Un-ignore explicitly (git add -f) if a small
+# teaser ever needs committing.
 presentation/video-assets/exports/*.mp4
+
+# Production scaffolding for the video and the live talk, kept locally but not
+# published (2026-08-10). These describe how to FILM the system, not how it
+# works: shot lists, teleprompter, take-by-take scripts, narration tooling for an
+# approach that was abandoned. Six of them opened by declaring themselves
+# superseded, which made presentation/ read as a graveyard of retracted plans.
+presentation/video-assets/
+presentation/visuals/
+presentation/demo-deck-for-presenter.html
+presentation/hero-demo-runbook.md
+presentation/new-business-script.md
+presentation/video-script.md
+presentation/design-handoff-prompt.md
+presentation/slides-content.md
+presentation/explainer.md
+
+# A learning log written in the third person about the author's own gaps, beside
+# work meant to be judged on its merits. Kept locally; the workflow explanations
+# it contains are covered by docs/workflow-tour.md and presentation/deck.html.
+learning/
 
 # Output of scripts/retarget-host.js — someone else's host baked into copies of the
 # exports. Personal to whoever ran it; regenerate rather than commit.
