@@ -1,7 +1,7 @@
 // Restores salesgenie (the demo database) to a pristine state: truncates
 // every tenant/transactional table, then re-seeds Oak & Ember via
 // db/002_seed_oakember.sql. Clears out anything created during rehearsals
-// (e.g. the hero-demo-runbook's throwaway "Aurora Lamps"-style businesses)
+// (e.g. the throwaway "Aurora Lamps"-style businesses created while rehearsing)
 // without touching schema or the test database (docs/environments.md).
 //
 // vaibhavcapstone_platform_config is deliberately NOT truncated — it holds
